@@ -145,8 +145,17 @@ export class EstatisticaLinguistica{
     return resultados.map((x,i)=>({...x,probability:probs[i]})).sort((a,b)=>b.probability-a.probability);
   }
   entropia(probabilidades){return -probabilidades.reduce((s,p)=>{const x=Math.max(p,1e-12);return s+x*Math.log2(x);},0);}
-  detectar(text){
-    const probs=this.posterior(text),top=probs[0],second=probs[1]?.probability||0,margin=top.probability-second,entropy=this.entropia(probs.map(x=>x.probability));
+  detectar(text,contexto=null){
+    let probs=this.posterior(text);
+    const normalizado=this.normalizar(text);
+    const continuidade=/\\b(e agora|e depois|e nesse caso|como faco|como faço|como fazer|mais detalhes|explique melhor|e para|e no caso|tambem|também|nesse caso|nessa situacao|nessa situação)\\b/.test(normalizado);
+    if(continuidade&&contexto?.intencao){
+      const intensidade=Math.min(.22,Math.max(.05,Number(contexto.confianca||0)*.22));
+      const ajustados=probs.map(item=>({...item,logScore:item.logScore+(item.intent===contexto.intencao?intensidade:0)}));
+      const recalculadas=softmax(ajustados.map(x=>x.logScore),.82);
+      probs=ajustados.map((x,i)=>({...x,probability:recalculadas[i]})).sort((a,b)=>b.probability-a.probability);
+    }
+    const top=probs[0],second=probs[1]?.probability||0,margin=top.probability-second,entropy=this.entropia(probs.map(x=>x.probability));
     const objetivo=this.objetivo(text),tipos=this.detectarTipo(text),tipo=tipos[0]?.tipo||"geral",entidades=this.entidades(text);
     const confidence=Math.min(1,Math.max(0,top.probability*.55+Math.max(0,margin)*.30+objetivo.probability*.10+(1-Math.min(1,entropy/4.5))*.05));
     return {...top,probability:confidence,rawProbability:top.probability,second,margin,entropy,confident:confidence>=.52&&margin>=.035,ambiguous:confidence<.62||margin<.08,objetivo:objetivo.objetivo,objetivoProbability:objetivo.probability,objetivos:objetivo.probabilidades,tipo,tipos,entidades,probabilities:probs};
