@@ -11,7 +11,7 @@ import { corrigirProjeto, relatorioCorrecao } from "./fixer.js";
 import { sugerirMelhorias, aplicarMelhoriasSeguras, relatorioMelhorias } from "./improver.js";
 import { validarProjeto, relatorioValidacao } from "./validator.js";
 import { executarCicloEngenharia, relatorioEngenharia } from "./engine.js";
-import { hidratarModeloAprendizado, serializarModeloAprendizado, relatorioAprendizado } from "./engineering-learning.js";
+import { hidratarModeloAprendizado, serializarModeloAprendizado } from "./engineering-learning.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -507,8 +507,25 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     return r;
   }
   
-  const especial=analise.confident?intencaoEspecial(analise,limpo):null;
+  function respostaNaturalFallback(texto,analise){
+  const q=pnl.normalizar(texto);
+  if(!q)return null;
+  if(analise.objetivo==="explicar"||analise.tipo==="definicao"||analise.tipo==="como"){
+    const frases=recuperador.frasesRelevantes(q,8,3);
+    if(frases.length&&frases[0].score>=.22){
+      const tema=frases[0].titulo||frases[0].tema;
+      const corpo=frases.slice(0,2).map(x=>x.frase).join(" ");
+      contexto.atualizar({texto,resposta:corpo,analise,estrategia:"explicacao",assunto:tema});
+      return corpo;
+    }
+  }
+  return null;
+}
+
+const especial=analise.confident?intencaoEspecial(analise,limpo):null;
   if(especial){contexto.atualizar({texto:limpo,resposta:especial,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:memoria.estado.assuntoAtual});return especial;}
+  const natural=respostaNaturalFallback(textoContextual,analise);
+  if(natural)return natural;
   const composta=compositor.compor(textoContextual,analise);
   if(composta){contexto.atualizar({texto:limpo,resposta:composta,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:memoria.estado.assuntoAtual});return composta;}
   const r=analise.confident
