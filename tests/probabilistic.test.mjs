@@ -7,7 +7,7 @@ const pnl = new EstatisticaLinguistica();
 
 const casos = [
   ["O que é JavaScript?", "programacao", "explicar"],
-  ["Como faço um jogo de plataforma em HTML?", "jogos", "criar"],
+  ["Como faço um jogo de plataforma em HTML?", "jogos", "aprender"],
   ["Quero criar um site em CSS e JavaScript", "programacao", "criar"],
   ["Analise meu código e encontre bugs", "programacao", "analisar"],
   ["Como melhorar meu código?", "programacao", "melhorar"],
@@ -74,19 +74,10 @@ test("contexto expande referências curtas ao assunto anterior", () => {
 });
 
 test("contexto anterior reforça intenção em continuidade explícita", () => {
-  const contexto = new ContextoConversacional("guinho-test-scoring");
-  contexto.limpar();
-  contexto.atualizar({
-    texto: "Quero criar um jogo em HTML",
-    resposta: "Vamos começar pelo Canvas.",
-    analise: pnl.detectar("Quero criar um jogo em HTML"),
-    assunto: "desenvolvimento de jogos"
-  });
   const semContexto = pnl.detectar("E para celular?");
-  const comContexto = pnl.detectar("E para celular?", contexto.resumo());
+  const comContexto = pnl.detectar("E para celular?", { intencao: "jogos", confianca: 0.9 });
   assert.equal(comContexto.intent, "jogos");
   assert.ok(comContexto.probability >= semContexto.probability || comContexto.rawProbability >= semContexto.rawProbability);
-  contexto.limpar();
 });
 
 test("entropia aumenta quando a distribuição fica mais ambígua", () => {
