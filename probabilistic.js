@@ -121,10 +121,15 @@ export class EstatisticaLinguistica{
     return rows.map((r,i)=>({...r,probability:probabilities[i]})).sort((a,b)=>b.probability-a.probability);
   }
   objetivo(text){
-    const tokens=this.tokens(text);
+    const q=this.normalizar(text),tokens=this.tokens(text);
     const resultados=Object.entries(this.objetivos).map(([objetivo,exemplos])=>{
       let score=0;
-      for(const exemplo of exemplos)for(const e of this.tokens(exemplo))for(const t of tokens)score+=e===t?1:(e.includes(t)||t.includes(e)?0.65:0);
+      for(const exemplo of exemplos){
+        const normalizado=this.normalizar(exemplo);
+        if(normalizado.length>=4&&q.includes(normalizado))score+=2.5;
+        const eTokens=this.tokens(exemplo);
+        for(const e of eTokens)for(const t of tokens)score+=e===t?1:(e.includes(t)||t.includes(e)?0.65:0);
+      }
       return {objetivo,score};
     });
     const max=Math.max(...resultados.map(x=>x.score),0);
@@ -134,11 +139,15 @@ export class EstatisticaLinguistica{
     return {objetivo:resultados[probs.indexOf(maxP)].objetivo,probability:maxP,probabilidades:resultados.map((x,i)=>({...x,probability:probs[i]})).sort((a,b)=>b.probability-a.probability)};
   }
   detectarTipo(text){
-    const t=this.tokens(text);
+    const q=this.normalizar(text),t=this.tokens(text);
     const resultados=Object.entries(this.tipos).map(([tipo,exemplos])=>{
       if(tipo==="geral")return {tipo,score:.05};
       let score=0;
-      for(const exemplo of exemplos)for(const x of this.tokens(exemplo))for(const y of t)score+=x===y?1:(x.includes(y)||y.includes(x)?0.45:0);
+      for(const exemplo of exemplos){
+        const normalizado=this.normalizar(exemplo);
+        if(normalizado.length>=4&&q.includes(normalizado))score+=2.2;
+        for(const x of this.tokens(exemplo))for(const y of t)score+=x===y?1:(x.includes(y)||y.includes(x)?0.45:0);
+      }
       return {tipo,score};
     });
     const probs=softmax(resultados.map(x=>x.score),.8);
@@ -221,7 +230,7 @@ export class GeradorEstatistico{
       comparacao:analise.tipo==="comparacao"||analise.objetivo==="comparar"?1:.05,
       explicacao:["conhecimento","ciencias","programacao","jogos"].includes(analise.intent)&&analise.objetivo!=="criar"?1:.05,
       conversa:["saudacao","despedida","agradecimento"].includes(analise.intent)?1:.05,
-      esclarecimento:analise.ambiguous?1.15:.05
+      esclarecimento:analise.ambiguous&&analise.objetivoProbability<.60?1.15:.05
     };
     const nomes=Object.keys(candidatos),probs=softmax(nomes.map(n=>candidatos[n]),.55);
     const probabilidades=nomes.map((estrategia,i)=>({estrategia,probability:probs[i]})).sort((a,b)=>b.probability-a.probability);
