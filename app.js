@@ -158,6 +158,7 @@ function intencaoEspecial(analise,texto){
   if(analise.intent==="despedida")return "Até mais. Quando voltar, a base local estará disponível novamente.";
   if(analise.intent==="agradecimento")return "De nada. Fico por aqui para a próxima pergunta.";
   if(analise.intent==="ajuda")return "Posso conversar usando a base local, recuperar conceitos por similaridade, calcular, lembrar informações desta sessão e consultar moeda, notícias, clima e CEP.";
+  if(analise.intent==="jogos")return "A biblioteca de jogos está disponível no Guinho-Bot. Ela reúne MakeCode Arcade, microStudio e TIC-80, além de Kenney, OpenGameArt, Itch.io, Piskel e Pixelorama.\n\nPara o primeiro protótipo de movimentação em SVG, a referência visual será o Piskel e a referência de lógica será o MakeCode Arcade.\n\nUse a seção Biblioteca de Jogos na interface para abrir os recursos.";
   if(analise.intent==="memoria")return memoriaReply();
   if(analise.intent==="matematica"){
     const q=pnl.normalizar(texto);
