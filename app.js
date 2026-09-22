@@ -8,11 +8,24 @@ const form=document.querySelector("#composer");
 const input=document.querySelector("#message");
 const statusText=document.querySelector("#status-text");
 const buttons=document.querySelectorAll("[data-cmd]");
+const siteSearch=document.querySelector("#site-search");
+const newChatButton=document.querySelector("#new-chat");
+const clearChatButton=document.querySelector("#clear-chat");
+const focusInputButton=document.querySelector("#focus-input");
+const drawerOverlay=document.querySelector("#drawer-overlay");
+const leftSidebar=document.querySelector(".sidebar-left");
+const openLeft=document.querySelector("#open-left");
+const closeLeft=document.querySelector("#close-left");
+const selectedModes=document.querySelectorAll("[data-mode]");
+const navItems=document.querySelectorAll("[data-nav]");
+const topicButtons=document.querySelectorAll("[data-topic]");
+const toast=document.querySelector("#toast");
 
 const pnl=new EstatisticaLinguistica();
 const recuperador=new RecuperadorSemantico(CONHECIMENTO);
 const memoria=new MemoriaSessao();
 const gerador=new GeradorEstatistico();
+let modoAtual="standard";
 
 class CompositorRespostas{
   constructor({pnl,recuperador,memoria,gerador}){this.pnl=pnl;this.recuperador=recuperador;this.memoria=memoria;this.gerador=gerador;}
@@ -178,10 +191,81 @@ async function responder(texto){
     : "Não consegui decidir a intenção com confiança. Vou precisar de um pouco mais de contexto para deduzir sua pergunta.";
 }
 
+function adaptarModo(resposta){
+  if(modoAtual==="standard")return resposta;
+  if(modoAtual==="resumido"){
+    const partes=resposta.split(/\n\n+/).filter(Boolean);
+    const texto=partes[0]||resposta;
+    return texto.length>620?texto.slice(0,617).trimEnd()+"...":texto;
+  }
+  if(modoAtual==="passo"){
+    const partes=resposta.replace(/\n+/g," ").split(/(?<=[.!?])\s+/).filter(Boolean);
+    if(partes.length<2)return resposta;
+    return partes.slice(0,6).map((p,i)=>`${i+1}. ${p}`).join("\n");
+  }
+  if(modoAtual==="criativo"){
+    return "Vamos olhar para isso por outro ângulo.\n\n"+resposta;
+  }
+  if(modoAtual==="detalhado"){
+    return resposta+"\n\nModo detalhado: a resposta acima foi composta a partir das evidências locais recuperadas e da intenção identificada pelo motor probabilístico.";
+  }
+  return resposta;
+}
+
+function showToast(message){
+  if(!toast)return;
+  toast.textContent=message;
+  toast.classList.add("show");
+  clearTimeout(showToast.timer);
+  showToast.timer=setTimeout(()=>toast.classList.remove("show"),2200);
+}
+
+function closeDrawer(){
+  leftSidebar?.classList.remove("open");
+  drawerOverlay?.classList.remove("show");
+}
+function openDrawer(){
+  leftSidebar?.classList.add("open");
+  drawerOverlay?.classList.add("show");
+}
+
+function resetChat(){
+  memoria.limpar();
+  chat.innerHTML="";
+  add("bot","Nova conversa iniciada. A sessão de memória foi limpa e o motor local está pronto.");
+  input?.focus();
+  showToast("Nova conversa iniciada");
+}
+
+function runCommand(value){
+  if(!input)return;
+  input.value=value;
+  input.dispatchEvent(new Event("input"));
+  form.requestSubmit();
+}
+
+function inserirQuebraAuto(){
+  if(!input)return;
+  input.style.height="auto";
+  input.style.height=Math.min(input.scrollHeight,140)+"px";
+}
+
 function add(role,text){
   const el=document.createElement("div");el.className="line "+(role==="user"?"user":"bot");
   const meta=document.createElement("div");meta.className="meta";meta.textContent=role==="user"?"VOCÊ >":"GUINHO >";
-  const box=document.createElement("div");box.className="bubble";box.textContent=text;
+  const box=document.createElement("div");box.className="bubble";
+  const fonteIndex=text.indexOf("\n\nBase local:");
+  if(role==="bot"&&fonteIndex>=0){
+    const corpo=text.slice(0,fonteIndex);
+    const fonte=text.slice(fonteIndex+2);
+    box.textContent=corpo;
+    const source=document.createElement("div");
+    source.className="message-source";
+    source.textContent=fonte;
+    box.appendChild(source);
+  }else{
+    box.textContent=text;
+  }
   el.append(meta,box);chat.appendChild(el);chat.scrollTop=chat.scrollHeight;
 }
 
@@ -191,10 +275,73 @@ form.addEventListener("submit",async e=>{
   if(!texto)return;
   add("user",texto);memoria.adicionar("user",texto);input.value="";
   buttons.forEach(b=>b.disabled=true);statusText.textContent="ANALISANDO";
-  try{const resposta=await responder(texto);add("bot",resposta);memoria.adicionar("assistant",resposta);}
+  try{const respostaBruta=await responder(texto);const resposta=adaptarModo(respostaBruta);add("bot",resposta);memoria.adicionar("assistant",resposta);}
   catch(err){add("bot","Não consegui consultar uma fonte externa: "+err.message);}
   finally{buttons.forEach(b=>b.disabled=false);statusText.textContent="LOCAL READY";input.focus();}
 });
-buttons.forEach(b=>b.addEventListener("click",()=>{input.value=b.dataset.cmd;form.requestSubmit();}));
+buttons.forEach(b=>b.addEventListener("click",()=>runCommand(b.dataset.cmd)));
+
+selectedModes.forEach(mode=>{
+  mode.addEventListener("click",()=>{
+    modoAtual=mode.dataset.mode;
+    selectedModes.forEach(x=>x.classList.toggle("active",x===mode));
+    showToast("Modo: "+mode.querySelector("strong")?.textContent);
+    input?.focus();
+  });
+});
+
+topicButtons.forEach(button=>{
+  button.addEventListener("click",()=>{
+    const topico=button.dataset.topic;
+    runCommand(`Explique ${topico} de forma clara.`);
+    closeDrawer();
+  });
+});
+
+navItems.forEach(item=>{
+  item.addEventListener("click",()=>{
+    navItems.forEach(x=>x.classList.toggle("active",x===item));
+    const nav=item.dataset.nav;
+    if(nav==="chat"){input?.focus();closeDrawer();return;}
+    if(nav==="history"){showToast("O histórico desta sessão aparece na conversa atual.");return;}
+    if(nav==="favorites"){showToast("Favoritos locais ainda não foram criados nesta sessão.");return;}
+    if(nav==="explore"){siteSearch?.focus();showToast("Use a busca para explorar a base local.");return;}
+    if(nav==="settings"){showToast("Configurações locais: memória, modo e cache estão ativos.");}
+  });
+});
+
+newChatButton?.addEventListener("click",()=>{resetChat();closeDrawer();});
+clearChatButton?.addEventListener("click",resetChat);
+focusInputButton?.addEventListener("click",()=>input?.focus());
+openLeft?.addEventListener("click",openDrawer);
+closeLeft?.addEventListener("click",closeDrawer);
+drawerOverlay?.addEventListener("click",closeDrawer);
+
+siteSearch?.addEventListener("keydown",event=>{
+  if(event.key==="Enter"){
+    event.preventDefault();
+    const q=siteSearch.value.trim();
+    if(q)runCommand(`Pesquise na base local: ${q}`);
+  }
+});
+
+document.addEventListener("keydown",event=>{
+  if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){
+    event.preventDefault();
+    siteSearch?.focus();
+  }
+});
+
+input?.addEventListener("input",inserirQuebraAuto);
+input?.addEventListener("keydown",event=>{
+  if(event.key==="Enter"&&!event.shiftKey){
+    event.preventDefault();
+    form.requestSubmit();
+  }
+});
+
+document.querySelector("#attach-placeholder")?.addEventListener("click",()=>showToast("Anexos ainda não estão conectados ao motor local."));
+document.querySelector("#voice-placeholder")?.addEventListener("click",()=>showToast("Entrada de voz ainda não está conectada."));
+
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js"));
 const historico=memoria.historico();if(historico.length){historico.slice(-8).forEach(m=>add(m.role,m.content));}else add("bot","Sistema iniciado. Motor probabilístico local, recuperação semântica e memória de sessão ativos. Experimente: “o que é JavaScript?”, “por que existe o dia e a noite?” ou “diagnostico o que é um planeta”.");
