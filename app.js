@@ -3,6 +3,7 @@ import { RecuperadorSemantico } from "./retrieval.js";
 import { MemoriaSessao } from "./memory.js";
 import { EstatisticaLinguistica, GeradorEstatistico } from "./probabilistic.js";
 import { BIBLIOTECA_JOGOS } from "./game-library.js";
+import { ContextoConversacional } from "./context.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -26,6 +27,7 @@ const pnl=new EstatisticaLinguistica();
 const recuperador=new RecuperadorSemantico(CONHECIMENTO);
 const memoria=new MemoriaSessao();
 const gerador=new GeradorEstatistico();
+const contexto=new ContextoConversacional();
 let modoAtual="standard";
 
 class CompositorRespostas{
@@ -34,7 +36,7 @@ class CompositorRespostas{
     const q=this.pnl.normalizar(texto);
     const curtas=q.split(" ").length<=5;
     const referencia=/\b(isso|isto|esse|essa|ele|ela|eles|elas|aquilo)\b/.test(q);
-    if((curtas||referencia)&&this.memoria.estado.assuntoAtual)return `${texto} ${this.memoria.estado.assuntoAtual}`;
+    if((curtas||referencia)&&this.memoria.estado.assuntoAtual)return contexto.referencia(texto,this.pnl);
     return texto;
   }
   selecionarFrases(consulta,tipo){
@@ -58,12 +60,14 @@ class CompositorRespostas{
     const frases=this.selecionarFrases(consulta,tipo);
     if(!frases.length)return null;
     this.memoria.definirAssunto(frases[0].tema);
-    const abertura=this.gerador.abertura(tipo,analise.probability);
+    const estrategia=this.gerador.estrategia(analise);
+    const tipoResposta=estrategia.estrategia==="tutorial"?"como":estrategia.estrategia==="diagnostico"?"diagnostico":estrategia.estrategia==="melhoria"?"melhoria":tipo;
+    const abertura=this.gerador.abertura(tipoResposta,analise.probability);
     let corpo=frases.map(x=>x.frase);
     if(tipo==="comparacao"&&corpo.length>=2)corpo=[corpo[0],corpo[1]];
     if(tipo==="lista")corpo=corpo.slice(0,3);
     if(tipo==="definicao")corpo=corpo.slice(0,2);
-    const fechamento=tipo==="como"?"Esse é o fluxo essencial; os detalhes dependem do contexto em que o conceito é usado.":tipo==="por_que"?"Esse mecanismo explica o resultado de forma geral.":tipo==="comparacao"?"Em resumo, os conceitos têm funções relacionadas, mas não são equivalentes.":"";
+    const fechamento=this.gerador.fechamento(tipoResposta,analise.probability);
     const fonte="\n\nBase local: "+[...new Set(frases.map(x=>x.titulo))].slice(0,3).join(" • ");
     return abertura+" "+corpo.join(" ")+(fechamento?" "+fechamento:"")+fonte;
   }
@@ -177,20 +181,40 @@ async function responder(texto){
   if(/^pnl\b|^diagnostico\b/i.test(limpo)){
     const alvo=limpo.replace(/^(pnl|diagnostico)\b/i,"").trim()||texto;
     const rel=pnl.explicar(alvo);
-    return `Diagnóstico local:\nIntenção: ${rel.intencao}\nConfiança: ${(rel.confianca*100).toFixed(1)}%\nMargem: ${(rel.margem*100).toFixed(1)}%\nTipo: ${rel.tipo}\n\nProbabilidades:\n${rel.probabilidades.slice(0,5).map(x=>`${x.intent}: ${(x.probability*100).toFixed(1)}%`).join("\n")}`;
+    const est=pnl.detectar(alvo);
+    const estrategia=gerador.estrategia(est);
+    return `Diagnóstico local:
+Intenção: ${rel.intencao}
+Confiança combinada: ${(rel.confianca*100).toFixed(1)}%
+Probabilidade bruta: ${(rel.probabilidadeBruta*100).toFixed(1)}%
+Margem: ${(rel.margem*100).toFixed(1)}%
+Entropia: ${rel.entropia.toFixed(2)}
+Ambiguidade: ${rel.ambigua?"sim":"não"}
+Tipo: ${rel.tipo}
+Objetivo: ${rel.objetivo}
+Estratégia: ${estrategia.estrategia}
+
+Probabilidades:
+${rel.probabilidades.slice(0,5).map(x=>`${x.intent}: ${(x.probability*100).toFixed(1)}%`).join("\n")}
+
+Objetivos:
+${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(1)}%`).join("\n")}`;
   }
-  const analise=pnl.detectar(limpo);
-  if(analise.confident&&analise.intent==="moeda")return api.moeda();
-  if(analise.confident&&analise.intent==="noticias")return api.noticias();
-  if(analise.confident&&analise.intent==="tempo")return api.tempo(limpo);
-  if(analise.confident&&analise.intent==="cep")return api.cep(limpo);
+  const textoContextual=contexto.referencia(limpo,pnl);
+  const analise=pnl.detectar(textoContextual);
+  if(analise.confident&&analise.intent==="moeda"){const r=await api.moeda();contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"conversa"});return r;}
+  if(analise.confident&&analise.intent==="noticias"){const r=await api.noticias();contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
+  if(analise.confident&&analise.intent==="tempo"){const r=await api.tempo(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
+  if(analise.confident&&analise.intent==="cep"){const r=await api.cep(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
   const especial=analise.confident?intencaoEspecial(analise,limpo):null;
-  if(especial)return especial;
-  const composta=compositor.compor(limpo,analise);
-  if(composta)return composta;
-  return analise.confident
+  if(especial){contexto.atualizar({texto:limpo,resposta:especial,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:memoria.estado.assuntoAtual});return especial;}
+  const composta=compositor.compor(textoContextual,analise);
+  if(composta){contexto.atualizar({texto:limpo,resposta:composta,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:memoria.estado.assuntoAtual});return composta;}
+  const r=analise.confident
     ? "Eu não encontrei evidência suficiente na base local para responder com segurança. Tente acrescentar o assunto, uma definição ou o contexto da pergunta."
-    : "Não consegui decidir a intenção com confiança. Vou precisar de um pouco mais de contexto para deduzir sua pergunta.";
+    : "Ainda estou dividido entre algumas interpretações. Se você acrescentar o objetivo ou a tecnologia envolvida, consigo direcionar melhor a resposta.";
+  contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:memoria.estado.assuntoAtual});
+  return r;
 }
 
 function adaptarModo(resposta){
