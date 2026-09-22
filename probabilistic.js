@@ -1,4 +1,4 @@
-import { buscarPadroes } from "./prompt-library.js";
+import { buscarPadroes, pontuarBiblioteca } from "./prompt-library.js";
 export class EstatisticaLinguistica{
   constructor(){
     this.stop=new Set(["a","o","e","os","as","um","uma","uns","umas","de","da","do","das","dos","em","no","na","nos","nas","por","para","com","sem","que","se","ao","aos","como","me","te","ele","ela","eles","elas","eu","voce","voces","isso","isto","esse","essa","este","esta"]);
@@ -112,19 +112,14 @@ export class EstatisticaLinguistica{
   }
   posterior(text){
     const feats=this.pesosTermos(text);
-    const sinais=buscarPadroes(text,16);
-    const porIntent=new Map();
-    for(const sinal of sinais){
-      if(sinal.dominio==="objetivo")continue;
-      const atual=porIntent.get(sinal.intencao)||0;
-      porIntent.set(sinal.intencao,Math.max(atual,sinal.score));
-    }
+    const biblioteca=pontuarBiblioteca(text);
+    const porIntent=new Map(Object.entries(biblioteca));
     const rows=this.intentNames.map(intent=>{
       const prior=Math.log((this.intentDocs.get(intent)+1)/(this.totalDocs+this.intentNames.length));
       const likelihood=feats.reduce((sum,item)=>sum+item.peso*this.laplace(item.term,intent),0);
       const fuzzy=this.fuzzy(text,intent),keywordBoost=this.keywordBoost(text,intent);
-      const biblioteca=porIntent.get(intent)||0;
-      return {intent,logScore:prior*.14+likelihood*.42+fuzzy*.16+keywordBoost*.08+biblioteca*.20,fuzzy,keywordBoost,biblioteca};
+      const evidenciaBiblioteca=porIntent.get(intent)||0;
+      return {intent,logScore:prior*.14+likelihood*.42+fuzzy*.16+keywordBoost*.08+evidenciaBiblioteca*.20,fuzzy,keywordBoost,biblioteca:evidenciaBiblioteca};
     });
     const probabilities=softmax(rows.map(r=>r.logScore),.82);
     return rows.map((r,i)=>({...r,probability:probabilities[i]})).sort((a,b)=>b.probability-a.probability);
@@ -190,7 +185,7 @@ export class EstatisticaLinguistica{
     const normalizado=this.normalizar(text);
     const continuidade=/\\b(e agora|e depois|e nesse caso|como faco|como faço|como fazer|mais detalhes|explique melhor|e para|e no caso|tambem|também|nesse caso|nessa situacao|nessa situação)\\b/.test(normalizado);
     if(continuidade&&contexto?.intencao){
-      const intensidade=Math.min(.42,Math.max(.12,Number(contexto.confianca||0)*.42));
+      const intensidade=Math.min(.82,Math.max(.28,Number(contexto.confianca||0)*.82));
       const ajustados=probs.map(item=>({...item,logScore:item.logScore+(item.intent===contexto.intencao?intensidade:0)}));
       const recalculadas=softmax(ajustados.map(x=>x.logScore),.82);
       probs=ajustados.map((x,i)=>({...x,probability:recalculadas[i]})).sort((a,b)=>b.probability-a.probability);
