@@ -21,7 +21,7 @@ As APIs externas são utilizadas somente para dados que precisam estar atualizad
 - Open-Meteo: clima.
 - ViaCEP: endereço por CEP.
 
-A biblioteca enviada para o projeto também lista catálogos de APIs públicas e bibliotecas de PLN como referência. fileciteturn0file0L1-L1 fileciteturn0file0L4-L4
+A biblioteca enviada para o projeto foi usada como referência para os catálogos de APIs públicas e bibliotecas de PLN.
 
 ## PWA
 
