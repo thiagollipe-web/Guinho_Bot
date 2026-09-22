@@ -116,8 +116,8 @@ export class EstatisticaLinguistica{
     const porIntent=new Map(Object.entries(biblioteca));
     const q=this.normalizar(text);
     const assinaturas=[
-      {intent:"jogos",regex:/\b(jogo|jogos|game|piskel|pixelorama|sprite|spritesheet|tilemap|makecode|microstudio|tic 80|kenney|opengameart)\b/,bonus:1.35},
-      {intent:"programacao",regex:/\b(codigo|código|programacao|programação|javascript|typescript|html|css|python|nodejs|node\.js|github|canvas|npm|git|ollama|llama\.cpp|gguf|pwa|service worker|manifest)\b/,bonus:1.55}
+      {intent:"jogos",regex:/\b(jogo|jogos|game|piskel|pixelorama|sprite|spritesheet|tilemap|makecode|microstudio|tic 80|kenney|opengameart)\b/,bonus:4.0},
+      {intent:"programacao",regex:/\b(codigo|código|programacao|programação|javascript|typescript|html|css|python|nodejs|node\.js|github|canvas|npm|git|ollama|llama\.cpp|gguf|pwa|service worker|manifest)\b/,bonus:4.0}
     ];
     for(const a of assinaturas)if(a.regex.test(q))porIntent.set(a.intent,(porIntent.get(a.intent)||0)+a.bonus);
     const rows=this.intentNames.map(intent=>{
@@ -190,27 +190,27 @@ export class EstatisticaLinguistica{
   detectar(text,contexto=null){
     let probs=this.posterior(text);
     const normalizado=this.normalizar(text);
-    const continuidade=/\\b(e agora|e depois|e nesse caso|como faco|como faço|como fazer|mais detalhes|explique melhor|e para|e no caso|tambem|também|nesse caso|nessa situacao|nessa situação)\\b/.test(normalizado)
-      || (!!contexto?.intencao && /^(e|tambem|também)\\b/.test(normalizado) && normalizado.split(" ").length<=7);
+    const curtaPergunta=normalizado.split(" ").filter(Boolean).length<=7;
+    const comecaContinuacao=/^(e|tambem|também)\b/.test(normalizado);
+    const continuidade=curtaPergunta&&(comecaContinuacao||/\b(e agora|e depois|e nesse caso|mais detalhes|explique melhor|e para|e no caso|nesse caso|nessa situacao|nessa situação)\b/.test(normalizado));
     if(continuidade&&contexto?.intencao){
-      const intensidade=Math.min(1.8,Math.max(.55,Number(contexto.confianca||0)*1.8));
-      const maiorScore=Math.max(...probs.map(item=>item.logScore));
-      const ajustados=probs.map(item=>{
-        if(item.intent!==contexto.intencao)return {...item};
-        const vantagem=Math.max(0,maiorScore-item.logScore);
-        return {...item,logScore:item.logScore+vantagem+intensidade};
-      });
-      const recalculadas=softmax(ajustados.map(x=>x.logScore),.82);
-      probs=ajustados.map((x,i)=>({...x,probability:recalculadas[i]})).sort((a,b)=>b.probability-a.probability);
+      const confiancaContexto=Number(contexto.confianca||0);
       const alvo=probs.find(x=>x.intent===contexto.intencao);
-      if(Number(contexto.confianca||0)>=.8&&alvo){
-        const alvoProb=.97;
-        const restante=1-alvoProb;
+      if(alvo){
         const outros=probs.filter(x=>x!==alvo);
-        const soma=outros.reduce((s,x)=>s+x.probability,0)||1;
-        alvo.probability=alvoProb;
-        for(const item of outros)item.probability=restante*(item.probability/soma);
-        probs=[alvo,...outros].sort((a,b)=>b.probability-a.probability);
+        if(confiancaContexto>=.8){
+          const alvoProb=.97;
+          const restante=1-alvoProb;
+          const soma=outros.reduce((s,x)=>s+x.probability,0)||1;
+          alvo.probability=alvoProb;
+          for(const item of outros)item.probability=restante*(item.probability/soma);
+          probs=[alvo,...outros].sort((a,b)=>b.probability-a.probability);
+        }else{
+          const intensidade=Math.min(1.2,Math.max(.3,confiancaContexto*1.2));
+          alvo.logScore+=intensidade;
+          const recalculadas=softmax(probs.map(x=>x.logScore),.82);
+          probs=probs.map((x,i)=>({...x,probability:recalculadas[i]})).sort((a,b)=>b.probability-a.probability);
+        }
       }
     }
     const top=probs[0],second=probs[1]?.probability||0,margin=top.probability-second,entropy=this.entropia(probs.map(x=>x.probability));
