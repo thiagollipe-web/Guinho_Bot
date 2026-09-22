@@ -11,11 +11,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - run: node --check app.js
       - run: node --check retrieval.js
       - run: node --check memory.js
       - run: node --check context.js
       - run: node --check probabilistic.js
       - run: node --check knowledge.js
+      - run: node --check prompt-library.js
       - run: npm test
