@@ -12,6 +12,7 @@ function detectarLinguagem(nome,codigo){
   const ext=String(nome||"").split(".").pop()?.toLowerCase();
   if(ext==="html"||/(?:<!doctype|<html|<body|<canvas)\b/i.test(codigo))return "html";
   if(ext==="css"||/[.#][\w-]+\s*\{/.test(codigo))return "css";
+  if(ext==="json")return "json";
   return "javascript";
 }
 
@@ -138,6 +139,9 @@ export function analisarProjeto(projeto={}){
     if(linguagem==="html")analisarHTML(texto,achados);
     else if(linguagem==="javascript")analisarJavaScript(texto,achados,nome);
     else if(linguagem==="css")analisarCSS(texto,achados,nome);
+    else if(linguagem==="json"){
+      try{JSON.parse(texto);}catch(err){adicionar(achados,"alta","JSON","JSON inválido em "+nome+".",err.message,"Corrigir a sintaxe JSON antes de consumir o arquivo.");}
+    }
   }
 
   if(htmlNomes.length){
