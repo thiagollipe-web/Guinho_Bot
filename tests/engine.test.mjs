@@ -17,3 +17,28 @@ test("ENGINE usa VALIDAR como gate e tenta nova correção",()=>{
   assert.ok(r.historico.some(x=>x.etapa==="CORRIGIR"));
   assert.notEqual(r.status,"EM_EXECUCAO");
 });
+
+import { criarMemoriaEngenharia, registrarProblemas, registrarTentativa, estrategiaJaFalhou, serializarMemoriaEngenharia, relatorioMemoriaEngenharia } from "../engineering-memory.js";
+
+test("MEMÓRIA rastreia problema, tentativa e relatório",()=>{
+  const m=criarMemoriaEngenharia();
+  registrarProblemas(m,{achados:[{severidade:"alta",categoria:"seguranca",mensagem:"Uso de eval",evidencia:"eval(1)"}]},1);
+  const p=[...m.problemas.values()][0];
+  assert.ok(p?.fingerprint);
+  registrarTentativa(m,{fingerprint:p.fingerprint,ciclo:1,estrategia:"CORRIGIR",antesScore:70,depoisScore:70,ganho:0,status:"FALHOU"});
+  assert.equal(estrategiaJaFalhou(m,p.fingerprint,"CORRIGIR"),true);
+  const dados=serializarMemoriaEngenharia(m);
+  assert.equal(dados.tentativas.length,1);
+  assert.match(relatorioMemoriaEngenharia(dados),/MEMORIA DE ENGENHARIA/);
+});
+
+test("ENGINE registra memória no resultado e evita repetir estratégia falha",()=>{
+  const r=executarCicloEngenharia("projeto",{criar:false,maxCiclos:4,files:{
+    "index.html":"<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width\"></head><body><script>eval(1)</script></body></html>"
+  }});
+  assert.ok(r.memoria);
+  assert.ok(Array.isArray(r.memoria.problemas));
+  assert.ok(Array.isArray(r.memoria.tentativas));
+  assert.match(r.relatorioMemoria,/MEMORIA DE ENGENHARIA/);
+  assert.ok(r.status!=="EM_EXECUCAO");
+});
