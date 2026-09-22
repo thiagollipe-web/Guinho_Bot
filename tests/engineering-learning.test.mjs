@@ -59,7 +59,7 @@ test("APRENDIZADO serializa e hidrata estado persistente",()=>{
   const dados=serializarModeloAprendizado(m);
   const h=hidratarModeloAprendizado(dados);
   assert.deepEqual(serializarModeloAprendizado(h),dados);
-  assert.match(relatorioAprendizado(h),/APRENDIZADO DE ESTRATÉGIAS/);
+  assert.match(relatorioAprendizado(h),/SISTEMA DE EXPERIÊNCIA POR APRENDIZADO/);
 });
 
 
