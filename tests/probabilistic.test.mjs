@@ -57,8 +57,8 @@ test("estratégia muda conforme objetivo e tipo", () => {
   const melhorar = g.estrategia(pnl.detectar("Como melhorar meu código JavaScript?"));
   assert.equal(criar.estrategia, "codigo");
   assert.equal(melhorar.estrategia, "melhoria");
-  assert.ok(criar.probabilidade > 0);
-  assert.ok(melhorar.probabilidade > 0);
+  assert.ok(criar.probability > 0);
+  assert.ok(melhorar.probability > 0);
 });
 
 test("contexto expande referências curtas ao assunto anterior", () => {
@@ -103,4 +103,31 @@ test("biblioteca de padrões reforça intenção sem substituir a estatística",
   assert.equal(d.intent, "programacao");
   assert.equal(d.objetivo, "criar");
   assert.ok(d.probability > 0);
+});
+
+
+test("biblioteca cobre perguntas em linguagem natural e mantém formato esperado", () => {
+  const casos = [
+    ["Quem criou o JavaScript?", "programacao"],
+    ["Quando devo usar Canvas?", "programacao"],
+    ["Onde posso criar jogos sem instalar uma engine?", "jogos"],
+    ["Quantos pixels tem um canvas de 160 por 120?", "programacao"],
+    ["Qual a causa de uma queda de FPS em um jogo?", "jogos"],
+    ["Como instalar Ollama no Windows?", "programacao"],
+    ["O que significa PWA?", "programacao"],
+    ["Por que o céu é azul?", "conhecimento"]
+  ];
+  for (const [texto, intencao] of casos) {
+    const d = pnl.detectar(texto);
+    assert.equal(d.intent, intencao, texto + ": intenção esperada " + intencao + ", obtida " + d.intent);
+  }
+});
+
+test("perfil da pergunta expõe evidências de domínio, intenção e formato", async () => {
+  const { perfilPergunta } = await import("../prompt-library.js");
+  const p = perfilPergunta("Crie um jogo em HTML com código completo passo a passo");
+  assert.ok(p.dominios.jogos > 0 || p.dominios.web > 0);
+  assert.ok(p.intencoes.programacao > 0 || p.intencoes.jogos > 0);
+  assert.ok(p.formatos.codigo > 0);
+  assert.ok(p.formatos.passos > 0);
 });
