@@ -136,7 +136,7 @@ function abrirWorkspace(resultado){
   engTitle.textContent=resultado.plano?.tipo||"Projeto de Engenharia";
   engStatus.textContent=resultado.status||"SEM RESULTADO";
   atualizarWorkspaceStatus(relatorioEngenharia(resultado).split("\\n").slice(0,3).join(" • "),resultado.status);
-  if(engMemory)engMemory.textContent=resultado.relatorioMemoria||"Nenhuma memória de engenharia registrada.";
+  if(engMemory)engMemory.textContent=[resultado.relatorioMemoria,resultado.relatorioAprendizado].filter(Boolean).join("\\n\\n")||"Nenhuma memória de engenharia registrada.";
   const ordem=["CRIAR","ANALISAR","CORRIGIR","MELHORAR","VALIDAR"];
   const etapas=(resultado.historico||[]).map(x=>x.etapa);
   const ultima=etapas.at(-1);
