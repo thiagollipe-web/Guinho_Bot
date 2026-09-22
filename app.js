@@ -195,20 +195,7 @@ function respostaEngenharia(texto){
   const relatorio=relatorioEngenharia(resultado);
   if(!resultado.ok)return relatorio+"\n\nO ciclo foi interrompido com segurança; nenhum código foi executado.";
   return relatorio+"\n\nO Workspace de Engenharia foi aberto com os arquivos, pipeline e validação final.";
-}mport { CONHECIMENTO } from "./knowledge.js";
-import { RecuperadorSemantico } from "./retrieval.js";
-import { MemoriaSessao } from "./memory.js";
-import { EstatisticaLinguistica, GeradorEstatistico } from "./probabilistic.js";
-import { BIBLIOTECA_JOGOS } from "./game-library.js";
-import { ContextoConversacional } from "./context.js";
-import { perfilPergunta } from "./prompt-library.js";
-import { gerarProjeto } from "./generator.js";
-import { extrairBlocosCodigo, analisarCodigo, analisarProjeto, relatorioAnalise } from "./analyzer.js";
-import { corrigirProjeto, relatorioCorrecao } from "./fixer.js";
-import { sugerirMelhorias, aplicarMelhoriasSeguras, relatorioMelhorias } from "./improver.js";
-import { validarProjeto, relatorioValidacao } from "./validator.js";
-import { executarCicloEngenharia, relatorioEngenharia } from "./engine.js";
-
+}
 function respostaValidacao(texto){
   const arquivos=arquivosDaMensagem(texto);
   if(!Object.keys(arquivos).length)return "Para validar, cole o código ou projeto na mensagem. O VALIDAR verifica entrada, estrutura, referências, PWA e os achados do ANALYZE.";
