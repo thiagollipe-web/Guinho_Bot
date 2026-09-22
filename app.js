@@ -29,6 +29,153 @@ const selectedModes=document.querySelectorAll("[data-mode]");
 const navItems=document.querySelectorAll("[data-nav]");
 const topicButtons=document.querySelectorAll("[data-topic]");
 const toast=document.querySelector("#toast");
+const engineeringWorkspace=document.querySelector("#engineering-workspace");
+const engTitle=document.querySelector("#eng-title");
+const engStatus=document.querySelector("#eng-status");
+const engFileList=document.querySelector("#eng-file-list");
+const engFileName=document.querySelector("#eng-file-name");
+const engFileMeta=document.querySelector("#eng-file-meta");
+const engCodeView=document.querySelector("#eng-code-view code");
+const engPreview=document.querySelector("#eng-preview-frame");
+const engPreviewButton=document.querySelector("#eng-preview");
+const engClose=document.querySelector("#eng-close");
+const engRun=document.querySelector("#eng-run");
+const engSummary=document.querySelector("#eng-summary");
+let ultimoProjetoEngenharia=null;
+let arquivoEngenhariaAtual="index.html";
+
+const pnl=new EstatisticaLinguistica();
+const recuperador=new RecuperadorSemantico(CONHECIMENTO);
+const memoria=new MemoriaSessao();
+const gerador=new GeradorEstatistico();
+const contexto=new ContextoConversacional();
+let modoAtual="standard";
+
+function respostaCriacao(texto,analise){
+  const projeto=gerarProjeto(texto,analise);
+  const nomes=Object.keys(projeto.files);
+  const estado=projeto.validacao.valido?"VALIDAÇÃO OK":"VALIDAÇÃO COM ERROS";
+  const avisos=projeto.validacao.avisos.length?`\\nAvisos: ${projeto.validacao.avisos.join(" • ")}`:"";
+  const primeiro=projeto.files[projeto.entry]||"";
+  const limite=primeiro.length>14000?primeiro.slice(0,13997)+"...":primeiro;
+  return `Projeto gerado: ${projeto.plano.tipo}\\nEstratégia: ${projeto.plano.estrategia}\\nTecnologias: ${projeto.plano.tecnologias.join(", ")}\\nArquivos: ${nomes.join(", ")}\\n${estado}${projeto.validacao.erros.length?`\\nErros: ${projeto.validacao.erros.join(" • ")}`:""}${avisos}\\n\\nArquivo de entrada: ${projeto.entry}\\n\\n${limite}`;
+}
+
+
+function respostaCorrecao(texto){
+  const blocos=extrairBlocosCodigo(texto);
+  if(blocos.length===0)return "Para corrigir, cole o código na mensagem. O CORRIGIR aplica apenas alterações automáticas seguras e revalida o resultado.";
+  const arquivos={};
+  blocos.slice(0,8).forEach((codigo,i)=>{
+    const q=codigo.toLowerCase();
+    const nome=/<(?:!doctype|html|body|canvas)\b/.test(q)?"codigo-"+(i+1)+".html":/[.#][\w-]+\s*\{/.test(q)?"codigo-"+(i+1)+".css":"codigo-"+(i+1)+".js";
+    arquivos[nome]=codigo;
+  });
+  const resultado=corrigirProjeto(arquivos);
+  return relatorioCorrecao(resultado);
+}
+
+function arquivosDaMensagem(texto){
+  const blocos=extrairBlocosCodigo(texto);
+  const arquivos={};
+  blocos.slice(0,8).forEach((codigo,i)=>{
+    const q=codigo.toLowerCase();
+    const nome=/<(?:!doctype|html|body|canvas)\b/.test(q)?"codigo-"+(i+1)+".html":/[.#][\w-]+\s*\{/.test(q)?"codigo-"+(i+1)+".css":"codigo-"+(i+1)+".js";
+    arquivos[nome]=codigo;
+  });
+  return arquivos;
+}
+
+function abrirWorkspace(resultado){
+  if(!engineeringWorkspace)return;
+  ultimoProjetoEngenharia=resultado;
+  arquivoEngenhariaAtual=resultado.entry||Object.keys(resultado.files||{})[0]||"index.html";
+  engineeringWorkspace.hidden=false;
+  engTitle.textContent=resultado.plano?.tipo||"Projeto de Engenharia";
+  engStatus.textContent=resultado.status||"SEM RESULTADO";
+  engSummary.textContent=relatorioEngenharia(resultado).split("\n").slice(0,3).join(" • ");
+  const ordem=["CRIAR","ANALISAR","CORRIGIR","MELHORAR","VALIDAR"];
+  const etapas=(resultado.historico||[]).map(x=>x.etapa);
+  const ultima=etapas.at(-1);
+  document.querySelectorAll("#eng-pipeline [data-stage]").forEach(el=>{el.classList.remove("active","done");const i=ordem.indexOf(el.dataset.stage);if(i>=0&&ordem.indexOf(ultima)>=i)el.classList.add("done");if(el.dataset.stage===ultima)el.classList.add("active");});
+  renderArquivosEngenharia(); mostrarArquivoEngenharia(arquivoEngenhariaAtual); atualizarPreviewEngenharia();
+}
+function renderArquivosEngenharia(){
+  if(!engFileList||!ultimoProjetoEngenharia)return;
+  engFileList.innerHTML="";
+  Object.keys(ultimoProjetoEngenharia.files||{}).forEach(nome=>{const b=document.createElement("button");b.type="button";b.className="eng-file"+(nome===arquivoEngenhariaAtual?" active":"");b.textContent=nome;b.addEventListener("click",()=>{arquivoEngenhariaAtual=nome;renderArquivosEngenharia();mostrarArquivoEngenharia(nome);});engFileList.appendChild(b);});
+}
+function mostrarArquivoEngenharia(nome){
+  if(!ultimoProjetoEngenharia)return;
+  const codigo=String(ultimoProjetoEngenharia.files?.[nome]??"");
+  engFileName.textContent=nome;engFileMeta.textContent=codigo.split("\n").length+" linhas";engCodeView.textContent=codigo;
+}
+function atualizarPreviewEngenharia(){
+  const pode=Boolean(ultimoProjetoEngenharia?.ok&&ultimoProjetoEngenharia?.criado&&ultimoProjetoEngenharia.files?.["index.html"]);
+  engPreviewButton.disabled=!pode;
+  document.querySelector("#eng-preview-note").textContent=pode?"projeto gerado • sandbox":"preview desativado para código fornecido";
+  engPreview.srcdoc=pode?String(ultimoProjetoEngenharia.files["index.html"]):"<body style='font-family:system-ui;padding:24px'>Preview disponível para projetos gerados pelo Guinho.</body>";
+}
+function fecharWorkspace(){if(engineeringWorkspace)engineeringWorkspace.hidden=true;}
+function executarNovoCicloWorkspace(){
+  const pedido=window.prompt("O que o Guinho deve construir?");
+  if(!pedido)return;
+  try{const r=executarCicloEngenharia(pedido);abrirWorkspace(r);add("bot",relatorioEngenharia(r));}
+  catch(err){showToast("Erro no ciclo: "+err.message);}
+}
+function respostaEngenharia(texto){
+  const arquivos=arquivosDaMensagem(texto);
+  const temProjeto=Object.keys(arquivos).length>0;
+  const resultado=executarCicloEngenharia(temProjeto?"Projeto fornecido pelo usuário":texto,{criar:!temProjeto,files:arquivos});
+  if(resultado.ok)abrirWorkspace(resultado);
+  const relatorio=relatorioEngenharia(resultado);
+  if(!resultado.ok)return relatorio+"\n\nO ciclo foi interrompido com segurança; nenhum código foi executado.";
+  return relatorio+"\n\nO Workspace de Engenharia foi aberto com os arquivos, pipeline e validação final.";
+}mport { CONHECIMENTO } from "./knowledge.js";
+import { RecuperadorSemantico } from "./retrieval.js";
+import { MemoriaSessao } from "./memory.js";
+import { EstatisticaLinguistica, GeradorEstatistico } from "./probabilistic.js";
+import { BIBLIOTECA_JOGOS } from "./game-library.js";
+import { ContextoConversacional } from "./context.js";
+import { perfilPergunta } from "./prompt-library.js";
+import { gerarProjeto } from "./generator.js";
+import { extrairBlocosCodigo, analisarCodigo, analisarProjeto, relatorioAnalise } from "./analyzer.js";
+import { corrigirProjeto, relatorioCorrecao } from "./fixer.js";
+import { sugerirMelhorias, aplicarMelhoriasSeguras, relatorioMelhorias } from "./improver.js";
+import { validarProjeto, relatorioValidacao } from "./validator.js";
+import { executarCicloEngenharia, relatorioEngenharia } from "./engine.js";
+
+const chat=document.querySelector("#chat");
+const form=document.querySelector("#composer");
+const input=document.querySelector("#message");
+const statusText=document.querySelector("#status-text");
+const buttons=document.querySelectorAll("[data-cmd]");
+const siteSearch=document.querySelector("#site-search");
+const newChatButton=document.querySelector("#new-chat");
+const clearChatButton=document.querySelector("#clear-chat");
+const focusInputButton=document.querySelector("#focus-input");
+const drawerOverlay=document.querySelector("#drawer-overlay");
+const leftSidebar=document.querySelector(".sidebar-left");
+const openLeft=document.querySelector("#open-left");
+const closeLeft=document.querySelector("#close-left");
+const selectedModes=document.querySelectorAll("[data-mode]");
+const navItems=document.querySelectorAll("[data-nav]");
+const topicButtons=document.querySelectorAll("[data-topic]");
+const toast=document.querySelector("#toast");
+const engineeringWorkspace=document.querySelector("#engineering-workspace");
+const engTitle=document.querySelector("#eng-title");
+const engStatus=document.querySelector("#eng-status");
+const engFileList=document.querySelector("#eng-file-list");
+const engFileName=document.querySelector("#eng-file-name");
+const engFileMeta=document.querySelector("#eng-file-meta");
+const engCodeView=document.querySelector("#eng-code-view code");
+const engPreview=document.querySelector("#eng-preview-frame");
+const engPreviewButton=document.querySelector("#eng-preview");
+const engClose=document.querySelector("#eng-close");
+const engRun=document.querySelector("#eng-run");
+const engSummary=document.querySelector("#eng-summary");
+let ultimoProjetoEngenharia=null;
+let arquivoEngenhariaAtual="index.html";
 
 const pnl=new EstatisticaLinguistica();
 const recuperador=new RecuperadorSemantico(CONHECIMENTO);
@@ -460,6 +607,7 @@ navItems.forEach(item=>{
     navItems.forEach(x=>x.classList.toggle("active",x===item));
     const nav=item.dataset.nav;
     if(nav==="chat"){input?.focus();closeDrawer();return;}
+    if(nav==="engineering"){if(ultimoProjetoEngenharia)abrirWorkspace(ultimoProjetoEngenharia);else executarNovoCicloWorkspace();closeDrawer();return;}
     if(nav==="history"){showToast("O histórico desta sessão aparece na conversa atual.");return;}
     if(nav==="favorites"){showToast("Favoritos locais ainda não foram criados nesta sessão.");return;}
     if(nav==="explore"){siteSearch?.focus();showToast("Use a busca para explorar a base local.");return;}
@@ -499,6 +647,9 @@ input?.addEventListener("keydown",event=>{
 
 document.querySelector("#attach-placeholder")?.addEventListener("click",()=>showToast("Anexos ainda não estão conectados ao motor local."));
 document.querySelector("#voice-placeholder")?.addEventListener("click",()=>showToast("Entrada de voz ainda não está conectada."));
+engClose?.addEventListener("click",fecharWorkspace);
+engRun?.addEventListener("click",executarNovoCicloWorkspace);
+engPreviewButton?.addEventListener("click",()=>{if(ultimoProjetoEngenharia?.ok)engPreview.srcdoc=String(ultimoProjetoEngenharia.files["index.html"]||"");});
 
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js"));
 const historico=memoria.historico();if(historico.length){historico.slice(-8).forEach(m=>add(m.role,m.content));}else add("bot","Sistema iniciado. Motor probabilístico local, recuperação semântica e memória de sessão ativos. Experimente: “o que é JavaScript?”, “por que existe o dia e a noite?” ou “diagnostico o que é um planeta”.");
