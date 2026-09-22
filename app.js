@@ -35,7 +35,13 @@ const engStatus=document.querySelector("#eng-status");
 const engFileList=document.querySelector("#eng-file-list");
 const engFileName=document.querySelector("#eng-file-name");
 const engFileMeta=document.querySelector("#eng-file-meta");
-const engCodeView=document.querySelector("#eng-code-view code");
+const engEditor=document.querySelector("#eng-editor");
+const engSave=document.querySelector("#eng-save");
+const engAnalyze=document.querySelector("#eng-analyze");
+const engFix=document.querySelector("#eng-fix");
+const engImprove=document.querySelector("#eng-improve");
+const engValidate=document.querySelector("#eng-validate");
+const engCycle=document.querySelector("#eng-cycle");
 const engPreview=document.querySelector("#eng-preview-frame");
 const engPreviewButton=document.querySelector("#eng-preview");
 const engClose=document.querySelector("#eng-close");
@@ -86,6 +92,16 @@ function arquivosDaMensagem(texto){
   return arquivos;
 }
 
+function sincronizarEditorEngenharia(){
+  if(!ultimoProjetoEngenharia||!engEditor)return;
+  ultimoProjetoEngenharia.files=ultimoProjetoEngenharia.files||{};
+  ultimoProjetoEngenharia.files[arquivoEngenhariaAtual]=engEditor.value;
+  ultimoProjetoEngenharia._editado=true;
+}
+function atualizarWorkspaceStatus(texto,estado){
+  if(engSummary)engSummary.textContent=texto;
+  if(engStatus&&estado)engStatus.textContent=estado;
+}
 function abrirWorkspace(resultado){
   if(!engineeringWorkspace)return;
   ultimoProjetoEngenharia=resultado;
@@ -93,7 +109,7 @@ function abrirWorkspace(resultado){
   engineeringWorkspace.hidden=false;
   engTitle.textContent=resultado.plano?.tipo||"Projeto de Engenharia";
   engStatus.textContent=resultado.status||"SEM RESULTADO";
-  engSummary.textContent=relatorioEngenharia(resultado).split("\n").slice(0,3).join(" • ");
+  atualizarWorkspaceStatus(relatorioEngenharia(resultado).split("\\n").slice(0,3).join(" • "),resultado.status);
   const ordem=["CRIAR","ANALISAR","CORRIGIR","MELHORAR","VALIDAR"];
   const etapas=(resultado.historico||[]).map(x=>x.etapa);
   const ultima=etapas.at(-1);
@@ -103,20 +119,66 @@ function abrirWorkspace(resultado){
 function renderArquivosEngenharia(){
   if(!engFileList||!ultimoProjetoEngenharia)return;
   engFileList.innerHTML="";
-  Object.keys(ultimoProjetoEngenharia.files||{}).forEach(nome=>{const b=document.createElement("button");b.type="button";b.className="eng-file"+(nome===arquivoEngenhariaAtual?" active":"");b.textContent=nome;b.addEventListener("click",()=>{arquivoEngenhariaAtual=nome;renderArquivosEngenharia();mostrarArquivoEngenharia(nome);});engFileList.appendChild(b);});
+  Object.keys(ultimoProjetoEngenharia.files||{}).forEach(nome=>{const b=document.createElement("button");b.type="button";b.className="eng-file"+(nome===arquivoEngenhariaAtual?" active":"");b.textContent=nome;b.addEventListener("click",()=>{sincronizarEditorEngenharia();arquivoEngenhariaAtual=nome;renderArquivosEngenharia();mostrarArquivoEngenharia(nome);});engFileList.appendChild(b);});
 }
 function mostrarArquivoEngenharia(nome){
-  if(!ultimoProjetoEngenharia)return;
+  if(!ultimoProjetoEngenharia||!engEditor)return;
   const codigo=String(ultimoProjetoEngenharia.files?.[nome]??"");
-  engFileName.textContent=nome;engFileMeta.textContent=codigo.split("\n").length+" linhas";engCodeView.textContent=codigo;
+  engFileName.textContent=nome;engFileMeta.textContent=codigo.split("\\n").length+" linhas";engEditor.value=codigo;engEditor.dataset.dirty="false";
 }
 function atualizarPreviewEngenharia(){
-  const pode=Boolean(ultimoProjetoEngenharia?.ok&&ultimoProjetoEngenharia?.criado&&ultimoProjetoEngenharia.files?.["index.html"]);
+  const pode=Boolean(ultimoProjetoEngenharia?.ok&&ultimoProjetoEngenharia?.files?.["index.html"]);
   engPreviewButton.disabled=!pode;
-  document.querySelector("#eng-preview-note").textContent=pode?"projeto gerado • sandbox":"preview desativado para código fornecido";
-  engPreview.srcdoc=pode?String(ultimoProjetoEngenharia.files["index.html"]):"<body style='font-family:system-ui;padding:24px'>Preview disponível para projetos gerados pelo Guinho.</body>";
+  document.querySelector("#eng-preview-note").textContent=pode?"sandbox • projeto atual":"preview indisponível";
+  if(pode)engPreview.srcdoc=montarPreviewEngenharia();
+  else engPreview.srcdoc="<body style='font-family:system-ui;padding:24px'>Execute VALIDAR/CORRIGIR até obter um projeto válido para visualizar.</body>";
 }
-function fecharWorkspace(){if(engineeringWorkspace)engineeringWorkspace.hidden=true;}
+function montarPreviewEngenharia(){
+  if(!ultimoProjetoEngenharia)return "";
+  let html=String(ultimoProjetoEngenharia.files?.["index.html"]||"");
+  const files=ultimoProjetoEngenharia.files||{};
+  if(files["styles.css"]){const cssText=files["styles.css"].replace(/<\\/style/gi,"<\\\\/style");html=html.replace(/<link[^>]+href=["'](?:\\.\\/)?styles\\.css["'][^>]*>/gi,"<style data-guinho-inline>"+cssText+"</style>");}
+  if(files["app.js"]){const jsText=files["app.js"].replace(/<\\/script/gi,"<\\\\/script");html=html.replace(/<script[^>]+src=["'](?:\\.\\/)?app\\.js["'][^>]*><\\/script>/gi,"<script>"+jsText+"<\\/script>");}
+  return html;
+}
+function salvarWorkspaceEngenharia(){
+  sincronizarEditorEngenharia();
+  try{localStorage.setItem("guinho-engineering-workspace-v1",JSON.stringify({files:ultimoProjetoEngenharia.files,entry:ultimoProjetoEngenharia.entry,plano:ultimoProjetoEngenharia.plano}));}catch{}
+  mostrarArquivoEngenharia(arquivoEngenhariaAtual); atualizarPreviewEngenharia(); atualizarWorkspaceStatus("Alterações salvas no Workspace local.","SALVO"); showToast("Arquivo salvo");
+}
+function atualizarResultadoWorkspace(resultado,etapa){
+  ultimoProjetoEngenharia=resultado;
+  arquivoEngenhariaAtual=resultado.entry||arquivoEngenhariaAtual;
+  abrirWorkspace(resultado);
+  atualizarWorkspaceStatus(etapa+" • "+(resultado.validacao?.estado||resultado.status||"concluído"),resultado.status);
+}
+function executarAcaoWorkspace(tipo){
+  sincronizarEditorEngenharia();
+  const files={...(ultimoProjetoEngenharia?.files||{})};
+  try{
+    let resultado;
+    if(tipo==="analisar"){
+      const a=Object.keys(files).length===1?analisarCodigo(Object.values(files)[0],Object.keys(files)[0]):analisarProjeto(files);
+      atualizarWorkspaceStatus(relatorioAnalise(a).split("\\n").slice(0,4).join(" • "),a.valido?"ANÁLISE OK":"ACHADOS");
+      const etapas=[...(ultimoProjetoEngenharia.historico||[]),{etapa:"ANALISAR",status:a.valido?"OK":"ACHADOS",score:a.score}];ultimoProjetoEngenharia={...ultimoProjetoEngenharia,files,analise:a,historico:etapas};atualizarPipelineEngenharia(etapas);return;
+    }
+    if(tipo==="corrigir"){
+      const r=corrigirProjeto({files});resultado={...ultimoProjetoEngenharia,files:r.files,analise:r.depois,historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"CORRIGIR",status:r.aplicado?"OK":"SEM_ALTERACOES",alteracoes:r.alteracoes||[]}]};
+    }else if(tipo==="melhorar"){
+      const r=aplicarMelhoriasSeguras({files});resultado={...ultimoProjetoEngenharia,files:r.files,analise:r.depois,historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"MELHORAR",status:r.aplicado?"OK":"SEM_ALTERACOES"}]};
+    }else if(tipo==="validar"){
+      const a=analisarProjeto(files),v=validarProjeto(files);resultado={...ultimoProjetoEngenharia,files,analise:a,validacao:v,status:v.valido?(v.estado==="APROVADO"?"APROVADO":"APROVADO_COM_AVISOS"):"REPROVADO",ok:v.valido,historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"VALIDAR",status:v.estado,score:v.score,bloqueadores:v.bloqueadores}]};
+    }else if(tipo==="ciclo"){
+      resultado=executarCicloEngenharia("Projeto editado no Workspace",{criar:false,files,maxCiclos:4});
+    }
+    if(resultado){atualizarResultadoWorkspace(resultado,tipo.toUpperCase());showToast(tipo.toUpperCase()+" concluído");}
+  }catch(err){atualizarWorkspaceStatus("Erro: "+err.message,"ERRO");showToast("Erro: "+err.message);}
+}
+function atualizarPipelineEngenharia(etapas){
+  const ordem=["CRIAR","ANALISAR","CORRIGIR","MELHORAR","VALIDAR"];const ultima=etapas.at(-1)?.etapa;
+  document.querySelectorAll("#eng-pipeline [data-stage]").forEach(el=>{el.classList.remove("active","done");const i=ordem.indexOf(el.dataset.stage);if(i>=0&&ordem.indexOf(ultima)>=i)el.classList.add("done");if(el.dataset.stage===ultima)el.classList.add("active");});
+}
+function fecharWorkspace(){sincronizarEditorEngenharia();if(engineeringWorkspace)engineeringWorkspace.hidden=true;}
 function executarNovoCicloWorkspace(){
   const pedido=window.prompt("O que o Guinho deve construir?");
   if(!pedido)return;
