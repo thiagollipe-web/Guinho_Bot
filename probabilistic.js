@@ -1,3 +1,4 @@
+import { buscarPadroes } from "./prompt-library.js";
 export class EstatisticaLinguistica{
   constructor(){
     this.stop=new Set(["a","o","e","os","as","um","uma","uns","umas","de","da","do","das","dos","em","no","na","nos","nas","por","para","com","sem","que","se","ao","aos","como","me","te","ele","ela","eles","elas","eu","voce","voces","isso","isto","esse","essa","este","esta"]);
@@ -111,17 +112,30 @@ export class EstatisticaLinguistica{
   }
   posterior(text){
     const feats=this.pesosTermos(text);
+    const sinais=buscarPadroes(text,16);
+    const porIntent=new Map();
+    for(const sinal of sinais){
+      if(sinal.dominio==="objetivo")continue;
+      const atual=porIntent.get(sinal.intencao)||0;
+      porIntent.set(sinal.intencao,Math.max(atual,sinal.score));
+    }
     const rows=this.intentNames.map(intent=>{
       const prior=Math.log((this.intentDocs.get(intent)+1)/(this.totalDocs+this.intentNames.length));
       const likelihood=feats.reduce((sum,item)=>sum+item.peso*this.laplace(item.term,intent),0);
       const fuzzy=this.fuzzy(text,intent),keywordBoost=this.keywordBoost(text,intent);
-      return {intent,logScore:prior*.20+likelihood*.52+fuzzy*.18+keywordBoost*.10,fuzzy,keywordBoost};
+      const biblioteca=porIntent.get(intent)||0;
+      return {intent,logScore:prior*.14+likelihood*.42+fuzzy*.16+keywordBoost*.08+biblioteca*.20,fuzzy,keywordBoost,biblioteca};
     });
     const probabilities=softmax(rows.map(r=>r.logScore),.82);
     return rows.map((r,i)=>({...r,probability:probabilities[i]})).sort((a,b)=>b.probability-a.probability);
   }
   objetivo(text){
     const q=this.normalizar(text),tokens=this.tokens(text);
+    const sinais=buscarPadroes(text,20).filter(x=>x.dominio==="objetivo");
+    const sinalObjetivo=sinais[0];
+    if(sinalObjetivo&&sinalObjetivo.score>=.72){
+      return {objetivo:sinalObjetivo.intencao,probability:Math.min(.97,.72+sinalObjetivo.score*.25),probabilidades:[{objetivo:sinalObjetivo.intencao,probability:Math.min(.97,.72+sinalObjetivo.score*.25)}]};
+    }
     const regras=[
       {objetivo:"aprender",frases:["como faco","como fazer","passo a passo","me ensine"]},
       {objetivo:"explicar",frases:["o que e","como funciona","defina","explique"]},
@@ -150,6 +164,13 @@ export class EstatisticaLinguistica{
   }
   detectarTipo(text){
     const q=this.normalizar(text),t=this.tokens(text);
+    const formato=buscarPadroes(text,12).filter(x=>x.dominio==="formato");
+    const mapaFormato={codigo:"criacao",passos:"como",resumo:"lista",detalhado:"geral",exemplo:"geral",tabela:"lista",lista:"lista"};
+    const sinalFormato=formato[0];
+    if(sinalFormato&&sinalFormato.score>=.82&&mapaFormato[sinalFormato.intencao]){
+      const tipo=mapaFormato[sinalFormato.intencao];
+      return [{tipo,score:1,probability:.88},...Object.keys(this.tipos).filter(x=>x!==tipo).map(x=>({tipo:x,score:0,probability:0}))];
+    }
     const resultados=Object.entries(this.tipos).map(([tipo,exemplos])=>{
       if(tipo==="geral")return {tipo,score:.05};
       let score=0;
