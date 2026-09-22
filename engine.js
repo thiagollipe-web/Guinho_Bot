@@ -57,7 +57,7 @@ function resultadoFinal(files,plano,criado,entry,a,v,h,status,memoria,aprendizad
   };
 }
 
-function aplicarCorrecaoAdaptativa(files,analise,memoria,aprendizado,ciclo,h){
+function aplicarCorrecaoAdaptativa(files,analise,memoria,aprendizado,ciclo,h,origem="ANALISE"){
   const problema=escolherProblema(memoria);
   if(!problema){
     registrar(h,"MEMORIA",ciclo,"SEM_PROBLEMA_PRIORITARIO");
@@ -109,6 +109,7 @@ function aplicarCorrecaoAdaptativa(files,analise,memoria,aprendizado,ciclo,h){
     ciclo,
     ganho,
     aplicada:houveAplicacao,
+    origem,
     status:statusTentativa
   });
 
@@ -208,7 +209,7 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
 
     a=analisarProjeto(files);
     registrarResolvidos(memoria,a,ciclo);
-    atualizarResultadosAprendidos(aprendizado,a,extrairProblemas,ciclo);
+    atualizarResultadosAprendidos(aprendizado,a,extrairProblemas,ciclo,"ANALISE");
     v=validarProjeto(files,opcoes.validacao||{});
     registrar(h,"VALIDAR",ciclo,v.estado,{
       score:v.score,
@@ -221,14 +222,14 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
     }
 
     registrarProblemas(memoria,v,ciclo);
-    atualizarResultadosAprendidos(aprendizado,v,ciclo);
+    atualizarResultadosAprendidos(aprendizado,v,extrairProblemas,ciclo,"VALIDACAO");
 
     if(ciclo===max){
       status="REPROVADO_LIMITE";
       break;
     }
 
-    const correcaoValidacao=aplicarCorrecaoAdaptativa(files,v.analise||v,memoria,aprendizado,ciclo,h);
+    const correcaoValidacao=aplicarCorrecaoAdaptativa(files,v.analise||v,memoria,aprendizado,ciclo,h,"VALIDACAO");
     if(!correcaoValidacao.ok){
       status=correcaoValidacao.status.startsWith("BLOQUEADO_SEM_PROBLEMA")
         ?"BLOQUEADO_VALIDACAO_SEM_PROBLEMA"
@@ -247,7 +248,7 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
   registrarResolvidos(memoria,a,h.filter(x=>x.etapa==="ANALISAR").length);
   if(v.valido&&status==="EM_EXECUCAO")status=v.estado==="APROVADO"?"APROVADO":"APROVADO_COM_AVISOS";
 
-  return resultadoFinal(files,plano,criado,opcoes.entry||"index.html",a,v,h,status,memoria);
+  return resultadoFinal(files,plano,criado,opcoes.entry||"index.html",a,v,h,status,memoria,aprendizado);
 }
 
 export function relatorioEngenharia(r={}){
