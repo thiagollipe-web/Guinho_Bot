@@ -9,7 +9,9 @@ import {
   atualizarResultadosAprendidos,
   serializarModeloAprendizado,
   hidratarModeloAprendizado,
-  relatorioAprendizado
+  relatorioAprendizado,
+  nivelPorXp,
+  xpParaNivel
 } from "../engineering-learning.js";
 
 test("APRENDIZADO cria e normaliza chaves por categoria e estratégia",()=>{
@@ -58,4 +60,74 @@ test("APRENDIZADO serializa e hidrata estado persistente",()=>{
   const h=hidratarModeloAprendizado(dados);
   assert.deepEqual(serializarModeloAprendizado(h),dados);
   assert.match(relatorioAprendizado(h),/APRENDIZADO DE ESTRATÉGIAS/);
+});
+
+
+test("EXPERIÊNCIA converte aprendizado confirmado em XP e níveis",()=>{
+  const m=criarModeloAprendizado();
+  registrarTentativaAprendida(m,{
+    fingerprint:"xp-1",
+    categoria:"Segurança",
+    estrategia:"CORRIGIR_SEGURANCA",
+    ciclo:1,
+    ganho:30,
+    aplicada:true,
+    severidade:"alta"
+  });
+  assert.equal(m.experiencia.xp,0);
+  atualizarResultadosAprendidos(m,{achados:[]},x=>x.achados||[],2,"ANALISE");
+  assert.ok(m.experiencia.xp>0);
+  assert.equal(m.experiencia.nivel,nivelPorXp(m.experiencia.xp));
+  assert.equal(m.experiencia.aprendizados,1);
+  assert.equal(m.experiencia.sequencia,1);
+});
+
+test("EXPERIÊNCIA também aprende com uma tentativa que falha imediatamente",()=>{
+  const m=criarModeloAprendizado();
+  registrarTentativaAprendida(m,{
+    fingerprint:"xp-falha",
+    categoria:"Mobile",
+    estrategia:"CORRIGIR_MOBILE",
+    ciclo:1,
+    aplicada:false,
+    severidade:"media",
+    status:"FALHOU"
+  });
+  assert.ok(m.experiencia.xp>0);
+  assert.equal(m.experiencia.sequencia,0);
+  assert.equal(m.experiencia.aprendizados,1);
+});
+
+test("EXPERIÊNCIA mantém habilidades por categoria",()=>{
+  const m=criarModeloAprendizado();
+  registrarTentativaAprendida(m,{
+    fingerprint:"skill-1",
+    categoria:"PWA",
+    estrategia:"CORRIGIR_PWA",
+    ciclo:1,
+    aplicada:false,
+    severidade:"baixa"
+  });
+  const h=m.habilidades.PWA;
+  assert.ok(h);
+  assert.ok(h.xp>0);
+  assert.equal(h.nivel,nivelPorXp(h.xp));
+  assert.equal(h.tentativas,1);
+});
+
+test("EXPERIÊNCIA serializada preserva progresso",()=>{
+  const m=criarModeloAprendizado();
+  registrarTentativaAprendida(m,{
+    fingerprint:"persist-xp",
+    categoria:"Canvas",
+    estrategia:"CORRIGIR_CANVAS",
+    ciclo:1,
+    aplicada:false,
+    severidade:"alta"
+  });
+  const dados=serializarModeloAprendizado(m);
+  const h=hidratarModeloAprendizado(dados);
+  assert.deepEqual(serializarModeloAprendizado(h),dados);
+  assert.match(relatorioAprendizado(h),/SISTEMA DE EXPERIÊNCIA POR APRENDIZADO/);
+  assert.match(relatorioAprendizado(h),/Nível:/);
 });
