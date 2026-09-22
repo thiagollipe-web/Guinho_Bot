@@ -152,7 +152,7 @@ export function pontuarBiblioteca(texto){
   for(const sinal of sinais){
     const intent=sinal.intencaoCanonica||intencaoCanonica(sinal.intencao);
     const anterior=mapa.get(intent)||0;
-    mapa.set(intent,Math.max(anterior,sinal.score));
+    mapa.set(intent,Math.min(2.4,anterior+(sinal.score/(anterior?1.7:1))));
   }
   return Object.fromEntries([...mapa].sort((a,b)=>b[1]-a[1]));
 }
