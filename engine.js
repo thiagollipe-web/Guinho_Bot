@@ -15,6 +15,7 @@ import {
 } from "./engineering-learning.js";
 import {
   criarMemoriaEngenharia,
+  extrairProblemas,
   registrarProblemas,
   registrarTentativa,
   registrarResolvidos,
