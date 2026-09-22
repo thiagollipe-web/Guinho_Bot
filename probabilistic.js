@@ -127,7 +127,7 @@ export class EstatisticaLinguistica{
       const likelihood=feats.reduce((sum,item)=>sum+item.peso*this.laplace(item.term,intent),0);
       const fuzzy=this.fuzzy(text,intent),keywordBoost=this.keywordBoost(text,intent);
       const evidenciaBiblioteca=porIntent.get(intent)||0;
-      const reforco=Math.min(1.25,evidenciaBiblioteca*.55);
+      const reforco=Math.min(4.5,evidenciaBiblioteca*.55);
       return {intent,logScore:prior*.12+likelihood*.36+fuzzy*.15+keywordBoost*.07+reforco,fuzzy,keywordBoost,biblioteca:evidenciaBiblioteca,reforco};
     });
     const probabilities=softmax(rows.map(r=>r.logScore),.82);
