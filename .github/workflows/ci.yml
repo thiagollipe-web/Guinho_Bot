@@ -20,5 +20,7 @@ jobs:
       - run: node --check knowledge.js
       - run: node --check prompt-library.js
       - run: node --check calibration.js
+      - run: node --check generator.js
+      - run: node --check analyzer.js
       - run: npm test
       - run: npm run benchmark
