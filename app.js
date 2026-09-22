@@ -330,7 +330,6 @@ class GeradorRespostaEstruturada{
 
 const geradorResposta=new GeradorRespostaEstruturada({pnl,recuperador,memoria,gerador});
 
-const compositor=new CompositorRespostas({pnl,recuperador,memoria,gerador});
 
 class CalculadoraSegura{
   constructor(){this.precedencia={"+":1,"-":1,"*":2,"/":2,"%":2,"u-":3};}
