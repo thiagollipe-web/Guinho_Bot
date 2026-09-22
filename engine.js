@@ -4,11 +4,21 @@ import { corrigirProjeto } from "./fixer.js";
 import { aplicarMelhoriasSeguras } from "./improver.js";
 import { validarProjeto } from "./validator.js";
 import {
+  criarModeloAprendizado,
+  selecionarEstrategiaAprendida,
+  registrarTentativaAprendida,
+  atualizarResultadosAprendidos,
+  serializarModeloAprendizado,
+  hidratarModeloAprendizado,
+  relatorioAprendizado,
+  utilidadeEstrategia
+} from "./engineering-learning.js";
+import {
   criarMemoriaEngenharia,
   registrarProblemas,
   registrarTentativa,
   registrarResolvidos,
-  selecionarEstrategia,
+  gerarEstrategiasProblema,
   registrarIgnorado,
   serializarMemoriaEngenharia,
   relatorioMemoriaEngenharia
@@ -34,25 +44,31 @@ function opcoesDaEstrategia(problema,estrategia){
   return estrategia&&estrategia!=="CORRIGIR" ? {categorias:[categoria]} : {};
 }
 
-function resultadoFinal(files,plano,criado,entry,a,v,h,status,memoria){
+function resultadoFinal(files,plano,criado,entry,a,v,h,status,memoria,aprendizado){
   return {
     ok:Boolean(v?.valido),
     status:v?.valido?status:"REPROVADO",
     ciclos:h.filter(x=>x.etapa==="ANALISAR").length,
     criado,plano,entry,files,analise:a,validacao:v,historico:h,
     memoria:serializarMemoriaEngenharia(memoria),
-    relatorioMemoria:relatorioMemoriaEngenharia(memoria)
+    relatorioMemoria:relatorioMemoriaEngenharia(memoria),
+    aprendizado:serializarModeloAprendizado(aprendizado),
+    relatorioAprendizado:relatorioAprendizado(aprendizado)
   };
 }
 
-function aplicarCorrecaoAdaptativa(files,analise,memoria,ciclo,h){
+function aplicarCorrecaoAdaptativa(files,analise,memoria,aprendizado,ciclo,h){
   const problema=escolherProblema(memoria);
   if(!problema){
     registrar(h,"MEMORIA",ciclo,"SEM_PROBLEMA_PRIORITARIO");
     return {ok:false,status:"BLOQUEADO_SEM_PROBLEMA_PRIORITARIO"};
   }
 
-  const estrategia=selecionarEstrategia(memoria,problema);
+  const candidatas=gerarEstrategiasProblema(problema);
+  const bloqueadas=memoria.tentativas
+    .filter(x=>x.fingerprint===problema.fingerprint)
+    .map(x=>x.estrategia);
+  const estrategia=selecionarEstrategiaAprendida(aprendizado,problema,candidatas,bloqueadas);
   if(!estrategia){
     registrarIgnorado(memoria,{
       fingerprint:problema.fingerprint,
@@ -66,6 +82,7 @@ function aplicarCorrecaoAdaptativa(files,analise,memoria,ciclo,h){
   }
 
   const antesScore=analise?.score??0;
+  const utilidade=utilidadeEstrategia(aprendizado,problema.categoria,estrategia);
   const r=corrigirProjeto({files},opcoesDaEstrategia(problema,estrategia));
   const depoisScore=r.depois?.score??antesScore;
   const ganho=depoisScore-antesScore;
@@ -85,10 +102,20 @@ function aplicarCorrecaoAdaptativa(files,analise,memoria,ciclo,h){
     status:statusTentativa,
     alteracoes:r.alteracoes||[]
   });
+  registrarTentativaAprendida(aprendizado,{
+    fingerprint:problema.fingerprint,
+    categoria:problema.categoria,
+    estrategia,
+    ciclo,
+    ganho,
+    aplicada:houveAplicacao,
+    status:statusTentativa
+  });
 
   if(!houveAplicacao){
     registrar(h,"CORRIGIR",ciclo,"SEM_ALTERACOES",{
       estrategia,
+      utilidade:Number(utilidade.toFixed(4)),
       ganho,
       problema:problema.mensagem,
       alteracoes:[]
@@ -108,6 +135,7 @@ function aplicarCorrecaoAdaptativa(files,analise,memoria,ciclo,h){
 
   registrar(h,"CORRIGIR",ciclo,"OK",{
     estrategia,
+    utilidade:Number(utilidade.toFixed(4)),
     ganho,
     problema:problema.mensagem,
     alteracoes:r.alteracoes||[]
@@ -122,6 +150,7 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
   let files=clonar(opcoes.files||{});
   let plano=null,criado=false,a=null,v=null,status="EM_EXECUCAO";
   const memoria=criarMemoriaEngenharia();
+  const aprendizado=hidratarModeloAprendizado(opcoes.aprendizado||{});
 
   if(!Object.keys(files).length&&criar){
     const g=gerarProjeto(String(entrada||""),opcoes.analise||{});
@@ -146,6 +175,7 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
 
     a=analisarProjeto(files);
     registrarResolvidos(memoria,a,ciclo);
+    atualizarResultadosAprendidos(aprendizado,a,extrairProblemas,ciclo);
     registrarProblemas(memoria,a,ciclo);
     registrar(h,"ANALISAR",ciclo,bloqueios(a)>0?"BLOQUEADORES":"OK",{
       score:a.score,
@@ -154,7 +184,7 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
     });
 
     if(bloqueios(a)>0){
-      const correcao=aplicarCorrecaoAdaptativa(files,a,memoria,ciclo,h);
+      const correcao=aplicarCorrecaoAdaptativa(files,a,memoria,aprendizado,ciclo,h);
       if(!correcao.ok){
         status=correcao.status;
         break;
@@ -178,6 +208,7 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
 
     a=analisarProjeto(files);
     registrarResolvidos(memoria,a,ciclo);
+    atualizarResultadosAprendidos(aprendizado,a,extrairProblemas,ciclo);
     v=validarProjeto(files,opcoes.validacao||{});
     registrar(h,"VALIDAR",ciclo,v.estado,{
       score:v.score,
@@ -190,13 +221,14 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
     }
 
     registrarProblemas(memoria,v,ciclo);
+    atualizarResultadosAprendidos(aprendizado,v,ciclo);
 
     if(ciclo===max){
       status="REPROVADO_LIMITE";
       break;
     }
 
-    const correcaoValidacao=aplicarCorrecaoAdaptativa(files,v.analise||v,memoria,ciclo,h);
+    const correcaoValidacao=aplicarCorrecaoAdaptativa(files,v.analise||v,memoria,aprendizado,ciclo,h);
     if(!correcaoValidacao.ok){
       status=correcaoValidacao.status.startsWith("BLOQUEADO_SEM_PROBLEMA")
         ?"BLOQUEADO_VALIDACAO_SEM_PROBLEMA"
@@ -229,6 +261,7 @@ export function relatorioEngenharia(r={}){
   ];
   if(r.plano)l.push("Plano: "+r.plano.tipo+" / "+r.plano.estrategia);
   if(r.memoria)l.push(...relatorioMemoriaEngenharia(r.memoria).split("\n"));
+  if(r.aprendizado)l.push(...relatorioAprendizado(r.aprendizado).split("\n"));
   for(const x of r.historico||[])l.push((x.ciclo?"["+x.ciclo+"] ":"")+"["+x.etapa+"] "+x.status+(x.estrategia?" • estratégia="+x.estrategia:""));
   return l.join("\n");
 }
