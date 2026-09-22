@@ -87,3 +87,14 @@ button{cursor:pointer}
 
 .message-source{margin-top:11px;padding-top:8px;border-top:1px dashed #24364d;color:#6f91b6;font-size:9px;line-height:1.4;letter-spacing:.02em}
 .line.bot .message-source::before{content:"FONTE • ";color:#506b88;font-weight:700}
+
+.game-library{margin:8px 20px 0;border:1px solid #1b2a3d;background:#0c1420;border-radius:12px;overflow:hidden}
+.game-library summary{list-style:none;cursor:pointer;padding:10px;color:#b9c7da;font-size:11px;font-weight:700}
+.game-library summary::-webkit-details-marker{display:none}
+.game-library summary span{display:inline-block;width:22px;color:#7293ba}
+.game-library[open] summary{background:#101b2a;color:#fff}
+.library-group{padding:8px 10px 9px;border-top:1px solid #162438}
+.library-label{font-size:8px;letter-spacing:.14em;color:#596b83;padding:2px 0 5px}
+.library-group a{display:block;color:#91a8c2;text-decoration:none;font-size:10px;padding:5px 6px;border-radius:7px}
+.library-group a:hover{background:#132238;color:#e9f3ff}
+.library-group a.library-featured{color:#7fb2f5;background:#102139;border:1px solid #213e61}
