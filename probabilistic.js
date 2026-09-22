@@ -130,8 +130,8 @@ export class EstatisticaLinguistica{
     }
     if(/\b(pwa|service worker|manifest|javascript|typescript|html|css|python|nodejs|node\.js|ollama|llama\.cpp|gguf)\b/.test(q))porIntent.set("programacao",marcaJogo&&!marcaSite?4:8);
     if(marcaCodigo&&!marcaJogo)porIntent.set("programacao",Math.max(6,porIntent.get("programacao")||0));
-    const perguntaConceitual=/^(por que|porque|o que e|o que significa|como funciona|qual a diferenca)\\b/.test(q);
-    const temDominioTecnico=/\\b(javascript|typescript|html|css|python|nodejs|node\\.js|github|git|canvas|pwa|service worker|manifest|ollama|llama\\.cpp|gguf|codigo|programacao|site|aplicativo|jogo|game|sprite|piskel|pixelorama|makecode|microstudio|tic 80|kenney|opengameart|itch io|fisica|quimica|biologia|astronomia)\\b/.test(q);
+    const perguntaConceitual=/^(por que|porque|o que e|o que significa|como funciona|qual a diferenca)\b/.test(q);
+    const temDominioTecnico=/\b(javascript|typescript|html|css|python|nodejs|node\.js|github|git|canvas|pwa|service worker|manifest|ollama|llama\.cpp|gguf|codigo|programacao|site|aplicativo|jogo|game|sprite|piskel|pixelorama|makecode|microstudio|tic 80|kenney|opengameart|itch io|fisica|quimica|biologia|astronomia)\b/.test(q);
     if(perguntaConceitual&&!temDominioTecnico)porIntent.set("conhecimento",10);
     const rows=this.intentNames.map(intent=>{
       const prior=Math.log((this.intentDocs.get(intent)+1)/(this.totalDocs+this.intentNames.length));
