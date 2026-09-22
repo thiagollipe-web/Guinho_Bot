@@ -201,7 +201,7 @@ Objetivos:
 ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(1)}%`).join("\n")}`;
   }
   const textoContextual=contexto.referencia(limpo,pnl);
-  const analise=pnl.detectar(textoContextual);
+  const analise=pnl.detectar(textoContextual,contexto.resumo());
   if(analise.confident&&analise.intent==="moeda"){const r=await api.moeda();contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"conversa"});return r;}
   if(analise.confident&&analise.intent==="noticias"){const r=await api.noticias();contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
   if(analise.confident&&analise.intent==="tempo"){const r=await api.tempo(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
