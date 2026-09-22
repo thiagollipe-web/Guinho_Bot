@@ -77,6 +77,7 @@ test("contexto expande referências curtas ao assunto anterior", () => {
 test("contexto anterior reforça intenção em continuidade explícita", () => {
   const semContexto = pnl.detectar("E para celular?");
   const comContexto = pnl.detectar("E para celular?", { intencao: "jogos", confianca: 0.9 });
+  console.log("DEBUG_CONTEXT", JSON.stringify({intent:comContexto.intent, probability:comContexto.probability, raw:comContexto.rawProbability, probs:comContexto.probabilities.slice(0,5)}, null, 2));
   assert.equal(comContexto.intent, "jogos");
   assert.ok(comContexto.probability >= semContexto.probability || comContexto.rawProbability >= semContexto.rawProbability);
 });
