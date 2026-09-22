@@ -14,7 +14,8 @@ export class EstatisticaLinguistica{
       matematica:["calcule","calcular","quanto e","quanto é","bhaskara","equacao","equação","porcentagem","raiz quadrada","regra de tres","regra de três","matematica","matemática"],
       programacao:["javascript","html","css","programacao","programação","codigo","código","canvas","git","github","software","jogo","pixel art","sprite"],
       ciencias:["biologia","biologia celular","celula","célula","anatomia","corpo humano","ecossistema","astronomia","sistema solar","planeta","fotossintese","fotossíntese","fisica","física","quimica","química"],
-      conhecimento:["o que e","o que é","como funciona","me explique","explique","defina","fale sobre","qual a diferenca","qual a diferença","por que","porque","para que","quando","onde","quem"]
+      conhecimento:["o que e","o que é","como funciona","me explique","explique","defina","fale sobre","qual a diferenca","qual a diferença","por que","porque","para que","quando","onde","quem"],
+      jogos:["jogo","jogos","game","game dev","desenvolvimento de jogos","sprite","sprites","pixel art","spritesheet","tilemap","personagem","movimento de personagem","makecode","microstudio","tic-80","piskel","pixelorama","kenney","opengameart","itch.io"]
     };
     this.corpus=[];
     for(const [intent,examples] of Object.entries(this.intencoes))for(const text of examples)this.corpus.push({intent,text});
