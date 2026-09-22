@@ -2,6 +2,7 @@ import { CONHECIMENTO } from "./knowledge.js";
 import { RecuperadorSemantico } from "./retrieval.js";
 import { MemoriaSessao } from "./memory.js";
 import { EstatisticaLinguistica, GeradorEstatistico } from "./probabilistic.js";
+import { BIBLIOTECA_JOGOS } from "./game-library.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
