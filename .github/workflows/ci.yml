@@ -27,5 +27,6 @@ jobs:
       - run: node --check validator.js
       - run: node --check engine.js
       - run: node --check engineering-memory.js
+      - run: node --check engineering-learning.js
       - run: npm test
       - run: npm run benchmark
