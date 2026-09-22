@@ -1,63 +1,50 @@
 # Guinho-Bot
 
-Assistente virtual PWA com processamento de linguagem natural local em JavaScript Vanilla.
+PWA de assistente virtual com processamento de linguagem natural local em JavaScript Vanilla.
 
-## Arquitetura
+## Publicação
 
-O núcleo não usa API_KEY de IA. A execução acontece no navegador:
+O projeto é estático e foi preparado para GitHub Pages. Não depende de servidor Node em produção e não usa API_KEY de IA.
 
-- MotorPNL para normalização, intenção e tolerância a erros.
-- RecuperadorSemantico usando TF-IDF, similaridade do cosseno, Jaccard, stemming e sinônimos.
-- Base local estruturada com conhecimentos de programação, PNL, matemática, física, química, biologia, anatomia, ecologia, astronomia, web e jogos.
-- MemoriaSessao usando sessionStorage para contexto da conversa, assunto atual e dados simples informados pelo usuário.
-- CompositorRespostas combina os melhores documentos recuperados em uma resposta composta.
+URL esperada:
 
-## APIs públicas
+https://thiagollipe-web.github.io/Guinho_Bot/
 
-As APIs externas são utilizadas somente para dados que precisam estar atualizados:
+O deploy é automático pelo workflow `.github/workflows/deploy-pages.yml`.
 
-- AwesomeAPI: USD/BRL e EUR/BRL.
-- IBGE: notícias.
-- Open-Meteo: clima.
-- ViaCEP: endereço por CEP.
+## Núcleo local
 
-A biblioteca enviada para o projeto foi usada como referência para os catálogos de APIs públicas e bibliotecas de PLN.
+- `MotorPNL`: normalização, tokens, distância de edição e detecção de intenção.
+- `knowledge.js`: base local com 116 documentos.
+- `retrieval.js`: TF-IDF, cosseno, Jaccard, stemming e sinônimos.
+- `memory.js`: memória de sessão via sessionStorage.
+- `CompositorRespostas`: combina documentos recuperados em respostas compostas.
+
+## Dados online
+
+Somente consultas públicas em tempo real:
+
+- AwesomeAPI — USD/BRL e EUR/BRL.
+- IBGE — últimas notícias.
+- Open-Meteo — clima.
+- ViaCEP — endereços por CEP.
 
 ## PWA
 
-- manifest.json
-- service-worker.js
-- cache dos módulos locais
-- interface terminal mobile-first
+`manifest.json` e `service-worker.js` estão configurados com caminhos relativos para funcionar em `/Guinho_Bot/`.
 
-## Executar
+O service worker mantém o núcleo local disponível offline. APIs externas continuam exigindo internet.
 
-```bash
-npm install
-npm start
-```
+## Execução local
 
-Verificação de sintaxe:
+Sirva a pasta por HTTP para que o ES Modules e o service worker funcionem:
 
 ```bash
-npm run check
+python3 -m http.server 8080
 ```
 
-## Limite consciente do projeto
+Depois abra `http://127.0.0.1:8080/`.
 
-Este sistema não é um LLM. A geração é determinística e baseada em recuperação, regras e composição local. Isso elimina dependência de API paga, mas também limita a abertura e a criatividade das respostas.
+## Limite técnico
 
-## Estrutura principal
-
-```
-public/
-  app.js
-  knowledge.js
-  retrieval.js
-  memory.js
-  index.html
-  styles.css
-manifest.json
-service-worker.js
-server.js
-```
+O Guinho-Bot não é um LLM. Ele usa recuperação semântica, regras e composição determinística. Isso elimina APIs pagas de IA, mas não fornece geração aberta de texto como um modelo generativo.
