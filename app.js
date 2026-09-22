@@ -111,6 +111,7 @@ function abrirWorkspace(resultado){
   engTitle.textContent=resultado.plano?.tipo||"Projeto de Engenharia";
   engStatus.textContent=resultado.status||"SEM RESULTADO";
   atualizarWorkspaceStatus(relatorioEngenharia(resultado).split("\\n").slice(0,3).join(" • "),resultado.status);
+  if(engMemory)engMemory.textContent=resultado.relatorioMemoria||"Nenhuma memória de engenharia registrada.";
   const ordem=["CRIAR","ANALISAR","CORRIGIR","MELHORAR","VALIDAR"];
   const etapas=(resultado.historico||[]).map(x=>x.etapa);
   const ultima=etapas.at(-1);
@@ -138,8 +139,8 @@ function montarPreviewEngenharia(){
   if(!ultimoProjetoEngenharia)return "";
   let html=String(ultimoProjetoEngenharia.files?.["index.html"]||"");
   const files=ultimoProjetoEngenharia.files||{};
-  if(files["styles.css"]){const cssText=files["styles.css"].replace(/<\/style/gi,"<\\/style");html=html.replace(/<link[^>]+href=["'](?:\.\/)?styles\.css["'][^>]*>/gi,"<style data-guinho-inline>"+cssText+"</style>");}
-  if(files["app.js"]){const jsText=files["app.js"].replace(/<\/script/gi,"<\\/script");html=html.replace(/<script[^>]+src=["'](?:\.\/)?app\.js["'][^>]*><\/script>/gi,"<script>"+jsText+"<\/script>");}
+  if(files["styles.css"]){const cssText=files["styles.css"].replace(/<\/style/gi,"<\\/style");html=html.replace(/<link[^>]+href=["'](?:\\.\\/)?styles\\.css["'][^>]*>/gi,"<style data-guinho-inline>"+cssText+"</style>");}
+  if(files["app.js"]){const jsText=files["app.js"].replace(/<\/script/gi,"<\\/script");html=html.replace(/<script[^>]+src=["'](?:\\.\\/)?app\\.js["'][^>]*><\\/script>/gi,"<script>"+jsText+"<\\/script>");}
   return html;
 }
 function salvarWorkspaceEngenharia(){
@@ -710,6 +711,13 @@ input?.addEventListener("keydown",event=>{
 
 document.querySelector("#attach-placeholder")?.addEventListener("click",()=>showToast("Anexos ainda não estão conectados ao motor local."));
 document.querySelector("#voice-placeholder")?.addEventListener("click",()=>showToast("Entrada de voz ainda não está conectada."));
+engSave?.addEventListener("click",salvarWorkspaceEngenharia);
+engAnalyze?.addEventListener("click",()=>executarAcaoWorkspace("analisar"));
+engFix?.addEventListener("click",()=>executarAcaoWorkspace("corrigir"));
+engImprove?.addEventListener("click",()=>executarAcaoWorkspace("melhorar"));
+engValidate?.addEventListener("click",()=>executarAcaoWorkspace("validar"));
+engCycle?.addEventListener("click",()=>executarAcaoWorkspace("ciclo"));
+engEditor?.addEventListener("input",()=>{engEditor.dataset.dirty="true";atualizarWorkspaceStatus("Alterações não salvas.","EDITANDO");});
 engClose?.addEventListener("click",fecharWorkspace);
 engRun?.addEventListener("click",executarNovoCicloWorkspace);
 engPreviewButton?.addEventListener("click",()=>{if(ultimoProjetoEngenharia?.ok)engPreview.srcdoc=String(ultimoProjetoEngenharia.files["index.html"]||"");});
