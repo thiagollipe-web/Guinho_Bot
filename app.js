@@ -237,7 +237,7 @@ function respostaEngenharia(texto){
   const linguagem=resultado.entry?.endsWith(".js")?"javascript":resultado.entry?.endsWith(".css")?"css":"html";
   const limite=entry.length>12000?entry.slice(0,11997)+"...":entry;
   const fence="```";
-  return resumo.join("\n")+"\n\nCódigo gerado em "+resultado.entry+":\n\n"+fence+linguagem+"\n"+limite+"\n"+fence+"\n\nO Workspace de Engenharia foi aberto para editar, executar, corrigir e validar o projeto.";function respostaValidacao(texto){
+  return resumo.join("\n")+"\n\nCódigo gerado em "+resultado.entry+":\n\n"+fence+linguagem+"\n"+limite+"\n"+fence+"\n\nO Workspace de Engenharia foi aberto para editar, executar, corrigir e validar o projeto.";\n}\n\nfunction respostaValidacao(texto){
   const arquivos=arquivosDaMensagem(texto);
   if(!Object.keys(arquivos).length)return "Para validar, cole o código ou projeto na mensagem. O VALIDAR verifica entrada, estrutura, referências, PWA e os achados do ANALYZE.";
   const resultado=validarProjeto(arquivos);
