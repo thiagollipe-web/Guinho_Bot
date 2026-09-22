@@ -24,5 +24,6 @@ jobs:
       - run: node --check analyzer.js
       - run: node --check fixer.js
       - run: node --check improver.js
+      - run: node --check validator.js
       - run: npm test
       - run: npm run benchmark
