@@ -139,8 +139,8 @@ function montarPreviewEngenharia(){
   if(!ultimoProjetoEngenharia)return "";
   let html=String(ultimoProjetoEngenharia.files?.["index.html"]||"");
   const files=ultimoProjetoEngenharia.files||{};
-  if(files["styles.css"]){const cssText=files["styles.css"].replace(/<\/style/gi,"<\\/style");html=html.replace(/<link[^>]+href=["'](?:\\.\\/)?styles\\.css["'][^>]*>/gi,"<style data-guinho-inline>"+cssText+"</style>");}
-  if(files["app.js"]){const jsText=files["app.js"].replace(/<\/script/gi,"<\\/script");html=html.replace(/<script[^>]+src=["'](?:\\.\\/)?app\\.js["'][^>]*><\\/script>/gi,"<script>"+jsText+"<\\/script>");}
+  if(files["styles.css"]){const cssText=files["styles.css"].replace(/<[/]style/gi,"<\\/style");html=html.replace(/<link[^>]+href=["'][^"']*styles[.]css["'][^>]*>/gi,"<style data-guinho-inline>"+cssText+"</style>");}
+  if(files["app.js"]){const jsText=files["app.js"].replace(/<[/]script/gi,"<\\/script");html=html.replace(/<script[^>]+src=["'][^"']*app[.]js["'][^>]*>[\\s\\S]*?<[/]script>/gi,"<script>"+jsText+"<\\/script>");}
   return html;
 }
 function salvarWorkspaceEngenharia(){
