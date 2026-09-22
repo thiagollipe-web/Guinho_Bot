@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { EstatisticaLinguistica, GeradorEstatistico, softmax } from "../probabilistic.js";
 import { ContextoConversacional } from "../context.js";
 import { buscarPadroes } from "../prompt-library.js";
+import { gerarProjeto } from "../generator.js";
 
 const pnl = new EstatisticaLinguistica();
 
@@ -130,4 +131,24 @@ test("perfil da pergunta expõe evidências de domínio, intenção e formato", 
   assert.ok(p.intencoes.programacao > 0 || p.intencoes.jogos > 0);
   assert.ok(p.formatos.codigo > 0);
   assert.ok(p.formatos.passos > 0);
+});
+
+
+test("CREATE gera projetos web válidos", () => {
+  const jogo=gerarProjeto("Crie um jogo de plataforma mobile em HTML");
+  assert.equal(jogo.plano.tipo,"jogo");
+  assert.equal(jogo.entry,"index.html");
+  assert.equal(jogo.validacao.valido,true);
+  assert.match(jogo.files["index.html"],/requestAnimationFrame/);
+  assert.match(jogo.files["index.html"],/pointerdown/);
+
+  const site=gerarProjeto("Crie um site responsivo em HTML e CSS");
+  assert.equal(site.plano.tipo,"site");
+  assert.equal(site.validacao.valido,true);
+
+  const pwa=gerarProjeto("Crie uma PWA offline");
+  assert.equal(pwa.plano.tipo,"pwa");
+  assert.equal(pwa.validacao.valido,true);
+  assert.ok(pwa.files["manifest.json"]);
+  assert.ok(pwa.files["service-worker.js"]);
 });
