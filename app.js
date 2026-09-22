@@ -205,8 +205,8 @@ function intencaoEspecial(analise,texto){
 
 async function responder(texto){
   extrairMemoria(texto);
-  const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico)\b/i,"$1").trim();
-  if(/^pnl\b|^diagnostico\b/i.test(limpo)){
+  const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar)\b/i,"$1").trim();
+  if(/^analisar\b/i.test(limpo)){\n    const alvo=limpo.replace(/^analisar\b/i,"").trim();\n    const r=respostaAnalise(alvo);\n    contexto.atualizar({texto:limpo,resposta:r,analise:pnl.detectar(limpo),estrategia:"diagnostico",assunto:memoria.estado.assuntoAtual});\n    return r;\n  }\n  if(/^pnl\b|^diagnostico\b/i.test(limpo)){
     const alvo=limpo.replace(/^(pnl|diagnostico)\b/i,"").trim()||texto;
     const rel=pnl.explicar(alvo);
     const est=pnl.detectar(alvo);
