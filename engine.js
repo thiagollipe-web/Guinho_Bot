@@ -3,23 +3,116 @@ import { analisarProjeto } from "./analyzer.js";
 import { corrigirProjeto } from "./fixer.js";
 import { aplicarMelhoriasSeguras } from "./improver.js";
 import { validarProjeto } from "./validator.js";
-import { criarMemoriaEngenharia, registrarProblemas, registrarTentativa, registrarResolvidos, estrategiaJaFalhou, registrarIgnorado, serializarMemoriaEngenharia, relatorioMemoriaEngenharia } from "./engineering-memory.js";
+import {
+  criarMemoriaEngenharia,
+  registrarProblemas,
+  registrarTentativa,
+  registrarResolvidos,
+  selecionarEstrategia,
+  registrarIgnorado,
+  serializarMemoriaEngenharia,
+  relatorioMemoriaEngenharia
+} from "./engineering-memory.js";
 
 const clonar=xs=>Object.fromEntries(Object.entries(xs||{}).map(([k,v])=>[k,String(v??"")]));
 const fp=xs=>Object.keys(xs).sort().map(k=>k+"\0"+xs[k]).join("\1");
 const bloqueios=a=>(a.resumo?.contagem?.critica||0)+(a.resumo?.contagem?.alta||0);
+const severidadePeso=sev=>({critica:4,alta:3,media:2,baixa:1,info:0}[String(sev||"info").toLowerCase()]??0);
 
 function registrar(h,etapa,ciclo,status,extra={}){
   h.push({etapa,ciclo,status,...extra});
 }
 
-function resultadoFinal(files,plano,criado,entry,a,v,h,status){
+function escolherProblema(memoria){
+  return [...memoria.problemas.values()]
+    .filter(x=>!x.resolvido&&["critica","alta"].includes(String(x.severidade).toLowerCase()))
+    .sort((a,b)=>severidadePeso(b.severidade)-severidadePeso(a.severidade))[0]||null;
+}
+
+function opcoesDaEstrategia(problema,estrategia){
+  const categoria=String(problema?.categoria||"");
+  return estrategia&&estrategia!=="CORRIGIR" ? {categorias:[categoria]} : {};
+}
+
+function resultadoFinal(files,plano,criado,entry,a,v,h,status,memoria){
   return {
     ok:Boolean(v?.valido),
     status:v?.valido?status:"REPROVADO",
     ciclos:h.filter(x=>x.etapa==="ANALISAR").length,
-    criado,plano,entry,files,analise:a,validacao:v,historico:h
+    criado,plano,entry,files,analise:a,validacao:v,historico:h,
+    memoria:serializarMemoriaEngenharia(memoria),
+    relatorioMemoria:relatorioMemoriaEngenharia(memoria)
   };
+}
+
+function aplicarCorrecaoAdaptativa(files,analise,memoria,ciclo,h){
+  const problema=escolherProblema(memoria);
+  if(!problema){
+    registrar(h,"MEMORIA",ciclo,"SEM_PROBLEMA_PRIORITARIO");
+    return {ok:false,status:"BLOQUEADO_SEM_PROBLEMA_PRIORITARIO"};
+  }
+
+  const estrategia=selecionarEstrategia(memoria,problema);
+  if(!estrategia){
+    registrarIgnorado(memoria,{
+      fingerprint:problema.fingerprint,
+      ciclo,
+      motivo:"todas as estratégias disponíveis já foram tentadas",
+      estrategia:"CORRIGIR"
+    });
+    const status="BLOQUEADO_SEM_ESTRATEGIA_NOVA";
+    registrar(h,"MEMORIA",ciclo,status,{problema:problema.mensagem,fingerprint:problema.fingerprint});
+    return {ok:false,status};
+  }
+
+  const antesScore=analise?.score??0;
+  const r=corrigirProjeto({files},opcoesDaEstrategia(problema,estrategia));
+  const depoisScore=r.depois?.score??antesScore;
+  const ganho=depoisScore-antesScore;
+  const houveAplicacao=Boolean(r.aplicado);
+  const statusTentativa=!houveAplicacao
+    ? "FALHOU"
+    : "OK";
+
+  registrarTentativa(memoria,{
+    fingerprint:problema.fingerprint,
+    ciclo,
+    etapa:"CORRIGIR",
+    estrategia,
+    antesScore,
+    depoisScore,
+    ganho,
+    status:statusTentativa,
+    alteracoes:r.alteracoes||[]
+  });
+
+  if(!houveAplicacao){
+    registrar(h,"CORRIGIR",ciclo,"SEM_ALTERACOES",{
+      estrategia,
+      ganho,
+      problema:problema.mensagem,
+      alteracoes:[]
+    });
+    return {ok:false,status:"BLOQUEADO_SEM_CORRECAO"};
+  }
+
+  if(ganho<0){
+    registrar(h,"CORRIGIR",ciclo,"REGRESSAO_PRESERVADA",{
+      estrategia,
+      ganho,
+      problema:problema.mensagem,
+      alteracoes:r.alteracoes||[]
+    });
+    return {ok:false,status:"BLOQUEADO_REGRESSAO"};
+  }
+
+  registrar(h,"CORRIGIR",ciclo,"OK",{
+    estrategia,
+    ganho,
+    problema:problema.mensagem,
+    alteracoes:r.alteracoes||[]
+  });
+  return {ok:true,files:r.files};
 }
 
 export function executarCicloEngenharia(entrada="",opcoes={}){
@@ -28,6 +121,7 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
   const criar=opcoes.criar!==false;
   let files=clonar(opcoes.files||{});
   let plano=null,criado=false,a=null,v=null,status="EM_EXECUCAO";
+  const memoria=criarMemoriaEngenharia();
 
   if(!Object.keys(files).length&&criar){
     const g=gerarProjeto(String(entrada||""),opcoes.analise||{});
@@ -40,12 +134,9 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
   }
 
   const vistos=new Set();
-  const memoria=criarMemoriaEngenharia();
-  let memoriaAnaliseAnterior=null;
 
   for(let ciclo=1;ciclo<=max;ciclo++){
     const antes=fp(files);
-
     if(vistos.has(antes)){
       status="PARADO_SEM_PROGRESSO";
       registrar(h,"GUARDA",ciclo,status);
@@ -54,43 +145,21 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
     vistos.add(antes);
 
     a=analisarProjeto(files);
-    registrarProblemas(memoria,a,ciclo);
     registrarResolvidos(memoria,a,ciclo);
-    memoriaAnaliseAnterior=a;
-    registrar(h,"ANALISAR",ciclo,bloqueios(a)>0?"BLOQUEADORES":"OK",{score:a.score,bloqueadores:bloqueios(a),problemasRastreados:memoria.problemas.size});
+    registrarProblemas(memoria,a,ciclo);
+    registrar(h,"ANALISAR",ciclo,bloqueios(a)>0?"BLOQUEADORES":"OK",{
+      score:a.score,
+      bloqueadores:bloqueios(a),
+      problemasRastreados:memoria.problemas.size
+    });
 
     if(bloqueios(a)>0){
-      const problemas=Array.from(memoria.problemas.values()).filter(x=>!x.resolvido&&["critica","alta"].includes(String(x.severidade).toLowerCase()));
-      const repetido=problemas.find(x=>estrategiaJaFalhou(memoria,x.fingerprint,"CORRIGIR"));
-      if(repetido){
-        registrarIgnorado(memoria,{fingerprint:repetido.fingerprint,ciclo,motivo:"mesma estratégia já falhou para o problema",estrategia:"CORRIGIR"});
-        status="BLOQUEADO_ESTRATEGIA_REPETIDA";
-        registrar(h,"MEMORIA",ciclo,status,{problema:repetido.mensagem,fingerprint:repetido.fingerprint});
+      const correcao=aplicarCorrecaoAdaptativa(files,a,memoria,ciclo,h);
+      if(!correcao.ok){
+        status=correcao.status;
         break;
       }
-      const r=corrigirProjeto({files});
-      const ganho=(r.depois?.score??a.score)-(a.score??0);
-
-      if(!r.aplicado){
-        const alvo=problemas[0];
-        if(alvo) registrarTentativa(memoria,{fingerprint:alvo.fingerprint,ciclo,etapa:"CORRIGIR",estrategia:"CORRIGIR",antesScore:a.score,depoisScore:a.score,ganho,status:"FALHOU",alteracoes:[]});
-        status="BLOQUEADO_SEM_CORRECAO";
-        registrar(h,"CORRIGIR",ciclo,status,{ganho,alteracoes:[]});
-        break;
-      }
-
-      if(ganho<0){
-        const alvo=problemas[0];
-        if(alvo) registrarTentativa(memoria,{fingerprint:alvo.fingerprint,ciclo,etapa:"CORRIGIR",estrategia:"CORRIGIR",antesScore:a.score,depoisScore:r.depois?.score,ganho,status:"FALHOU",alteracoes:r.alteracoes||[]});
-        status="BLOQUEADO_REGRESSAO";
-        registrar(h,"CORRIGIR",ciclo,status,{ganho,alteracoes:r.alteracoes||[]});
-        break;
-      }
-
-      const alvo=problemas[0];
-      if(alvo) registrarTentativa(memoria,{fingerprint:alvo.fingerprint,ciclo,etapa:"CORRIGIR",estrategia:"CORRIGIR",antesScore:a.score,depoisScore:r.depois?.score,ganho,status:"OK",alteracoes:r.alteracoes||[]});
-      files=clonar(r.files);
-      registrar(h,"CORRIGIR",ciclo,"OK",{ganho,alteracoes:r.alteracoes||[]});
+      files=clonar(correcao.files);
       continue;
     }
 
@@ -108,65 +177,45 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
     }
 
     a=analisarProjeto(files);
+    registrarResolvidos(memoria,a,ciclo);
     v=validarProjeto(files,opcoes.validacao||{});
-    registrar(h,"VALIDAR",ciclo,v.estado,{score:v.score,bloqueadores:v.bloqueadores});
+    registrar(h,"VALIDAR",ciclo,v.estado,{
+      score:v.score,
+      bloqueadores:v.bloqueadores
+    });
 
     if(v.valido){
       status=v.estado==="APROVADO"?"APROVADO":"APROVADO_COM_AVISOS";
       break;
     }
 
+    registrarProblemas(memoria,v,ciclo);
+
     if(ciclo===max){
       status="REPROVADO_LIMITE";
       break;
     }
 
-    // O VALIDAR é um gate real: se reprovar por qualquer motivo,
-    // o ciclo tenta uma nova CORREÇÃO antes da próxima análise.
-    const antesValidacao=fp(files);
-    const problemasValidacao=Array.from(memoria.problemas.values()).filter(x=>!x.resolvido&&["critica","alta"].includes(String(x.severidade).toLowerCase()));
-    const repetidoValidacao=problemasValidacao.find(x=>estrategiaJaFalhou(memoria,x.fingerprint,"CORRIGIR"));
-    if(repetidoValidacao){
-      registrarIgnorado(memoria,{fingerprint:repetidoValidacao.fingerprint,ciclo,motivo:"mesma estratégia já falhou durante o gate de validação",estrategia:"CORRIGIR"});
-      status="BLOQUEADO_VALIDACAO_ESTRATEGIA_REPETIDA";
-      registrar(h,"MEMORIA",ciclo,status,{problema:repetidoValidacao.mensagem,fingerprint:repetidoValidacao.fingerprint});
+    const correcaoValidacao=aplicarCorrecaoAdaptativa(files,v.analise||v,memoria,ciclo,h);
+    if(!correcaoValidacao.ok){
+      status=correcaoValidacao.status.startsWith("BLOQUEADO_SEM_PROBLEMA")
+        ?"BLOQUEADO_VALIDACAO_SEM_PROBLEMA"
+        :correcaoValidacao.status;
       break;
     }
-    const r=corrigirProjeto({files});
-    const ganho=(r.depois?.score??a.score)-a.score;
-
-    if(!r.aplicado){
-      const alvo=problemasValidacao[0];
-      if(alvo) registrarTentativa(memoria,{fingerprint:alvo.fingerprint,ciclo,etapa:"CORRIGIR",estrategia:"CORRIGIR",antesScore:a.score,depoisScore:a.score,ganho,status:"FALHOU",alteracoes:[]});
-      status="BLOQUEADO_VALIDACAO_SEM_CORRECAO";
-      registrar(h,"CORRIGIR",ciclo,status,{ganho,alteracoes:[]});
-      break;
-    }
-
-    if(ganho<0){
-      const alvo=problemasValidacao[0];
-      if(alvo) registrarTentativa(memoria,{fingerprint:alvo.fingerprint,ciclo,etapa:"CORRIGIR",estrategia:"CORRIGIR",antesScore:a.score,depoisScore:r.depois?.score,ganho,status:"FALHOU",alteracoes:r.alteracoes||[]});
-      status="BLOQUEADO_VALIDACAO_REGRESSAO";
-      registrar(h,"CORRIGIR",ciclo,status,{ganho,alteracoes:r.alteracoes||[]});
-      break;
-    }
-
-    const alvo=problemasValidacao[0];
-    if(alvo) registrarTentativa(memoria,{fingerprint:alvo.fingerprint,ciclo,etapa:"CORRIGIR",estrategia:"CORRIGIR",antesScore:a.score,depoisScore:r.depois?.score,ganho,status:"OK",alteracoes:r.alteracoes||[]});
-    files=clonar(r.files);
-    registrar(h,"CORRIGIR",ciclo,"VALIDACAO_FALHOU",{ganho,alteracoes:r.alteracoes||[],mudou:antesValidacao!==fp(files)});
+    files=clonar(correcaoValidacao.files);
+    registrar(h,"CORRIGIR",ciclo,"VALIDACAO_FALHOU",{
+      tentativaAdaptativa:true,
+      mudou:true
+    });
   }
 
   if(!a)a=analisarProjeto(files);
   if(!v)v=validarProjeto(files,opcoes.validacao||{});
+  registrarResolvidos(memoria,a,h.filter(x=>x.etapa==="ANALISAR").length);
   if(v.valido&&status==="EM_EXECUCAO")status=v.estado==="APROVADO"?"APROVADO":"APROVADO_COM_AVISOS";
 
-  const resultado=resultadoFinal(files,plano,criado,opcoes.entry||"index.html",a,v,h,status);
-  const memoriaSerializada=serializarMemoriaEngenharia(memoria);
-  registrarResolvidos(memoria,a,h.filter(x=>x.etapa==="ANALISAR").length);
-  resultado.memoria=serializarMemoriaEngenharia(memoria);
-  resultado.relatorioMemoria=relatorioMemoriaEngenharia(resultado.memoria);
-  return resultado;
+  return resultadoFinal(files,plano,criado,opcoes.entry||"index.html",a,v,h,status,memoria);
 }
 
 export function relatorioEngenharia(r={}){
@@ -179,7 +228,7 @@ export function relatorioEngenharia(r={}){
     "Bloqueadores: "+(r.validacao?.bloqueadores??((c.critica||0)+(c.alta||0)))
   ];
   if(r.plano)l.push("Plano: "+r.plano.tipo+" / "+r.plano.estrategia);
-  if(r.memoria)l.push(...relatorioMemoriaEngenharia(r.memoria).split("\\n"));
-  for(const x of r.historico||[])l.push((x.ciclo?"["+x.ciclo+"] ":"")+"["+x.etapa+"] "+x.status);
+  if(r.memoria)l.push(...relatorioMemoriaEngenharia(r.memoria).split("\n"));
+  for(const x of r.historico||[])l.push((x.ciclo?"["+x.ciclo+"] ":"")+"["+x.etapa+"] "+x.status+(x.estrategia?" • estratégia="+x.estrategia:""));
   return l.join("\n");
 }
