@@ -9,6 +9,7 @@ import { gerarProjeto } from "./generator.js";
 import { extrairBlocosCodigo, analisarCodigo, analisarProjeto, relatorioAnalise } from "./analyzer.js";
 import { corrigirProjeto, relatorioCorrecao } from "./fixer.js";
 import { sugerirMelhorias, aplicarMelhoriasSeguras, relatorioMelhorias } from "./improver.js";
+import { validarProjeto, relatorioValidacao } from "./validator.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -68,6 +69,13 @@ function arquivosDaMensagem(texto){
     arquivos[nome]=codigo;
   });
   return arquivos;
+}
+
+function respostaValidacao(texto){
+  const arquivos=arquivosDaMensagem(texto);
+  if(!Object.keys(arquivos).length)return "Para validar, cole o código ou projeto na mensagem. O VALIDAR verifica entrada, estrutura, referências, PWA e os achados do ANALYZE.";
+  const resultado=validarProjeto(arquivos);
+  return relatorioValidacao(resultado);
 }
 
 function respostaMelhoria(texto,aplicar=false){
@@ -232,7 +240,13 @@ function intencaoEspecial(analise,texto){
 
 async function responder(texto){
   extrairMemoria(texto);
-  const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar|corrigir|melhorar)\b/i,"$1").trim();
+  const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar|corrigir|melhorar|validar)\b/i,"$1").trim();
+  if(/^validar\b|^valide\b|^validacao\b|^validação\b/i.test(limpo)){
+    const alvo=limpo.replace(/^(validar|valide|validacao|validação)\b/i,"").trim();
+    const r=respostaValidacao(alvo);
+    contexto.atualizar({texto:limpo,resposta:r,analise:pnl.detectar(limpo),estrategia:"validacao",assunto:memoria.estado.assuntoAtual});
+    return r;
+  }
   if(/^melhorar\b|^melhore\b/i.test(limpo)){
     const aplicar=/\b(aplicar|aplique|automatize|automaticamente)\b/i.test(limpo);
     const alvo=limpo.replace(/^(melhorar|melhore)\b/i,"").replace(/\b(aplicar|aplique|automatize|automaticamente)\b/ig,"").trim();
@@ -284,6 +298,11 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
   if(analise.confident&&analise.intent==="noticias"){const r=await api.noticias();contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
   if(analise.confident&&analise.intent==="tempo"){const r=await api.tempo(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
   if(analise.confident&&analise.intent==="cep"){const r=await api.cep(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
+  if(analise.confident&&analise.objetivo==="validar"&&["jogos","programacao"].includes(analise.intent)){
+    const r=respostaValidacao(limpo);
+    contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"validacao",assunto:memoria.estado.assuntoAtual});
+    return r;
+  }
   if(analise.confident&&analise.objetivo==="melhorar"&&["jogos","programacao"].includes(analise.intent)){
     const r=respostaMelhoria(limpo,false);
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"melhoria",assunto:memoria.estado.assuntoAtual});
