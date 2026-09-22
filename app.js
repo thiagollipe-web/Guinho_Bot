@@ -257,6 +257,7 @@ function openDrawer(){
 
 function resetChat(){
   memoria.limpar();
+  contexto.limpar();
   chat.innerHTML="";
   add("bot","Nova conversa iniciada. A sessão de memória foi limpa e o motor local está pronto.");
   input?.focus();
