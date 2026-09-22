@@ -176,7 +176,7 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
 
     a=analisarProjeto(files);
     registrarResolvidos(memoria,a,ciclo);
-    atualizarResultadosAprendidos(aprendizado,a,extrairProblemas,ciclo);
+    atualizarResultadosAprendidos(aprendizado,a,extrairProblemas,ciclo,"ANALISE");
     registrarProblemas(memoria,a,ciclo);
     registrar(h,"ANALISAR",ciclo,bloqueios(a)>0?"BLOQUEADORES":"OK",{
       score:a.score,
@@ -245,7 +245,9 @@ export function executarCicloEngenharia(entrada="",opcoes={}){
 
   if(!a)a=analisarProjeto(files);
   if(!v)v=validarProjeto(files,opcoes.validacao||{});
-  registrarResolvidos(memoria,a,h.filter(x=>x.etapa==="ANALISAR").length);
+  const ciclosRealizados=h.filter(x=>x.etapa==="ANALISAR").length;
+  registrarResolvidos(memoria,a,ciclosRealizados);
+  atualizarResultadosAprendidos(aprendizado,a,extrairProblemas,ciclosRealizados+1,"ANALISE");
   if(v.valido&&status==="EM_EXECUCAO")status=v.estado==="APROVADO"?"APROVADO":"APROVADO_COM_AVISOS";
 
   return resultadoFinal(files,plano,criado,opcoes.entry||"index.html",a,v,h,status,memoria,aprendizado);
