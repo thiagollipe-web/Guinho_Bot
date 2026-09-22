@@ -8,6 +8,7 @@ import { perfilPergunta } from "./prompt-library.js";
 import { gerarProjeto } from "./generator.js";
 import { extrairBlocosCodigo, analisarCodigo, analisarProjeto, relatorioAnalise } from "./analyzer.js";
 import { corrigirProjeto, relatorioCorrecao } from "./fixer.js";
+import { sugerirMelhorias, aplicarMelhoriasSeguras, relatorioMelhorias } from "./improver.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -58,15 +59,27 @@ function respostaCorrecao(texto){
   return relatorioCorrecao(resultado);
 }
 
-function respostaAnalise(texto){
+function arquivosDaMensagem(texto){
   const blocos=extrairBlocosCodigo(texto);
-  if(blocos.length===0)return "Para fazer a análise, cole o código na mensagem. Posso auditar HTML, CSS e JavaScript e verificar DOM, eventos, Canvas, mobile, PWA, segurança e performance.";
   const arquivos={};
   blocos.slice(0,8).forEach((codigo,i)=>{
     const q=codigo.toLowerCase();
     const nome=/<(?:!doctype|html|body|canvas)\b/.test(q)?"codigo-"+(i+1)+".html":/[.#][\w-]+\s*\{/.test(q)?"codigo-"+(i+1)+".css":"codigo-"+(i+1)+".js";
     arquivos[nome]=codigo;
   });
+  return arquivos;
+}
+
+function respostaMelhoria(texto,aplicar=false){
+  const arquivos=arquivosDaMensagem(texto);
+  if(!Object.keys(arquivos).length)return "Para melhorar, cole o código na mensagem. O MELHORAR procura oportunidades de performance, mobile, acessibilidade, robustez, UX, games e PWA.";
+  const resultado=aplicar?aplicarMelhoriasSeguras(arquivos):sugerirMelhorias(arquivos);
+  return relatorioMelhorias(resultado);
+}
+
+function respostaAnalise(texto){
+  const arquivos=arquivosDaMensagem(texto);
+  if(!Object.keys(arquivos).length)return "Para fazer a análise, cole o código na mensagem. Posso auditar HTML, CSS e JavaScript e verificar DOM, eventos, Canvas, mobile, PWA, segurança e performance.";
   const resultado=Object.keys(arquivos).length===1
     ? analisarCodigo(Object.values(arquivos)[0],Object.keys(arquivos)[0])
     : analisarProjeto(arquivos);
@@ -219,7 +232,14 @@ function intencaoEspecial(analise,texto){
 
 async function responder(texto){
   extrairMemoria(texto);
-  const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar|corrigir)\b/i,"$1").trim();
+  const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar|corrigir|melhorar)\b/i,"$1").trim();
+  if(/^melhorar\b|^melhore\b/i.test(limpo)){
+    const aplicar=/\b(aplicar|aplique|automatize|automaticamente)\b/i.test(limpo);
+    const alvo=limpo.replace(/^(melhorar|melhore)\b/i,"").replace(/\b(aplicar|aplique|automatize|automaticamente)\b/ig,"").trim();
+    const r=respostaMelhoria(alvo,aplicar);
+    contexto.atualizar({texto:limpo,resposta:r,analise:pnl.detectar(limpo),estrategia:"melhoria",assunto:memoria.estado.assuntoAtual});
+    return r;
+  }
   if(/^corrigir\b|^corrija\b/i.test(limpo)){
     const alvo=limpo.replace(/^(corrigir|corrija)\b/i,"").trim();
     const r=respostaCorrecao(alvo);
@@ -264,6 +284,11 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
   if(analise.confident&&analise.intent==="noticias"){const r=await api.noticias();contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
   if(analise.confident&&analise.intent==="tempo"){const r=await api.tempo(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
   if(analise.confident&&analise.intent==="cep"){const r=await api.cep(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
+  if(analise.confident&&analise.objetivo==="melhorar"&&["jogos","programacao"].includes(analise.intent)){
+    const r=respostaMelhoria(limpo,false);
+    contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"melhoria",assunto:memoria.estado.assuntoAtual});
+    return r;
+  }
   if(analise.confident&&(analise.objetivo==="analisar"||analise.objetivo==="diagnosticar")&&["jogos","programacao"].includes(analise.intent)){
     const r=respostaAnalise(limpo);
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"diagnostico",assunto:memoria.estado.assuntoAtual});
