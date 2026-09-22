@@ -7,6 +7,7 @@ import { ContextoConversacional } from "./context.js";
 import { perfilPergunta } from "./prompt-library.js";
 import { gerarProjeto } from "./generator.js";
 import { extrairBlocosCodigo, analisarCodigo, analisarProjeto, relatorioAnalise } from "./analyzer.js";
+import { corrigirProjeto, relatorioCorrecao } from "./fixer.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -43,6 +44,19 @@ function respostaCriacao(texto,analise){
   return `Projeto gerado: ${projeto.plano.tipo}\\nEstratégia: ${projeto.plano.estrategia}\\nTecnologias: ${projeto.plano.tecnologias.join(", ")}\\nArquivos: ${nomes.join(", ")}\\n${estado}${projeto.validacao.erros.length?`\\nErros: ${projeto.validacao.erros.join(" • ")}`:""}${avisos}\\n\\nArquivo de entrada: ${projeto.entry}\\n\\n${limite}`;
 }
 
+
+function respostaCorrecao(texto){
+  const blocos=extrairBlocosCodigo(texto);
+  if(blocos.length===0)return "Para corrigir, cole o código na mensagem. O CORRIGIR aplica apenas alterações automáticas seguras e revalida o resultado.";
+  const arquivos={};
+  blocos.slice(0,8).forEach((codigo,i)=>{
+    const q=codigo.toLowerCase();
+    const nome=/<(?:!doctype|html|body|canvas)\b/.test(q)?"codigo-"+(i+1)+".html":/[.#][\w-]+\s*\{/.test(q)?"codigo-"+(i+1)+".css":"codigo-"+(i+1)+".js";
+    arquivos[nome]=codigo;
+  });
+  const resultado=corrigirProjeto(arquivos);
+  return relatorioCorrecao(resultado);
+}
 
 function respostaAnalise(texto){
   const blocos=extrairBlocosCodigo(texto);
@@ -205,8 +219,14 @@ function intencaoEspecial(analise,texto){
 
 async function responder(texto){
   extrairMemoria(texto);
-  const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar)\b/i,"$1").trim();
-  if(/^analisar\b/i.test(limpo)){
+  const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar|corrigir)\b/i,"$1").trim();
+  if(/^corrigir\b|^corrija\b/i.test(limpo)){
+    const alvo=limpo.replace(/^(corrigir|corrija)\b/i,"").trim();
+    const r=respostaCorrecao(alvo);
+    contexto.atualizar({texto:limpo,resposta:r,analise:pnl.detectar(limpo),estrategia:"correcao",assunto:memoria.estado.assuntoAtual});
+    return r;
+  }
+    if(/^analisar\b/i.test(limpo)){
     const alvo=limpo.replace(/^analisar\b/i,"").trim();
     const r=respostaAnalise(alvo);
     contexto.atualizar({texto:limpo,resposta:r,analise:pnl.detectar(limpo),estrategia:"diagnostico",assunto:memoria.estado.assuntoAtual});
