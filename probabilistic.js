@@ -120,6 +120,8 @@ export class EstatisticaLinguistica{
       {intent:"programacao",regex:/\b(codigo|código|programacao|programação|javascript|typescript|html|css|python|nodejs|node\.js|github|canvas|npm|git|ollama|llama\.cpp|gguf|pwa|service worker|manifest)\b/,bonus:4.0}
     ];
     for(const a of assinaturas)if(a.regex.test(q))porIntent.set(a.intent,(porIntent.get(a.intent)||0)+a.bonus);
+    if(/\b(piskel|pixelorama|spritesheet|tilemap|makecode|microstudio|tic 80|kenney|opengameart)\b/.test(q))porIntent.set("jogos",8);
+    if(/\b(pwa|service worker|manifest|javascript|typescript|html|css|python|nodejs|node\.js|ollama|llama\.cpp|gguf)\b/.test(q))porIntent.set("programacao",8);
     const rows=this.intentNames.map(intent=>{
       const prior=Math.log((this.intentDocs.get(intent)+1)/(this.totalDocs+this.intentNames.length));
       const likelihood=feats.reduce((sum,item)=>sum+item.peso*this.laplace(item.term,intent),0);
