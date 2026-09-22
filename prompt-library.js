@@ -103,6 +103,27 @@ export function normalizarPrompt(texto){
   return String(texto??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9\s]/g," ").replace(/\s+/g," ").trim();
 }
 
+const INTENCOES_CANONICAS={
+  saudacao:"saudacao",despedida:"despedida",agradecimento:"agradecimento",ajuda:"ajuda",
+  memoria:"memoria",moeda:"moeda",noticias:"noticias",tempo:"tempo",cep:"cep",matematica:"matematica",
+  programacao:"programacao",ciencias:"ciencias",conhecimento:"conhecimento",jogos:"jogos",
+  criar_codigo:"programacao",explicar_codigo:"programacao",corrigir_codigo:"programacao",
+  analisar_codigo:"programacao",melhorar_codigo:"programacao",depurar:"programacao",arquitetura:"programacao",
+  criar_site:"programacao",html:"programacao",css:"programacao",javascript:"programacao",pwa:"programacao",
+  criar_jogo:"jogos",gameplay:"jogos",pixel_art:"jogos",fisica_jogo:"jogos",performance_jogo:"jogos",
+  python_codigo:"programacao",node:"programacao",sql:"programacao",git:"programacao",terminal:"programacao",
+  android:"programacao",llm:"programacao",ollama:"programacao",
+  aula:"conhecimento",explicar_didatico:"conhecimento",questoes:"conhecimento",
+  reescrever:"conhecimento",traduzir:"conhecimento",resumir:"conhecimento",
+  tabela:"conhecimento",grafico:"conhecimento",diagnostico:"conhecimento",instalacao:"programacao",
+  seguranca:"programacao",calculo_financeiro:"matematica",cotacao:"moeda",clima:"tempo",
+  informacao_saude:"ciencias",planejamento:"conhecimento",receita:"conhecimento"
+};
+
+export function intencaoCanonica(nome){
+  return INTENCOES_CANONICAS[nome]||nome;
+}
+
 export function todosPadroes(){
   return BIBLIOTECA_PROMPTS.flatMap(item=>item.padroes.map(padrao=>({...item,padrao})));
 }
@@ -116,9 +137,42 @@ export function buscarPadroes(texto,limite=12){
       const exato=q.includes(p);
       const palavras=p.split(" ");
       const cobertura=palavras.filter(w=>q.includes(w)).length/Math.max(1,palavras.length);
-      return {...item,score:exato?1: cobertura*.72};
+      const especificidade=Math.min(.36,Math.max(0,palavras.length-1)*.12);
+      return {...item,intencaoCanonica:intencaoCanonica(item.intencao),score:exato?1+especificidade:cobertura*.72+especificidade};
     })
     .filter(x=>x.score>0)
     .sort((a,b)=>b.score-a.score)
     .slice(0,limite);
+}
+
+
+export function pontuarBiblioteca(texto){
+  const sinais=buscarPadroes(texto,32);
+  const mapa=new Map();
+  for(const sinal of sinais){
+    const intent=sinal.intencaoCanonica||intencaoCanonica(sinal.intencao);
+    const anterior=mapa.get(intent)||0;
+    mapa.set(intent,Math.max(anterior,sinal.score));
+  }
+  return Object.fromEntries([...mapa].sort((a,b)=>b[1]-a[1]));
+}
+
+export function perfilPergunta(texto){
+  const sinais=buscarPadroes(texto,32);
+  const dominios={};
+  const intencoes={};
+  const formatos={};
+  for(const s of sinais){
+    dominios[s.dominio]=(dominios[s.dominio]||0)+s.score;
+    if(s.dominio==="objetivo"||s.dominio==="formato")continue;
+    const i=s.intencaoCanonica||intencaoCanonica(s.intencao);
+    intencoes[i]=Math.max(intencoes[i]||0,s.score);
+    if(s.dominio==="formato")formatos[s.intencao]=(formatos[s.intencao]||0)+s.score;
+  }
+  return {
+    sinais,
+    dominios:Object.fromEntries(Object.entries(dominios).sort((a,b)=>b[1]-a[1]).slice(0,8)),
+    intencoes:Object.fromEntries(Object.entries(intencoes).sort((a,b)=>b[1]-a[1]).slice(0,8)),
+    formatos:Object.fromEntries(Object.entries(formatos).sort((a,b)=>b[1]-a[1]).slice(0,8))
+  };
 }
