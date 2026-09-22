@@ -257,72 +257,77 @@ function respostaAnalise(texto){
     : analisarProjeto(arquivos);
   return relatorioAnalise(resultado);
 }
-class CompositorRespostas{
+class GeradorRespostaEstruturada{
   constructor({pnl,recuperador,memoria,gerador}){this.pnl=pnl;this.recuperador=recuperador;this.memoria=memoria;this.gerador=gerador;}
-  contexto(texto){
-    const q=this.pnl.normalizar(texto);
-    const curtas=q.split(" ").length<=5;
-    const referencia=/\b(isso|isto|esse|essa|ele|ela|eles|elas|aquilo)\b/.test(q);
-    if((curtas||referencia)&&this.memoria.estado.assuntoAtual)return contexto.referencia(texto,this.pnl);
-    return texto;
+  recuperar(consulta,analise){
+    const resultados=this.recuperador.recuperar(consulta,8);
+    const frases=this.recuperador.frasesRelevantes(consulta,8,12);
+    const limiar=analise.confident?.62:.72;
+    return {
+      documentos:resultados.filter(x=>x.score>=.08),
+      frases:frases.filter(x=>x.score>=.16&&x.score>=limiar*.22)
+    };
   }
-  selecionarFrases(consulta,tipo){
-    const candidatas=this.recuperador.frasesRelevantes(this.contexto(consulta),6,12);
-    const escolhidas=[];
+  deduplicar(frases){
     const vistos=new Set();
-    for(const c of candidatas){
-      const chave=this.pnl.normalizar(c.frase);
-      if(vistos.has(chave))continue;
-      if(c.score<.16)continue;
-      if(tipo==="definicao"&&escolhidas.length>=2)continue;
-      if(tipo==="lista"&&escolhidas.length>=4)continue;
-      if(escolhidas.length<2||escolhidas.every(x=>x.tema!==c.tema)){
-        escolhidas.push(c);vistos.add(chave);
-      }
-      if(escolhidas.length>=4)break;
-    }
-    return escolhidas;
+    return frases.filter(x=>{
+      const chave=this.pnl.normalizar(x.frase);
+      if(!chave||vistos.has(chave))return false;
+      vistos.add(chave);return true;
+    });
   }
-  compor(consulta,analise){
-    const tipo=analise.tipo;
-    const frases=this.selecionarFrases(consulta,tipo);
-    if(!frases.length)return null;
-
-    this.memoria.definirAssunto(frases[0].titulo||frases[0].tema);
-    const estrategia=this.gerador.estrategia(analise).estrategia;
-    const corpo=frases.slice(0,
-      tipo==="definicao"?2:
-      tipo==="lista"?4:
-      tipo==="comparacao"?2:
-      tipo==="como"?3:2
-    );
-
+  estruturar(consulta,analise){
+    const {documentos}=this.recuperar(consulta,analise);
+    if(!documentos.length)return null;
+    const frases=this.deduplicar(this.recuperar(consulta,analise).frases);
+    const melhor=documentos[0];
+    const tema=melhor.titulo||melhor.tema||"o assunto";
+    const tipo=analise.tipo||"geral";
     const linhas=[];
+    const corpo=frases.slice(0,tipo==="lista"?4:tipo==="como"?3:2);
+
     if(tipo==="definicao"){
-      linhas.push("Definição");
-      linhas.push(corpo.map(x=>x.frase).join(" "));
-    }else if(tipo==="lista"){
-      linhas.push("Pontos principais");
-      corpo.forEach(x=>linhas.push("• "+x.frase));
+      linhas.push("Em termos simples, "+tema+" é "+this.compactar(melhor.texto||corpo[0]?.frase||"um conceito da base local.")+".");
     }else if(tipo==="como"){
-      linhas.push("Como funciona");
-      corpo.forEach((x,i)=>linhas.push((i+1)+". "+x.frase));
+      linhas.push("Funciona assim:");
+      corpo.forEach((x,i)=>linhas.push((i+1)+". "+this.limparFrase(x.frase)));
+    }else if(tipo==="lista"){
+      linhas.push("Os pontos principais são:");
+      corpo.forEach(x=>linhas.push("• "+this.limparFrase(x.frase)));
     }else if(tipo==="comparacao"){
-      linhas.push("Comparação");
-      corpo.forEach(x=>linhas.push("• "+x.frase));
+      linhas.push("A comparação depende do aspecto considerado.");
+      corpo.forEach(x=>linhas.push("• "+this.limparFrase(x.frase)));
+    }else if(tipo==="por_que"){
+      linhas.push("O ponto central é:");
+      corpo.forEach(x=>linhas.push(this.limparFrase(x.frase)));
     }else{
-      linhas.push(corpo.map(x=>x.frase).join(" "));
+      linhas.push(corpo.length?corpo.map(x=>this.limparFrase(x.frase)).join(" "):this.compactar(melhor.texto||""));
     }
 
-    if(estrategia==="diagnostico"&&analise.objetivo==="analisar"){
-      linhas.unshift("Análise local");
-    }
-
-    const fonte=[...new Set(corpo.map(x=>x.titulo))].slice(0,3).join(" • ");
-    if(fonte)linhas.push("","Fonte local: "+fonte);
-    return linhas.join("\n");
+    const assunto=melhor.titulo||melhor.tema;
+    this.memoria.definirAssunto(assunto);
+    const confianca=Number(melhor.score||0);
+    if(confianca>=.25&&tipo!=="geral")linhas.push("","Se quiser, posso aprofundar esse ponto ou mostrar um exemplo.");
+    return {texto:linhas.join("\n"),assunto,fontes:documentos.slice(0,3).map(x=>x.titulo),confianca};
+  }
+  limparFrase(frase){
+    return String(frase||"").replace(/^\s*[•*-]\s*/,"").trim();
+  }
+  compactar(texto){
+    return this.limparFrase(String(texto||"").replace(/\s+/g," ").trim());
+  }
+  gerar(consulta,analise){
+    const resultado=this.estruturar(consulta,analise);
+    if(!resultado)return null;
+    const fontes=[...new Set(resultado.fontes.filter(Boolean))].slice(0,3);
+    const texto=fontes.length
+      ? resultado.texto+"\n\nFonte local: "+fontes.join(" • ")
+      : resultado.texto;
+    return {...resultado,texto};
   }
 }
+
+const geradorResposta=new GeradorRespostaEstruturada({pnl,recuperador,memoria,gerador});
 
 const compositor=new CompositorRespostas({pnl,recuperador,memoria,gerador});
 
@@ -508,26 +513,16 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
   }
   
   function respostaNaturalFallback(texto,analise){
-  const q=pnl.normalizar(texto);
-  if(!q)return null;
-  if(analise.objetivo==="explicar"||analise.tipo==="definicao"||analise.tipo==="como"){
-    const frases=recuperador.frasesRelevantes(q,8,3);
-    if(frases.length&&frases[0].score>=.22){
-      const tema=frases[0].titulo||frases[0].tema;
-      const corpo=frases.slice(0,2).map(x=>x.frase).join(" ");
-      contexto.atualizar({texto,resposta:corpo,analise,estrategia:"explicacao",assunto:tema});
-      return corpo;
-    }
-  }
-  return null;
+  const resultado=geradorResposta.gerar(texto,analise);
+  if(!resultado)return null;
+  contexto.atualizar({texto,resposta:resultado.texto,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:resultado.assunto});
+  return resultado.texto;
 }
 
 const especial=analise.confident?intencaoEspecial(analise,limpo):null;
   if(especial){contexto.atualizar({texto:limpo,resposta:especial,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:memoria.estado.assuntoAtual});return especial;}
   const natural=respostaNaturalFallback(textoContextual,analise);
   if(natural)return natural;
-  const composta=compositor.compor(textoContextual,analise);
-  if(composta){contexto.atualizar({texto:limpo,resposta:composta,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:memoria.estado.assuntoAtual});return composta;}
   const r=analise.confident
     ? "Eu não encontrei evidência suficiente na base local para responder com segurança. Tente acrescentar o assunto, uma definição ou o contexto da pergunta."
     : "Ainda estou dividido entre algumas interpretações. Se você acrescentar o objetivo ou a tecnologia envolvida, consigo direcionar melhor a resposta.";
