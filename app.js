@@ -11,6 +11,7 @@ import { corrigirProjeto, relatorioCorrecao } from "./fixer.js";
 import { sugerirMelhorias, aplicarMelhoriasSeguras, relatorioMelhorias } from "./improver.js";
 import { validarProjeto, relatorioValidacao } from "./validator.js";
 import { executarCicloEngenharia, relatorioEngenharia } from "./engine.js";
+import { hidratarModeloAprendizado, serializarModeloAprendizado, relatorioAprendizado } from "./engineering-learning.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -48,6 +49,7 @@ const engClose=document.querySelector("#eng-close");
 const engRun=document.querySelector("#eng-run");
 const engSummary=document.querySelector("#eng-summary");
 const engMemory=document.querySelector("#eng-memory");
+const LEARNING_KEY="guinho-engineering-learning-v1";
 let ultimoProjetoEngenharia=null;
 let arquivoEngenhariaAtual="index.html";
 
@@ -57,6 +59,29 @@ const memoria=new MemoriaSessao();
 const gerador=new GeradorEstatistico();
 const contexto=new ContextoConversacional();
 let modoAtual="standard";
+
+function carregarAprendizadoEngenharia(){
+  try{
+    const bruto=localStorage.getItem(LEARNING_KEY);
+    return hidratarModeloAprendizado(bruto?JSON.parse(bruto):{});
+  }catch{
+    return hidratarModeloAprendizado({});
+  }
+}
+
+function salvarAprendizadoEngenharia(aprendizado){
+  try{
+    localStorage.setItem(LEARNING_KEY,JSON.stringify(serializarModeloAprendizado(aprendizado)));
+  }catch{}
+}
+
+function executarCicloComAprendizado(entrada,opcoes={}){
+  const aprendizado=carregarAprendizadoEngenharia();
+  const resultado=executarCicloEngenharia(entrada,{...opcoes,aprendizado});
+  if(resultado.aprendizado)salvarAprendizadoEngenharia(resultado.aprendizado);
+  return resultado;
+}
+
 
 function respostaCriacao(texto,analise){
   const projeto=gerarProjeto(texto,analise);
@@ -171,7 +196,7 @@ function executarAcaoWorkspace(tipo){
     }else if(tipo==="validar"){
       const a=analisarProjeto(files),v=validarProjeto(files);resultado={...ultimoProjetoEngenharia,files,analise:a,validacao:v,status:v.valido?(v.estado==="APROVADO"?"APROVADO":"APROVADO_COM_AVISOS"):"REPROVADO",ok:v.valido,historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"VALIDAR",status:v.estado,score:v.score,bloqueadores:v.bloqueadores}]};
     }else if(tipo==="ciclo"){
-      resultado=executarCicloEngenharia("Projeto editado no Workspace",{criar:false,files,maxCiclos:4});
+      resultado=executarCicloComAprendizado("Projeto editado no Workspace",{criar:false,files,maxCiclos:4});
     }
     if(resultado){atualizarResultadoWorkspace(resultado,tipo.toUpperCase());showToast(tipo.toUpperCase()+" concluído");}
   }catch(err){atualizarWorkspaceStatus("Erro: "+err.message,"ERRO");showToast("Erro: "+err.message);}
@@ -184,13 +209,13 @@ function fecharWorkspace(){sincronizarEditorEngenharia();if(engineeringWorkspace
 function executarNovoCicloWorkspace(){
   const pedido=window.prompt("O que o Guinho deve construir?");
   if(!pedido)return;
-  try{const r=executarCicloEngenharia(pedido);abrirWorkspace(r);add("bot",relatorioEngenharia(r));}
+  try{const r=executarCicloComAprendizado(pedido);abrirWorkspace(r);add("bot",relatorioEngenharia(r));}
   catch(err){showToast("Erro no ciclo: "+err.message);}
 }
 function respostaEngenharia(texto){
   const arquivos=arquivosDaMensagem(texto);
   const temProjeto=Object.keys(arquivos).length>0;
-  const resultado=executarCicloEngenharia(temProjeto?"Projeto fornecido pelo usuário":texto,{criar:!temProjeto,files:arquivos});
+  const resultado=executarCicloComAprendizado(temProjeto?"Projeto fornecido pelo usuário":texto,{criar:!temProjeto,files:arquivos});
   if(resultado.ok)abrirWorkspace(resultado);
   const relatorio=relatorioEngenharia(resultado);
   if(!resultado.ok)return relatorio+"\n\nO ciclo foi interrompido com segurança; nenhum código foi executado.";
