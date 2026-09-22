@@ -15,4 +15,5 @@ jobs:
       - run: node --check app.js
       - run: node --check retrieval.js
       - run: node --check memory.js
+      - run: node --check probabilistic.js
       - run: node --check knowledge.js
