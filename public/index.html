@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>Guinho Bot</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div>
+        <h1>Guinho Bot</h1>
+        <p>Chatbot online com IA + busca Wikimedia.</p>
+      </div>
+      <span id="status" class="status">Conectando...</span>
+    </header>
+
+    <section id="chat" class="chat" aria-live="polite"></section>
+
+    <form id="chatForm" class="composer">
+      <label class="sr-only" for="message">Mensagem</label>
+      <textarea id="message" rows="2" maxlength="12000" placeholder="Digite sua pergunta..." required></textarea>
+      <button type="submit">Enviar</button>
+    </form>
+
+    <form id="wikiForm" class="wiki">
+      <label for="wikiQuery">Pesquisar na Wikipedia</label>
+      <div class="wiki-row">
+        <input id="wikiQuery" maxlength="200" placeholder="Ex.: história do Brasil">
+        <button type="submit">Pesquisar</button>
+      </div>
+      <div id="wikiResults"></div>
+    </form>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
