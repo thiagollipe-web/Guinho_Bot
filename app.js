@@ -165,15 +165,17 @@ async function responder(texto){
     return `Diagnóstico local:\nIntenção: ${rel.intencao}\nConfiança: ${(rel.confianca*100).toFixed(1)}%\nMargem: ${(rel.margem*100).toFixed(1)}%\nTipo: ${rel.tipo}\n\nProbabilidades:\n${rel.probabilidades.slice(0,5).map(x=>`${x.intent}: ${(x.probability*100).toFixed(1)}%`).join("\n")}`;
   }
   const analise=pnl.detectar(limpo);
-  if(analise.intent==="moeda")return api.moeda();
-  if(analise.intent==="noticias")return api.noticias();
-  if(analise.intent==="tempo")return api.tempo(limpo);
-  if(analise.intent==="cep")return api.cep(limpo);
-  const especial=intencaoEspecial(analise,limpo);
+  if(analise.confident&&analise.intent==="moeda")return api.moeda();
+  if(analise.confident&&analise.intent==="noticias")return api.noticias();
+  if(analise.confident&&analise.intent==="tempo")return api.tempo(limpo);
+  if(analise.confident&&analise.intent==="cep")return api.cep(limpo);
+  const especial=analise.confident?intencaoEspecial(analise,limpo):null;
   if(especial)return especial;
   const composta=compositor.compor(limpo,analise);
   if(composta)return composta;
-  return "Eu não tenho evidência suficiente para responder com segurança. Tente reformular a pergunta com um pouco mais de contexto.";
+  return analise.confident
+    ? "Eu não encontrei evidência suficiente na base local para responder com segurança. Tente acrescentar o assunto, uma definição ou o contexto da pergunta."
+    : "Não consegui decidir a intenção com confiança. Vou precisar de um pouco mais de contexto para deduzir sua pergunta.";
 }
 
 function add(role,text){
