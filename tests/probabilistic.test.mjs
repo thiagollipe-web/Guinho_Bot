@@ -13,7 +13,7 @@ const casos = [
   ["Como melhorar meu código?", "programacao", "melhorar"],
   ["Qual a diferença entre Piskel e Pixelorama?", "jogos", "comparar"],
   ["Por que existe o dia e a noite?", "conhecimento", "explicar"],
-  ["Calcule 25 + 17", "matematica", "criar"],
+  ["Calcule 25 + 17", "matematica", "informar"],
   ["Vai chover hoje?", "tempo", "informar"],
   ["Qual é o meu nome?", "memoria", "informar"]
 ];
