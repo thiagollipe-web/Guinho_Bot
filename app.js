@@ -4,6 +4,7 @@ import { MemoriaSessao } from "./memory.js";
 import { EstatisticaLinguistica, GeradorEstatistico } from "./probabilistic.js";
 import { BIBLIOTECA_JOGOS } from "./game-library.js";
 import { ContextoConversacional } from "./context.js";
+import { perfilPergunta } from "./prompt-library.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -183,6 +184,7 @@ async function responder(texto){
     const rel=pnl.explicar(alvo);
     const est=pnl.detectar(alvo);
     const estrategia=gerador.estrategia(est);
+    const perfil=perfilPergunta(alvo);
     return `Diagnóstico local:
 Intenção: ${rel.intencao}
 Confiança combinada: ${(rel.confianca*100).toFixed(1)}%
@@ -193,6 +195,9 @@ Ambiguidade: ${rel.ambigua?"sim":"não"}
 Tipo: ${rel.tipo}
 Objetivo: ${rel.objetivo}
 Estratégia: ${estrategia.estrategia}
+Domínios da biblioteca: ${Object.keys(perfil.dominios).slice(0,5).join(", ")||"nenhum"}
+Intenções reforçadas: ${Object.keys(perfil.intencoes).slice(0,5).join(", ")||"nenhuma"}
+Formatos detectados: ${Object.keys(perfil.formatos).join(", ")||"nenhum"}
 
 Probabilidades:
 ${rel.probabilidades.slice(0,5).map(x=>`${x.intent}: ${(x.probability*100).toFixed(1)}%`).join("\n")}
