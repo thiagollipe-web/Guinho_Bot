@@ -15,7 +15,7 @@ import {
 } from "./engineering-memory.js";
 
 const clonar=xs=>Object.fromEntries(Object.entries(xs||{}).map(([k,v])=>[k,String(v??"")]));
-const fp=xs=>Object.keys(xs).sort().map(k=>k+"\0"+xs[k]).join("\1");
+const fp=xs=>Object.keys(xs).sort().map(k=>k+"::"+xs[k]).join("\n---\n");
 const bloqueios=a=>(a.resumo?.contagem?.critica||0)+(a.resumo?.contagem?.alta||0);
 const severidadePeso=sev=>({critica:4,alta:3,media:2,baixa:1,info:0}[String(sev||"info").toLowerCase()]??0);
 
