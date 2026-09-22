@@ -362,7 +362,8 @@ class CalculadoraSegura{
     return vals.length===1?vals[0]:null;
   }
 }
-const calc=new CalculadoraSegura();
+const calc=new CalculadoraSegura();\nconst gerarRespostaEstruturada=(texto,analise)=>geradorResposta.gerar(texto,analise);
+
 
 const api={
   async moeda(){
