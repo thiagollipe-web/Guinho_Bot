@@ -221,8 +221,19 @@ function respostaEngenharia(texto){
   const resultado=executarCicloComAprendizado(temProjeto?"Projeto fornecido pelo usuário":texto,{criar:!temProjeto,files:arquivos});
   if(resultado.ok)abrirWorkspace(resultado);
   const relatorio=relatorioEngenharia(resultado);
-  if(!resultado.ok)return relatorio+"\n\nO ciclo foi interrompido com segurança; nenhum código foi executado.";
-  return relatorio+"\n\nO Workspace de Engenharia foi aberto com os arquivos, pipeline e validação final.";
+  const resumo=[
+    "Projeto de engenharia concluído.",
+    "Status: "+(resultado.status||"SEM RESULTADO"),
+    "Arquivos: "+Object.keys(resultado.files||{}).length,
+    "Análise: "+(resultado.analise?.score??0)+"/100",
+    "Validação: "+(resultado.validacao?.estado||"não executada")+" ("+(resultado.validacao?.score??0)+"/100)",
+    "Ciclos: "+(resultado.ciclos??0)
+  ];
+  if(resultado.plano?.tipo)resumo.push("Tipo: "+resultado.plano.tipo);
+  if(!resultado.ok){
+    return resumo.join("\n")+"\n\nO ciclo foi interrompido com segurança. Abra o Workspace para ver os problemas e tentativas.";
+  }
+  return resumo.join("\n")+"\n\nO Workspace de Engenharia foi aberto. O relatório técnico completo ficou no painel de memória.";
 }
 function respostaValidacao(texto){
   const arquivos=arquivosDaMensagem(texto);
