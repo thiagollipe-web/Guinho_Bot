@@ -1,0 +1,7 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { executarCicloEngenharia, relatorioEngenharia } from "../engine.js";
+test("ENGINE executa ciclo completo",()=>{const r=executarCicloEngenharia("Crie uma PWA offline");assert.equal(r.ok,true);assert.ok(["APROVADO","APROVADO_COM_AVISOS"].includes(r.status));assert.ok(r.historico.some(x=>x.etapa==="CRIAR"));assert.ok(r.historico.some(x=>x.etapa==="ANALISAR"));assert.ok(r.historico.some(x=>x.etapa==="VALIDAR"));});
+test("ENGINE corrige viewport ausente",()=>{const r=executarCicloEngenharia("projeto",{criar:false,files:{"index.html":"<!doctype html><html><head></head><body><h1>Teste</h1></body></html>"}});assert.equal(r.ok,true);assert.ok(r.historico.some(x=>x.etapa==="CORRIGIR"));});
+test("ENGINE termina com limite",()=>{const r=executarCicloEngenharia("projeto",{criar:false,maxCiclos:2,files:{"index.html":"<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width\"></head><body><script>eval(1)</script></body></html>"}});assert.notEqual(r.status,"EM_EXECUCAO");});
+test("ENGINE gera relatório",()=>{const r=executarCicloEngenharia("Crie um site responsivo");assert.match(relatorioEngenharia(r),/CICLO DE ENGENHARIA:/);});
