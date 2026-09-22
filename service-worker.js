@@ -1,4 +1,4 @@
-const CACHE="guinho-bot-v12";
+const CACHE="guinho-bot-v13";
 const ASSETS=["./","./index.html","./styles.css","./app.js","./knowledge.js","./retrieval.js","./memory.js","./context.js","./probabilistic.js","./prompt-library.js","./game-library.js","./manifest.json","./icon.svg"];
 const sameOrigin=url=>new URL(url).origin===self.location.origin;
 self.addEventListener("install",event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
