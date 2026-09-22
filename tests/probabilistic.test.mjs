@@ -73,6 +73,22 @@ test("contexto expande referências curtas ao assunto anterior", () => {
   contexto.limpar();
 });
 
+test("contexto anterior reforça intenção em continuidade explícita", () => {
+  const contexto = new ContextoConversacional("guinho-test-scoring");
+  contexto.limpar();
+  contexto.atualizar({
+    texto: "Quero criar um jogo em HTML",
+    resposta: "Vamos começar pelo Canvas.",
+    analise: pnl.detectar("Quero criar um jogo em HTML"),
+    assunto: "desenvolvimento de jogos"
+  });
+  const semContexto = pnl.detectar("E para celular?");
+  const comContexto = pnl.detectar("E para celular?", contexto.resumo());
+  assert.equal(comContexto.intent, "jogos");
+  assert.ok(comContexto.probability >= semContexto.probability || comContexto.rawProbability >= semContexto.rawProbability);
+  contexto.limpar();
+});
+
 test("entropia aumenta quando a distribuição fica mais ambígua", () => {
   const concentrada = pnl.entropia([0.92, 0.04, 0.04]);
   const ambigua = pnl.entropia([0.34, 0.33, 0.33]);
