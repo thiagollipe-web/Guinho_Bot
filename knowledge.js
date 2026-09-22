@@ -114,5 +114,14 @@ export const CONHECIMENTO=[
 {tema:"web",titulo:"Cache",texto:"Cache armazena respostas ou recursos para reduzir latência e uso de rede. Em PWA, Cache Storage pode ser controlado por service worker."},
 {tema:"web",titulo:"WebSocket",texto:"WebSocket mantém uma conexão persistente bidirecional entre cliente e servidor para comunicação em tempo real."},
 {tema:"web",titulo:"URL",texto:"URL identifica um recurso por esquema, domínio, caminho e, opcionalmente, parâmetros e fragmento."},
-{tema:"web",titulo:"Cookie",texto:"Cookies são pequenos pares nome-valor enviados em requisições HTTP conforme regras de domínio, caminho, expiração e segurança."}
+{tema:"web",titulo:"Cookie",texto:"Cookies são pequenos pares nome-valor enviados em requisições HTTP conforme regras de domínio, caminho, expiração e segurança."},
+{tema:"jogos",titulo:"Microsoft MakeCode Arcade",texto:"Microsoft MakeCode Arcade é um ambiente de criação de jogos que usa JavaScript/TypeScript e Python e oferece recursos didáticos para desenvolvimento de jogos."},
+{tema:"jogos",titulo:"microStudio",texto:"microStudio é uma engine de jogos online com editores integrados de código, sprites e mapas para jogos 2D. O ambiente também permite trabalhar com JavaScript, Python ou Lua."},
+{tema:"jogos",titulo:"TIC-80",texto:"TIC-80 é um computador de fantasia livre e open source para criar, jogar e compartilhar pequenos jogos, com ferramentas integradas para código, sprites, mapas e som."},
+{tema:"jogos",titulo:"Kenney Assets",texto:"Kenney mantém uma grande coleção de assets para jogos. Nas páginas de assets verificadas, os recursos são disponibilizados sob Creative Commons CC0, inclusive para projetos comerciais."},
+{tema:"jogos",titulo:"OpenGameArt",texto:"OpenGameArt é uma comunidade de recursos para jogos. Os assets podem ter licenças diferentes, portanto a licença de cada recurso deve ser conferida antes do uso."},
+{tema:"jogos",titulo:"Itch.io — Free Game Assets",texto:"A seção gratuita de game assets do Itch.io reúne sprites, personagens, tilesets, backgrounds, áudio e outros recursos publicados pela comunidade, com filtros por estilo e licença."},
+{tema:"jogos",titulo:"Piskel",texto:"Piskel é um editor online gratuito para sprites animados e pixel art. Ele permite desenhar personagens e animações no navegador, visualizar a animação em tempo real e exportar para GIF, PNG e spritesheet."},
+{tema:"jogos",titulo:"Pixelorama",texto:"Pixelorama é uma ferramenta open source de pixel art com suporte a sprites, tiles e animações por camadas e frames. A página oficial também oferece versões para desktop e uma versão web."},
+{tema:"jogos",titulo:"Protótipo SVG de movimentação",texto:"Para um primeiro protótipo de personagem em SVG, a referência de fluxo mais direta é o Piskel, enquanto a lógica de movimento pode ser modelada com conceitos usados em MakeCode Arcade. O SVG pode representar frames, estados e partes do personagem sem depender de um motor externo."}
 ];
