@@ -35,10 +35,25 @@ function ordenarAchados(lista){
 }
 
 export function extrairBlocosCodigo(texto){
-  const blocos=[...String(texto||"").matchAll(/~~~(?:html|javascript|js|css|typescript|ts)?\s*([\s\S]*?)\n?~~~/gi)]
-    .map(m=>m[1].trim()).filter(Boolean);
-  if(blocos.length)return blocos;
-  const codigo=String(texto||"");
+  const bruto=String(texto||"");
+  const blocos=[];
+  for(const marcador of ["```","~~~"]){
+    let pos=0;
+    while((pos=bruto.indexOf(marcador,pos))>=0){
+      const fim=bruto.indexOf(marcador,pos+marcador.length);
+      if(fim<0)break;
+      let bloco=bruto.slice(pos+marcador.length,fim);
+      const primeira=bloco.indexOf("\n");
+      if(primeira>=0){
+        const cabecalho=bloco.slice(0,primeira).trim().toLowerCase();
+        if(["html","javascript","js","css","typescript","ts"].includes(cabecalho))bloco=bloco.slice(primeira+1);
+      }
+      if(bloco.trim())blocos.push(bloco.trim());
+      pos=fim+marcador.length;
+    }
+  }
+  if(blocos.length)return uniq(blocos);
+  const codigo=bruto;
   const linhas=codigo.split("\n");
   const sinais=linhas.filter(l=>/<(?:!doctype|html|body|canvas)\b/i.test(l)||/\b(function|const|let|var|class)\s+[A-Za-z_$]/.test(l)||/addEventListener\s*\(/.test(l));
   return sinais.length>=2?[codigo.trim()]:[];
