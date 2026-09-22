@@ -319,7 +319,7 @@ class CompositorRespostas{
     }
 
     const fonte=[...new Set(corpo.map(x=>x.titulo))].slice(0,3).join(" • ");
-    if(fonte)linhas.push("","Base local: "+fonte);
+    if(fonte)linhas.push("","Fonte local: "+fonte);
     return linhas.join("\n");
   }
 }
