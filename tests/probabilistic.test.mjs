@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EstatisticaLinguistica, GeradorEstatistico, softmax } from "../probabilistic.js";
 import { ContextoConversacional } from "../context.js";
+import { buscarPadroes } from "../prompt-library.js";
 
 const pnl = new EstatisticaLinguistica();
 
@@ -84,4 +85,22 @@ test("entropia aumenta quando a distribuição fica mais ambígua", () => {
   const concentrada = pnl.entropia([0.92, 0.04, 0.04]);
   const ambigua = pnl.entropia([0.34, 0.33, 0.33]);
   assert.ok(ambigua > concentrada);
+});
+
+
+test("biblioteca ampla reconhece domínios e formatos", () => {
+  const codigo = buscarPadroes("Crie um site responsivo em HTML e CSS com código completo", 10);
+  assert.ok(codigo.some(x => x.dominio === "web"));
+  assert.ok(codigo.some(x => x.intencao === "codigo"));
+  const jogo = buscarPadroes("Como melhorar o movimento do personagem e o FPS do jogo?", 10);
+  assert.ok(jogo.some(x => x.dominio === "jogos"));
+  const ensino = buscarPadroes("Prepare uma aula com exercícios e gabarito", 10);
+  assert.ok(ensino.some(x => x.dominio === "educacao"));
+});
+
+test("biblioteca de padrões reforça intenção sem substituir a estatística", () => {
+  const d = pnl.detectar("Crie um site responsivo em HTML com código completo");
+  assert.equal(d.intent, "programacao");
+  assert.equal(d.objetivo, "criar");
+  assert.ok(d.probability > 0);
 });
