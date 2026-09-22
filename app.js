@@ -26,6 +26,9 @@ const drawerOverlay=document.querySelector("#drawer-overlay");
 const leftSidebar=document.querySelector(".sidebar-left");
 const openLeft=document.querySelector("#open-left");
 const closeLeft=document.querySelector("#close-left");
+const rightSidebar=document.querySelector(".sidebar-right");
+const openRight=document.querySelector("#open-right");
+const closeRight=document.querySelector("#close-right");
 const selectedModes=document.querySelectorAll("[data-mode]");
 const navItems=document.querySelectorAll("[data-nav]");
 const topicButtons=document.querySelectorAll("[data-topic]");
@@ -511,10 +514,17 @@ function showToast(message){
 
 function closeDrawer(){
   leftSidebar?.classList.remove("open");
+  rightSidebar?.classList.remove("open");
   drawerOverlay?.classList.remove("show");
 }
 function openDrawer(){
+  rightSidebar?.classList.remove("open");
   leftSidebar?.classList.add("open");
+  drawerOverlay?.classList.add("show");
+}
+function openToolsDrawer(){
+  leftSidebar?.classList.remove("open");
+  rightSidebar?.classList.add("open");
   drawerOverlay?.classList.add("show");
 }
 
@@ -606,6 +616,8 @@ clearChatButton?.addEventListener("click",resetChat);
 focusInputButton?.addEventListener("click",()=>input?.focus());
 openLeft?.addEventListener("click",openDrawer);
 closeLeft?.addEventListener("click",closeDrawer);
+openRight?.addEventListener("click",openToolsDrawer);
+closeRight?.addEventListener("click",closeDrawer);
 drawerOverlay?.addEventListener("click",closeDrawer);
 
 siteSearch?.addEventListener("keydown",event=>{
