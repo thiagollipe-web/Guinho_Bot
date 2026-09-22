@@ -61,9 +61,13 @@ export function corrigirProjeto(projeto={},opcoes={}){
   const alteracoes=[];
   const aplicados=[];
   for(const [nome,codigo] of Object.entries(arquivos)){
+    const categorias=Array.isArray(opcoes.categorias)&&opcoes.categorias.length
+      ? new Set(opcoes.categorias.map(String))
+      : null;
     const achados=antes.achados.filter(a=>{
       const ev=String(a.evidencia||"");
-      return !ev||ev.includes(nome)||Object.keys(arquivos).length===1;
+      const mesmaCategoria=!categorias||categorias.has(String(a.categoria||""));
+      return mesmaCategoria&&(!ev||ev.includes(nome)||Object.keys(arquivos).length===1);
     });
     let resultado={texto:String(codigo),alteracoes:[]};
     if(/\.html?$/i.test(nome))resultado=corrigirHTML(codigo,achados);
