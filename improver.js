@@ -57,7 +57,7 @@ function sugerirCSS(codigo,arquivo,lista){
   if(/font-size\s*:\s*(?:[0-9]|1[0-5])px/i.test(texto)){
     adicionar(lista,"baixa","Acessibilidade","Há texto pequeno detectável por pixels.","font-size","Revisar tamanhos de texto e favorecer unidades relativas quando apropriado.");
   }
-  if(/transition\s*:[^;{}]+/i.test(texto)&&!/@media\s*\(prefers-reduced-motion\s*:\s*reduce\)/i.test(texto)){
+  if(/\b(?:transition|animation)\s*:/i.test(texto)&&!/@media\s*\(prefers-reduced-motion\s*:\s*reduce\)/i.test(texto)){
     adicionar(lista,"baixa","Acessibilidade","Animações/transições existem sem preferência reduzida detectável.","transition","Adicionar uma regra prefers-reduced-motion para reduzir movimento quando solicitado pelo sistema.");
   }
   if(/display\s*:\s*grid/i.test(texto)&&!/@media/i.test(texto)){
