@@ -62,8 +62,6 @@ function sugerirCSS(codigo,arquivo,lista){
   if(movimentoDetectado&&!/@media\s*\(prefers-reduced-motion\s*:\s*reduce\)/i.test(texto)){
     adicionar(lista,"baixa","Acessibilidade","Animações/transições existem sem preferência reduzida detectável.","transition","Adicionar uma regra prefers-reduced-motion para reduzir movimento quando solicitado pelo sistema.");
   }
-    adicionar(lista,"baixa","Acessibilidade","Animações/transições existem sem preferência reduzida detectável.","transition","Adicionar uma regra prefers-reduced-motion para reduzir movimento quando solicitado pelo sistema.");
-  }
   if(/display\s*:\s*grid/i.test(texto)&&!/@media/i.test(texto)){
     adicionar(lista,"baixa","Responsividade","Grid sem breakpoint detectável pode precisar de revisão em telas estreitas.","display:grid","Validar o layout em larguras móveis e adicionar breakpoint somente se necessário.");
   }
