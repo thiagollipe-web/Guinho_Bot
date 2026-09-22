@@ -103,6 +103,7 @@ export function normalizarPrompt(texto){
   return String(texto??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9\s]/g," ").replace(/\s+/g," ").trim();
 }
 
+const STOPWORDS_PROMPT=new Set(["a","o","e","os","as","um","uma","uns","umas","de","da","do","das","dos","em","no","na","nos","nas","por","para","com","sem","que","se","ao","aos","como","me","te","eu","voce","voces","isso","isto","esse","essa","este","esta","ele","ela","eles","elas","quando","onde","quem","qual","quais","é","e"]);
 const INTENCOES_CANONICAS={
   saudacao:"saudacao",despedida:"despedida",agradecimento:"agradecimento",ajuda:"ajuda",
   memoria:"memoria",moeda:"moeda",noticias:"noticias",tempo:"tempo",cep:"cep",matematica:"matematica",
@@ -135,10 +136,10 @@ export function buscarPadroes(texto,limite=12){
       const p=normalizarPrompt(item.padrao);
       if(!p)return {...item,score:0};
       const exato=q.includes(p);
-      const palavras=p.split(" ");
-      const cobertura=palavras.filter(w=>q.includes(w)).length/Math.max(1,palavras.length);
+      const palavras=p.split(" ").filter(w=>!STOPWORDS_PROMPT.has(w)&&w.length>=3);
+      const cobertura=palavras.length?palavras.filter(w=>q.split(" ").some(token=>token===w||token.includes(w)||w.includes(token))).length/palavras.length:0;
       const especificidade=Math.min(.36,Math.max(0,palavras.length-1)*.12);
-      return {...item,intencaoCanonica:intencaoCanonica(item.intencao),score:exato?1+especificidade:cobertura*.72+especificidade};
+      return {...item,intencaoCanonica:intencaoCanonica(item.intencao),score:exato?1+especificidade:(palavras.length?cobertura*.72+especificidade:0)};
     })
     .filter(x=>x.score>0)
     .sort((a,b)=>b.score-a.score)
