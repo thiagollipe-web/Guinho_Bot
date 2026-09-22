@@ -444,9 +444,6 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     return r;
   }
   
-    const r=respostaCriacao(limpo,analise);
-    contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"codigo",assunto:memoria.estado.assuntoAtual});
-    return r;
   }
   const especial=analise.confident?intencaoEspecial(analise,limpo):null;
   if(especial){contexto.atualizar({texto:limpo,resposta:especial,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:memoria.estado.assuntoAtual});return especial;}
