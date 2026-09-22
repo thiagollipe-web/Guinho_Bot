@@ -18,8 +18,8 @@ export class EstatisticaLinguistica{
       jogos:["jogo","jogos","game","game dev","desenvolvimento de jogos","sprite","sprites","pixel art","spritesheet","tilemap","personagem","movimento de personagem","makecode","microstudio","tic 80","tic-80","piskel","pixelorama","kenney","opengameart","itch io","itch.io"]
     };
     this.objetivos={
-      criar:["crie","criar","faca","fazer","monte","montar","gere","gerar","desenvolva","desenvolver","escreva","escrever","construa","construir","implemente","implementar"],
-      aprender:["aprender","estudar","ensine","ensinar","curso","aula","quero aprender"],
+      criar:["crie","criar","faca","fazer","monte","montar","gere","gerar","desenvolva","desenvolver","escreva","escrever","construa","construir","implemente","implementar","quero criar","preciso criar"],
+      aprender:["aprender","estudar","ensine","ensinar","curso","aula","quero aprender","como faço","como faco","passo a passo","me ensine"],
       explicar:["explique","explica","o que e","como funciona","defina","fale sobre","entender"],
       melhorar:["melhore","melhorar","otimize","otimizar","aperfeicoe","aperfeicoar","deixar melhor","sugira melhorias","dicas para melhorar"],
       analisar:["analise","analisar","avalie","avaliar","revise","revisar","verifique","diagnostique","diagnosticar","encontre erros","bugs"],
