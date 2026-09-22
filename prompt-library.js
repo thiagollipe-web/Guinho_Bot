@@ -164,10 +164,13 @@ export function perfilPergunta(texto){
   const formatos={};
   for(const s of sinais){
     dominios[s.dominio]=(dominios[s.dominio]||0)+s.score;
-    if(s.dominio==="objetivo"||s.dominio==="formato")continue;
+    if(s.dominio==="formato"){
+      formatos[s.intencao]=(formatos[s.intencao]||0)+s.score;
+      continue;
+    }
+    if(s.dominio==="objetivo")continue;
     const i=s.intencaoCanonica||intencaoCanonica(s.intencao);
     intencoes[i]=Math.max(intencoes[i]||0,s.score);
-    if(s.dominio==="formato")formatos[s.intencao]=(formatos[s.intencao]||0)+s.score;
   }
   return {
     sinais,
