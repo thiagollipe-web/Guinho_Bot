@@ -70,7 +70,7 @@ export function validarProjeto(projeto={},opcoes={}){
   if(!nomes.length)achado(achados,"critica","Projeto","Nenhum arquivo foi fornecido.","Projeto vazio","Gerar ou fornecer os arquivos do projeto.");
   validarEstrutura(arquivos||{},achados);
   validarReferencias(arquivos||{},achados);
-  if(nomes.some(n=>/\.html?$/i.test(n)))validarHTMLPrincipal(arquivos,achados,entrada);
+  if(/\.html?$/i.test(entrada)||nomes.some(n=>/\.html?$/i.test(n)))validarHTMLPrincipal(arquivos,achados,entrada);
   validarManifest(arquivos||{},achados);
   validarServiceWorker(arquivos||{},achados);
 
