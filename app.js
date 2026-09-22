@@ -6,6 +6,7 @@ import { BIBLIOTECA_JOGOS } from "./game-library.js";
 import { ContextoConversacional } from "./context.js";
 import { perfilPergunta } from "./prompt-library.js";
 import { gerarProjeto } from "./generator.js";
+import { extrairBlocosCodigo, analisarCodigo, analisarProjeto, relatorioAnalise } from "./analyzer.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
