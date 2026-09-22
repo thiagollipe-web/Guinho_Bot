@@ -137,9 +137,9 @@ export function validarProjeto(projeto){
     if(!/pointerdown|touchstart/.test(html))erros.push("Jogo mobile sem evento de toque/apontamento.");
   }
   for(const nome of Object.keys(arquivos))if(nome.endsWith(".js"))try{new Function(arquivos[nome]);}catch(err){erros.push(`${nome}: JavaScript inválido (${err.message}).`);}
-  for(const [ab,fe] of [["<div>","</div>"],["<script>","</script>"],["<style>","</style>"]]){
-    const a=(html.match(new RegExp(ab.replace(/[<>]/g,"\\$&"),"gi"))||[]).length,b=(html.match(new RegExp(fe.replace(/[<>]/g,"\\$&"),"gi"))||[]).length;
-    if(a!==b)erros.push(`HTML desequilibrado: ${ab} /${fe}.`);
+  for(const [nome,ab,fe] of [["div",/<div\\b[^>]*>/gi,/<\\/div>/gi],["script",/<script\\b[^>]*>/gi,/<\\/script>/gi],["style",/<style\\b[^>]*>/gi,/<\\/style>/gi]]){
+    const a=(html.match(ab)||[]).length,b=(html.match(fe)||[]).length;
+    if(a!==b)erros.push("HTML desequilibrado: "+nome+" (abertura "+a+", fechamento "+b+").");
   }
   return {valido:erros.length===0,erros,avisos};
 }
