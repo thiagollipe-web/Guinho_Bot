@@ -42,3 +42,27 @@ test("ENGINE registra memória no resultado e evita repetir estratégia falha",(
   assert.match(r.relatorioMemoria,/MEMORIA DE ENGENHARIA/);
   assert.ok(r.status!=="EM_EXECUCAO");
 });
+
+import { criarMemoriaEngenharia, registrarProblemas, registrarResolvidos, selecionarEstrategia, registrarTentativa } from "../engineering-memory.js";
+
+test("MEMÓRIA escolhe estratégia específica antes da genérica",()=>{
+  const m=criarMemoriaEngenharia();
+  registrarProblemas(m,{achados:[{severidade:"alta",categoria:"Mobile",mensagem:"Viewport ausente",evidencia:"index.html"}]},1);
+  const p=[...m.problemas.values()][0];
+  assert.equal(selecionarEstrategia(m,p),"CORRIGIR_MOBILE");
+  registrarTentativa(m,{fingerprint:p.fingerprint,estrategia:"CORRIGIR_MOBILE",status:"FALHOU",ciclo:1});
+  assert.equal(selecionarEstrategia(m,p),"CORRIGIR");
+  registrarTentativa(m,{fingerprint:p.fingerprint,estrategia:"CORRIGIR",status:"FALHOU",ciclo:2});
+  assert.equal(selecionarEstrategia(m,p),null);
+});
+
+test("MEMÓRIA só marca problema como resolvido depois de ele desaparecer da análise",()=>{
+  const m=criarMemoriaEngenharia();
+  const achado={severidade:"alta",categoria:"Segurança",mensagem:"Uso de eval()",evidencia:"eval(1)"};
+  registrarProblemas(m,{achados:[achado]},1);
+  const p=[...m.problemas.values()][0];
+  registrarTentativa(m,{fingerprint:p.fingerprint,estrategia:"CORRIGIR_SEGURANCA",status:"OK",ciclo:1,antesScore:40,depoisScore:70,ganho:30});
+  assert.equal(p.resolvido,false);
+  registrarResolvidos(m,{achados:[]},2);
+  assert.equal(p.resolvido,true);
+});
