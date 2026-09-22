@@ -119,7 +119,8 @@ export class EstatisticaLinguistica{
       const likelihood=feats.reduce((sum,item)=>sum+item.peso*this.laplace(item.term,intent),0);
       const fuzzy=this.fuzzy(text,intent),keywordBoost=this.keywordBoost(text,intent);
       const evidenciaBiblioteca=porIntent.get(intent)||0;
-      return {intent,logScore:prior*.14+likelihood*.42+fuzzy*.16+keywordBoost*.08+evidenciaBiblioteca*.20,fuzzy,keywordBoost,biblioteca:evidenciaBiblioteca};
+      const reforco=Math.min(1.25,evidenciaBiblioteca*.55);
+      return {intent,logScore:prior*.12+likelihood*.36+fuzzy*.15+keywordBoost*.07+reforco,fuzzy,keywordBoost,biblioteca:evidenciaBiblioteca,reforco};
     });
     const probabilities=softmax(rows.map(r=>r.logScore),.82);
     return rows.map((r,i)=>({...r,probability:probabilities[i]})).sort((a,b)=>b.probability-a.probability);
@@ -185,8 +186,13 @@ export class EstatisticaLinguistica{
     const normalizado=this.normalizar(text);
     const continuidade=/\\b(e agora|e depois|e nesse caso|como faco|como faço|como fazer|mais detalhes|explique melhor|e para|e no caso|tambem|também|nesse caso|nessa situacao|nessa situação)\\b/.test(normalizado);
     if(continuidade&&contexto?.intencao){
-      const intensidade=Math.min(1.6,Math.max(.45,Number(contexto.confianca||0)*1.6));
-      const ajustados=probs.map(item=>({...item,logScore:item.logScore+(item.intent===contexto.intencao?intensidade:0)}));
+      const intensidade=Math.min(1.8,Math.max(.55,Number(contexto.confianca||0)*1.8));
+      const maiorScore=Math.max(...probs.map(item=>item.logScore));
+      const ajustados=probs.map(item=>{
+        if(item.intent!==contexto.intencao)return {...item};
+        const vantagem=Math.max(0,maiorScore-item.logScore);
+        return {...item,logScore:item.logScore+vantagem+intensidade};
+      });
       const recalculadas=softmax(ajustados.map(x=>x.logScore),.82);
       probs=ajustados.map((x,i)=>({...x,probability:recalculadas[i]})).sort((a,b)=>b.probability-a.probability);
     }
