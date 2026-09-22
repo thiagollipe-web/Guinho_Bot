@@ -256,18 +256,19 @@ class CompositorRespostas{
     return texto;
   }
   selecionarFrases(consulta,tipo){
-    const candidatas=this.recuperador.frasesRelevantes(this.contexto(consulta),6,10);
+    const candidatas=this.recuperador.frasesRelevantes(this.contexto(consulta),6,12);
     const escolhidas=[];
     const vistos=new Set();
     for(const c of candidatas){
       const chave=this.pnl.normalizar(c.frase);
       if(vistos.has(chave))continue;
-      const incompat=(tipo==="lista"&&c.frase.length<25)?1:0;
-      if(c.score+incompat<.1)continue;
-      if(escolhidas.every(x=>x.tema!==c.tema)||escolhidas.length<2){
+      if(c.score<.16)continue;
+      if(tipo==="definicao"&&escolhidas.length>=2)continue;
+      if(tipo==="lista"&&escolhidas.length>=4)continue;
+      if(escolhidas.length<2||escolhidas.every(x=>x.tema!==c.tema)){
         escolhidas.push(c);vistos.add(chave);
       }
-      if(escolhidas.length>=3)break;
+      if(escolhidas.length>=4)break;
     }
     return escolhidas;
   }
@@ -275,17 +276,40 @@ class CompositorRespostas{
     const tipo=analise.tipo;
     const frases=this.selecionarFrases(consulta,tipo);
     if(!frases.length)return null;
-    this.memoria.definirAssunto(frases[0].tema);
-    const estrategia=this.gerador.estrategia(analise);
-    const tipoResposta=estrategia.estrategia==="tutorial"?"como":estrategia.estrategia==="diagnostico"?"diagnostico":estrategia.estrategia==="melhoria"?"melhoria":tipo;
-    const abertura=this.gerador.abertura(tipoResposta,analise.probability);
-    let corpo=frases.map(x=>x.frase);
-    if(tipo==="comparacao"&&corpo.length>=2)corpo=[corpo[0],corpo[1]];
-    if(tipo==="lista")corpo=corpo.slice(0,3);
-    if(tipo==="definicao")corpo=corpo.slice(0,2);
-    const fechamento=this.gerador.fechamento(tipoResposta,analise.probability);
-    const fonte="\n\nBase local: "+[...new Set(frases.map(x=>x.titulo))].slice(0,3).join(" • ");
-    return abertura+" "+corpo.join(" ")+(fechamento?" "+fechamento:"")+fonte;
+
+    this.memoria.definirAssunto(frases[0].titulo||frases[0].tema);
+    const estrategia=this.gerador.estrategia(analise).estrategia;
+    const corpo=frases.slice(0,
+      tipo==="definicao"?2:
+      tipo==="lista"?4:
+      tipo==="comparacao"?2:
+      tipo==="como"?3:2
+    );
+
+    const linhas=[];
+    if(tipo==="definicao"){
+      linhas.push("Definição");
+      linhas.push(corpo.map(x=>x.frase).join(" "));
+    }else if(tipo==="lista"){
+      linhas.push("Pontos principais");
+      corpo.forEach(x=>linhas.push("• "+x.frase));
+    }else if(tipo==="como"){
+      linhas.push("Como funciona");
+      corpo.forEach((x,i)=>linhas.push((i+1)+". "+x.frase));
+    }else if(tipo==="comparacao"){
+      linhas.push("Comparação");
+      corpo.forEach(x=>linhas.push("• "+x.frase));
+    }else{
+      linhas.push(corpo.map(x=>x.frase).join(" "));
+    }
+
+    if(estrategia==="diagnostico"&&analise.objetivo==="analisar"){
+      linhas.unshift("Análise local");
+    }
+
+    const fonte=[...new Set(corpo.map(x=>x.titulo))].slice(0,3).join(" • ");
+    if(fonte)linhas.push("","Base local: "+fonte);
+    return linhas.join("\n");
   }
 }
 
