@@ -5,6 +5,7 @@ import { EstatisticaLinguistica, GeradorEstatistico } from "./probabilistic.js";
 import { BIBLIOTECA_JOGOS } from "./game-library.js";
 import { ContextoConversacional } from "./context.js";
 import { perfilPergunta } from "./prompt-library.js";
+import { gerarProjeto } from "./generator.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -30,6 +31,16 @@ const memoria=new MemoriaSessao();
 const gerador=new GeradorEstatistico();
 const contexto=new ContextoConversacional();
 let modoAtual="standard";
+
+function respostaCriacao(texto,analise){
+  const projeto=gerarProjeto(texto,analise);
+  const nomes=Object.keys(projeto.files);
+  const estado=projeto.validacao.valido?"VALIDAÇÃO OK":"VALIDAÇÃO COM ERROS";
+  const avisos=projeto.validacao.avisos.length?`\\nAvisos: ${projeto.validacao.avisos.join(" • ")}`:"";
+  const primeiro=projeto.files[projeto.entry]||"";
+  const limite=primeiro.length>14000?primeiro.slice(0,13997)+"...":primeiro;
+  return `Projeto gerado: ${projeto.plano.tipo}\\nEstratégia: ${projeto.plano.estrategia}\\nTecnologias: ${projeto.plano.tecnologias.join(", ")}\\nArquivos: ${nomes.join(", ")}\\n${estado}${projeto.validacao.erros.length?`\\nErros: ${projeto.validacao.erros.join(" • ")}`:""}${avisos}\\n\\nArquivo de entrada: ${projeto.entry}\\n\\n${limite}`;
+}
 
 class CompositorRespostas{
   constructor({pnl,recuperador,memoria,gerador}){this.pnl=pnl;this.recuperador=recuperador;this.memoria=memoria;this.gerador=gerador;}
@@ -211,6 +222,11 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
   if(analise.confident&&analise.intent==="noticias"){const r=await api.noticias();contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
   if(analise.confident&&analise.intent==="tempo"){const r=await api.tempo(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
   if(analise.confident&&analise.intent==="cep"){const r=await api.cep(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
+  if(analise.confident&&analise.objetivo==="criar"&&["jogos","programacao"].includes(analise.intent)){
+    const r=respostaCriacao(limpo,analise);
+    contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"codigo",assunto:memoria.estado.assuntoAtual});
+    return r;
+  }
   const especial=analise.confident?intencaoEspecial(analise,limpo):null;
   if(especial){contexto.atualizar({texto:limpo,resposta:especial,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:memoria.estado.assuntoAtual});return especial;}
   const composta=compositor.compor(textoContextual,analise);
