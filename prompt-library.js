@@ -18,7 +18,7 @@ export const BIBLIOTECA_PROMPTS = [
   {dominio:"programacao",intencao:"criar_codigo",padroes:["crie um código","gere o código","escreva o código","faça um programa","implemente","construa","desenvolva","codifique","monte um projeto"]},
   {dominio:"programacao",intencao:"explicar_codigo",padroes:["explique este código","o que esse código faz","como funciona este código","explique linha por linha"]},
   {dominio:"programacao",intencao:"corrigir_codigo",padroes:["corrija meu código","conserte o erro","por que não funciona","encontre o bug","corrija o bug","resolva o erro"]},
-  {dominio:"programacao",intencao:"analisar_codigo",padroes:["analise meu código","revise o código","faça uma revisão","audite o código","verifique meu código","encontre problemas"]},
+  {dominio:"programacao",intencao:"analisar_codigo",padroes:["analise meu código","analise meu codigo","revise o código","faça uma revisão","audite o código","verifique meu código","encontre problemas"]},
   {dominio:"programacao",intencao:"melhorar_codigo",padroes:["melhore meu código","otimize","deixe mais rápido","deixe mais limpo","refatore","melhore a arquitetura","reduza a complexidade"]},
   {dominio:"programacao",intencao:"depurar",padroes:["debug","debugue","não está funcionando","está dando erro","erro no console","stack trace","exception","undefined","null"]},
   {dominio:"programacao",intencao:"arquitetura",padroes:["qual arquitetura usar","como estruturar o projeto","organize o projeto","estrutura de pastas","padrão de projeto","design pattern"]},
@@ -26,7 +26,7 @@ export const BIBLIOTECA_PROMPTS = [
   {dominio:"web",intencao:"criar_site",padroes:["crie um site","faça uma página","landing page","site responsivo","website","página web","portal","web app"]},
   {dominio:"web",intencao:"html",padroes:["html","html5","semântica html","estrutura da página","tags html","formulário html"]},
   {dominio:"web",intencao:"css",padroes:["css","estilizar","layout","flexbox","grid","responsivo","animação css","media query"]},
-  {dominio:"web",intencao:"javascript",padroes:["javascript","js","dom","event listener","async await","promise","fetch","módulo javascript"]},
+  {dominio:"web",intencao:"javascript",padroes:["javascript","js","dom","event listener","async await","promise","fetch","módulo javascript","quando devo usar canvas","quando usar canvas","como usar canvas"]},
   {dominio:"web",intencao:"pwa",padroes:["pwa","progressive web app","service worker","offline","instalar no celular","manifest"]},
 
   {dominio:"jogos",intencao:"criar_jogo",padroes:["crie um jogo","faça um jogo","desenvolva um jogo","gere um game","jogo em html","jogo 2d","jogo mobile","protótipo de jogo"]},
@@ -147,7 +147,7 @@ export function buscarPadroes(texto,limite=12){
 
 
 export function pontuarBiblioteca(texto){
-  const sinais=buscarPadroes(texto,32);
+  const sinais=buscarPadroes(texto,todosPadroes().length);
   const mapa=new Map();
   for(const sinal of sinais){
     const intent=sinal.intencaoCanonica||intencaoCanonica(sinal.intencao);
