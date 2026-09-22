@@ -185,7 +185,7 @@ export class EstatisticaLinguistica{
     const normalizado=this.normalizar(text);
     const continuidade=/\\b(e agora|e depois|e nesse caso|como faco|como faço|como fazer|mais detalhes|explique melhor|e para|e no caso|tambem|também|nesse caso|nessa situacao|nessa situação)\\b/.test(normalizado);
     if(continuidade&&contexto?.intencao){
-      const intensidade=Math.min(.82,Math.max(.28,Number(contexto.confianca||0)*.82));
+      const intensidade=Math.min(1.6,Math.max(.45,Number(contexto.confianca||0)*1.6));
       const ajustados=probs.map(item=>({...item,logScore:item.logScore+(item.intent===contexto.intencao?intensidade:0)}));
       const recalculadas=softmax(ajustados.map(x=>x.logScore),.82);
       probs=ajustados.map((x,i)=>({...x,probability:recalculadas[i]})).sort((a,b)=>b.probability-a.probability);
