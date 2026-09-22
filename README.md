@@ -1,39 +1,63 @@
-# Guinho Bot
+# Guinho-Bot
 
-Chatbot web público baseado em Node.js/Express.
+Assistente virtual PWA com processamento de linguagem natural local em JavaScript Vanilla.
 
-## Recursos
+## Arquitetura
 
-- Chat com histórico da sessão.
-- JWT para autenticação de convidado.
-- Integração com OpenRouter no backend.
-- Busca na API MediaWiki/Wikipedia.
-- Interface responsiva.
-- Helmet e CORS.
-- Configuração por variáveis de ambiente.
+O núcleo não usa API_KEY de IA. A execução acontece no navegador:
 
-## Rodar localmente
+- MotorPNL para normalização, intenção e tolerância a erros.
+- RecuperadorSemantico usando TF-IDF, similaridade do cosseno, Jaccard, stemming e sinônimos.
+- Base local estruturada com conhecimentos de programação, PNL, matemática, física, química, biologia, anatomia, ecologia, astronomia, web e jogos.
+- MemoriaSessao usando sessionStorage para contexto da conversa, assunto atual e dados simples informados pelo usuário.
+- CompositorRespostas combina os melhores documentos recuperados em uma resposta composta.
+
+## APIs públicas
+
+As APIs externas são utilizadas somente para dados que precisam estar atualizados:
+
+- AwesomeAPI: USD/BRL e EUR/BRL.
+- IBGE: notícias.
+- Open-Meteo: clima.
+- ViaCEP: endereço por CEP.
+
+A biblioteca enviada para o projeto também lista catálogos de APIs públicas e bibliotecas de PLN como referência. fileciteturn0file0L1-L1 fileciteturn0file0L4-L4
+
+## PWA
+
+- manifest.json
+- service-worker.js
+- cache dos módulos locais
+- interface terminal mobile-first
+
+## Executar
 
 ```bash
 npm install
-cp .env.example .env
 npm start
 ```
 
-Configure `OPENROUTER_API_KEY` em `.env`.
+Verificação de sintaxe:
 
-## Deploy
+```bash
+npm run check
+```
 
-Este projeto pode ser publicado em Railway/Render/Vercel (com adaptação do servidor para funções).
+## Limite consciente do projeto
 
-Nunca coloque a chave da IA em `public/app.js` ou diretamente no repositório.
+Este sistema não é um LLM. A geração é determinística e baseada em recuperação, regras e composição local. Isso elimina dependência de API paga, mas também limita a abertura e a criatividade das respostas.
 
-## APIs
+## Estrutura principal
 
-- MediaWiki Action API
-- OpenRouter Chat Completions
-- JWT
-
-## Licença
-
-MIT
+```
+public/
+  app.js
+  knowledge.js
+  retrieval.js
+  memory.js
+  index.html
+  styles.css
+manifest.json
+service-worker.js
+server.js
+```
