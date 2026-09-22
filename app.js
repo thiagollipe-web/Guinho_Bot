@@ -43,6 +43,21 @@ function respostaCriacao(texto,analise){
   return `Projeto gerado: ${projeto.plano.tipo}\\nEstratégia: ${projeto.plano.estrategia}\\nTecnologias: ${projeto.plano.tecnologias.join(", ")}\\nArquivos: ${nomes.join(", ")}\\n${estado}${projeto.validacao.erros.length?`\\nErros: ${projeto.validacao.erros.join(" • ")}`:""}${avisos}\\n\\nArquivo de entrada: ${projeto.entry}\\n\\n${limite}`;
 }
 
+
+function respostaAnalise(texto){
+  const blocos=extrairBlocosCodigo(texto);
+  if(blocos.length===0)return "Para fazer a análise, cole o código na mensagem. Posso auditar HTML, CSS e JavaScript e verificar DOM, eventos, Canvas, mobile, PWA, segurança e performance.";
+  const arquivos={};
+  blocos.slice(0,8).forEach((codigo,i)=>{
+    const q=codigo.toLowerCase();
+    const nome=/<(?:!doctype|html|body|canvas)\b/.test(q)?"codigo-"+(i+1)+".html":/[.#][\w-]+\s*\{/.test(q)?"codigo-"+(i+1)+".css":"codigo-"+(i+1)+".js";
+    arquivos[nome]=codigo;
+  });
+  const resultado=Object.keys(arquivos).length===1
+    ? analisarCodigo(Object.values(arquivos)[0],Object.keys(arquivos)[0])
+    : analisarProjeto(arquivos);
+  return relatorioAnalise(resultado);
+}
 class CompositorRespostas{
   constructor({pnl,recuperador,memoria,gerador}){this.pnl=pnl;this.recuperador=recuperador;this.memoria=memoria;this.gerador=gerador;}
   contexto(texto){
