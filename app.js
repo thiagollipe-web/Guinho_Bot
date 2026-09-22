@@ -432,7 +432,6 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     const r=respostaMelhoria(limpo,false);
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"melhoria",assunto:memoria.estado.assuntoAtual});
     return r;
-  }
   if(analise.confident&&(analise.objetivo==="analisar"||analise.objetivo==="diagnosticar")&&["jogos","programacao"].includes(analise.intent)){
     const r=respostaAnalise(limpo);
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"diagnostico",assunto:memoria.estado.assuntoAtual});
