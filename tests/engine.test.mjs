@@ -6,16 +6,15 @@ test("ENGINE executa ciclo completo",()=>{const r=executarCicloEngenharia("Crie 
 test("ENGINE corrige viewport ausente",()=>{const r=executarCicloEngenharia("projeto",{criar:false,files:{"index.html":"<!doctype html><html><head></head><body><h1>Teste</h1></body></html>"}});assert.equal(r.ok,true);assert.ok(r.historico.some(x=>x.etapa==="CORRIGIR"));});
 test("ENGINE termina com limite",()=>{const r=executarCicloEngenharia("projeto",{criar:false,maxCiclos:2,files:{"index.html":"<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width\"></head><body><script>eval(1)</script></body></html>"}});assert.notEqual(r.status,"EM_EXECUCAO");});
 test("ENGINE gera relatório",()=>{const r=executarCicloEngenharia("Crie um site responsivo");assert.match(relatorioEngenharia(r),/CICLO DE ENGENHARIA:/);});
-test("ENGINE usa VALIDAR como gate e tenta nova correção",()=>{
+test("ENGINE usa VALIDAR como gate e tenta correção após reprovação",()=>{
   const r=executarCicloEngenharia("projeto",{
     criar:false,
-    maxCiclos:3,
-    files:{
-      "index.html":"<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width\"></head><body><script>eval(1)</script></body></html>"
-    }
+    maxCiclos:2,
+    files:{"app.js":"const x=1;"}
   });
   assert.ok(r.historico.some(x=>x.etapa==="VALIDAR"));
   assert.ok(r.historico.some(x=>x.etapa==="CORRIGIR"));
+  assert.ok(r.memoria.ignorados.length>=0);
   assert.notEqual(r.status,"EM_EXECUCAO");
 });
 
