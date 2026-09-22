@@ -157,7 +157,7 @@ export function aplicarMelhoriasSeguras(projeto={},opcoes={}){
   const originalAnalise=analisarProjeto(antes);
   const houve=alteracoes.length>0;
   const naoPiorou=validacao.score>=originalAnalise.score;
-  if(hoeu&&!naoPiorou&&!opcoes.permitirPiorar)return {aplicado:false,files:antes,alteracoes:[],plano,antes:originalAnalise,depois:originalAnalise,motivo:"As melhorias automáticas não preservaram o score estático; versão original mantida."};
+  if(houve&&!naoPiorou&&!opcoes.permitirPiorar)return {aplicado:false,files:antes,alteracoes:[],plano,antes:originalAnalise,depois:originalAnalise,motivo:"As melhorias automáticas não preservaram o score estático; versão original mantida."};
   return {
     aplicado:houve,
     files:arquivos,
