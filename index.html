@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#070b13">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11,28 +11,165 @@
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./icon.svg">
 <link rel="stylesheet" href="./styles.css">
-<title>Guinho-Bot</title>
+<title>Guinho-Bot — Assistente Local</title>
 </head>
 <body>
-<main class="terminal-shell">
-<header class="terminal-header">
-<div class="brand"><span class="prompt">root@guinho:~$</span> <strong>GUINHO-BOT</strong></div>
-<div class="status" aria-label="Status"><span>●</span> <span id="status-text">LOCAL READY</span></div>
-</header>
-<section id="chat" class="chat" aria-live="polite" aria-label="Conversa"></section>
-<section class="quick-actions" aria-label="Atalhos">
-<button type="button" data-cmd="/ajuda">/ajuda</button>
-<button type="button" data-cmd="/moeda">/moeda</button>
-<button type="button" data-cmd="/noticias">/noticias</button>
-<button type="button" data-cmd="/tempo">/tempo</button>
-</section>
-<form id="composer" class="composer" autocomplete="off">
-<label class="sr-only" for="message">Mensagem</label>
-<input id="message" name="message" maxlength="12000" inputmode="text" enterkeyhint="send" placeholder="Digite um comando ou pergunta..." required>
-<button type="submit">ENTER</button>
-</form>
-<footer class="terminal-footer">PLN LOCAL • RECUPERAÇÃO SEMÂNTICA • PWA • SEM API_KEY DE IA</footer>
+<div class="app-bg"></div>
+
+<main class="app-shell">
+  <aside class="sidebar sidebar-left" aria-label="Navegação principal">
+    <div class="sidebar-top">
+      <button class="mobile-close" id="close-left" type="button" aria-label="Fechar menu">×</button>
+      <div class="brand-lockup">
+        <div class="bot-avatar" aria-hidden="true">
+<pre>╭─────╮
+│ ◉ ◉ │
+│  ▄  │
+╰─┬─┬─╯</pre>
+        </div>
+        <div>
+          <div class="eyebrow">ASSISTENTE LOCAL</div>
+          <h1>Guinho-Bot</h1>
+          <div class="online"><span></span> LOCAL READY</div>
+        </div>
+      </div>
+
+      <button type="button" class="primary-action" id="new-chat">
+        <span>＋</span> Nova conversa
+      </button>
+
+      <nav class="main-nav" aria-label="Seções">
+        <button type="button" class="nav-item active" data-nav="chat"><span>⌂</span> Conversa</button>
+        <button type="button" class="nav-item" data-nav="history"><span>◷</span> Histórico</button>
+        <button type="button" class="nav-item" data-nav="favorites"><span>☆</span> Favoritos</button>
+        <button type="button" class="nav-item" data-nav="explore"><span>⌕</span> Explorar</button>
+      </nav>
+    </div>
+
+    <div class="sidebar-section knowledge-nav">
+      <div class="section-title">BASE DE CONHECIMENTO</div>
+      <button type="button" data-topic="Programação">Programação</button>
+      <button type="button" data-topic="Matemática">Matemática</button>
+      <button type="button" data-topic="Física">Física</button>
+      <button type="button" data-topic="Química">Química</button>
+      <button type="button" data-topic="Biologia">Biologia</button>
+      <button type="button" data-topic="Astronomia">Astronomia</button>
+      <button type="button" data-topic="Web">Web</button>
+      <button type="button" data-topic="Desenvolvimento de Jogos">Game Dev</button>
+      <button type="button" data-topic="PLN">PLN</button>
+    </div>
+
+    <div class="sidebar-bottom">
+      <button type="button" class="nav-item" data-nav="settings"><span>⚙</span> Configurações</button>
+      <div class="privacy-card">
+        <div class="privacy-icon">⌁</div>
+        <div>
+          <strong>Privacidade local</strong>
+          <p>O processamento textual acontece no navegador.</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <section class="workspace">
+    <header class="topbar">
+      <button class="mobile-menu" id="open-left" type="button" aria-label="Abrir menu">☰</button>
+      <div class="search-wrap">
+        <span>⌕</span>
+        <input id="site-search" type="search" placeholder="Pesquisar na base de conhecimento..." autocomplete="off">
+        <kbd>Ctrl K</kbd>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="icon-btn" id="clear-chat" title="Limpar conversa">↺</button>
+        <button type="button" class="icon-btn" id="focus-input" title="Focar no campo de mensagem">⌘</button>
+        <div class="profile-dot" aria-hidden="true">G</div>
+      </div>
+    </header>
+
+    <section class="chat-stage">
+      <div class="welcome-strip">
+        <div>
+          <div class="eyebrow">MOTOR DE RESPOSTA</div>
+          <h2>Converse. Pergunte. Explore.</h2>
+          <p>PLN local + probabilidades + recuperação semântica + memória de sessão.</p>
+        </div>
+        <div class="engine-status">
+          <span class="pulse"></span>
+          <span id="status-text">LOCAL READY</span>
+        </div>
+      </div>
+
+      <section id="chat" class="chat" aria-live="polite" aria-label="Conversa"></section>
+
+      <div class="suggestion-row" aria-label="Sugestões rápidas">
+        <button type="button" data-cmd="o que é JavaScript?">O que é JavaScript?</button>
+        <button type="button" data-cmd="por que existe o dia e a noite?">Por que existe o dia e a noite?</button>
+        <button type="button" data-cmd="como funciona um service worker?">Como funciona um service worker?</button>
+      </div>
+
+      <form id="composer" class="composer" autocomplete="off">
+        <button type="button" class="composer-tool" id="attach-placeholder" aria-label="Anexar arquivo" title="Anexar arquivo">＋</button>
+        <label class="sr-only" for="message">Mensagem</label>
+        <textarea id="message" name="message" rows="1" maxlength="12000" inputmode="text" enterkeyhint="send" placeholder="Pergunte qualquer coisa sobre a base do Guinho-Bot..." required></textarea>
+        <div class="composer-actions">
+          <button type="button" class="composer-tool subtle" id="voice-placeholder" title="Entrada de voz">◉</button>
+          <button type="submit" class="send-btn" aria-label="Enviar mensagem" title="Enviar mensagem">↑</button>
+        </div>
+      </form>
+      <div class="composer-hint">Enter envia • Shift + Enter quebra linha • Sem API_KEY de IA</div>
+    </section>
+  </section>
+
+  <aside class="sidebar sidebar-right" aria-label="Ferramentas e modos">
+    <div class="sidebar-top right-head">
+      <button class="mobile-close" id="close-right" type="button" aria-label="Fechar painel">×</button>
+      <div class="section-title">MODO DE RESPOSTA</div>
+      <div class="mode-list" id="mode-list">
+        <button type="button" class="mode-item active" data-mode="standard">
+          <span class="mode-icon">●</span><span><strong>Standard</strong><small>Equilibrado</small></span>
+        </button>
+        <button type="button" class="mode-item" data-mode="resumido">
+          <span class="mode-icon">≡</span><span><strong>Resumido</strong><small>Direto ao ponto</small></span>
+        </button>
+        <button type="button" class="mode-item" data-mode="detalhado">
+          <span class="mode-icon">▤</span><span><strong>Detalhado</strong><small>Mais contexto</small></span>
+        </button>
+        <button type="button" class="mode-item" data-mode="passo">
+          <span class="mode-icon">1·2·3</span><span><strong>Passo a passo</strong><small>Sequência clara</small></span>
+        </button>
+        <button type="button" class="mode-item" data-mode="criativo">
+          <span class="mode-icon">✦</span><span><strong>Criativo</strong><small>Mais variação</small></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-title">RECURSOS ATIVOS</div>
+      <div class="resource-card"><span>◈</span><div><strong>Conhecimento local</strong><small>116 entradas</small></div></div>
+      <div class="resource-card"><span>⌕</span><div><strong>Busca semântica</strong><small>TF-IDF + similaridade</small></div></div>
+      <div class="resource-card"><span>∿</span><div><strong>Motor probabilístico</strong><small>Intenções + fuzzy match</small></div></div>
+      <div class="resource-card"><span>↺</span><div><strong>Memória de sessão</strong><small>LocalStorage do navegador</small></div></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-title">PERGUNTAS EM DESTAQUE</div>
+      <button class="mini-question" type="button" data-cmd="como funciona a recuperação semântica?">Como a busca semântica encontra uma resposta?</button>
+      <button class="mini-question" type="button" data-cmd="o que é probabilidade?">O que é probabilidade?</button>
+      <button class="mini-question" type="button" data-cmd="como criar um jogo em canvas?">Como criar um jogo em Canvas?</button>
+    </div>
+
+    <div class="curiosity-card">
+      <div class="section-title">CURIOSIDADE DO DIA</div>
+      <strong>TF-IDF mede relevância relativa de termos.</strong>
+      <p>O Guinho-Bot usa essa ideia para pesar palavras raras e úteis durante a recuperação local.</p>
+    </div>
+  </aside>
 </main>
+
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<footer class="site-footer">GUINHO-BOT • PLN LOCAL • RECUPERAÇÃO SEMÂNTICA • PWA • APIS PÚBLICAS</footer>
 <script type="module" src="./app.js"></script>
 </body>
 </html>
