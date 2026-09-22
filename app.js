@@ -47,6 +47,7 @@ const engPreviewButton=document.querySelector("#eng-preview");
 const engClose=document.querySelector("#eng-close");
 const engRun=document.querySelector("#eng-run");
 const engSummary=document.querySelector("#eng-summary");
+const engMemory=document.querySelector("#eng-memory");
 let ultimoProjetoEngenharia=null;
 let arquivoEngenhariaAtual="index.html";
 
