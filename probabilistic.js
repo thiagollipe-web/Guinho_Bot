@@ -122,6 +122,16 @@ export class EstatisticaLinguistica{
   }
   objetivo(text){
     const q=this.normalizar(text),tokens=this.tokens(text);
+    const regras=[
+      {objetivo:"aprender",frases:["como faco","como fazer","passo a passo","me ensine"]},
+      {objetivo:"explicar",frases:["o que e","como funciona","defina","explique"]},
+      {objetivo:"criar",frases:["crie","quero criar","preciso criar","gere","desenvolva","implemente"]},
+      {objetivo:"melhorar",frases:["como melhorar","melhorar meu","sugira melhorias","dicas para melhorar"]},
+      {objetivo:"analisar",frases:["analise","encontre bugs","encontre erros","diagnostique"]},
+      {objetivo:"comparar",frases:["qual a diferenca","compare","versus"," vs "]},
+      {objetivo:"corrigir",frases:["corrija","corrigir erro","resolver erro","conserte"]}
+    ];
+    for(const regra of regras)if(regra.frases.some(frase=>q.includes(frase)))return {objetivo:regra.objetivo,probability:.94,probabilidades:[{objetivo:regra.objetivo,probability:.94}]};
     const resultados=Object.entries(this.objetivos).map(([objetivo,exemplos])=>{
       let score=0;
       for(const exemplo of exemplos){
@@ -159,7 +169,7 @@ export class EstatisticaLinguistica{
     const normalizado=this.normalizar(text);
     const continuidade=/\\b(e agora|e depois|e nesse caso|como faco|como faço|como fazer|mais detalhes|explique melhor|e para|e no caso|tambem|também|nesse caso|nessa situacao|nessa situação)\\b/.test(normalizado);
     if(continuidade&&contexto?.intencao){
-      const intensidade=Math.min(.22,Math.max(.05,Number(contexto.confianca||0)*.22));
+      const intensidade=Math.min(.42,Math.max(.12,Number(contexto.confianca||0)*.42));
       const ajustados=probs.map(item=>({...item,logScore:item.logScore+(item.intent===contexto.intencao?intensidade:0)}));
       const recalculadas=softmax(ajustados.map(x=>x.logScore),.82);
       probs=ajustados.map((x,i)=>({...x,probability:recalculadas[i]})).sort((a,b)=>b.probability-a.probability);
