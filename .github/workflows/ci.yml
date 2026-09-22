@@ -19,4 +19,6 @@ jobs:
       - run: node --check probabilistic.js
       - run: node --check knowledge.js
       - run: node --check prompt-library.js
+      - run: node --check calibration.js
       - run: npm test
+      - run: npm run benchmark
