@@ -432,6 +432,7 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     const r=respostaMelhoria(limpo,false);
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"melhoria",assunto:memoria.estado.assuntoAtual});
     return r;
+  }
   if(analise.confident&&(analise.objetivo==="analisar"||analise.objetivo==="diagnosticar")&&["jogos","programacao"].includes(analise.intent)){
     const r=respostaAnalise(limpo);
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"diagnostico",assunto:memoria.estado.assuntoAtual});
@@ -443,7 +444,6 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     return r;
   }
   
-  }
   const especial=analise.confident?intencaoEspecial(analise,limpo):null;
   if(especial){contexto.atualizar({texto:limpo,resposta:especial,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:memoria.estado.assuntoAtual});return especial;}
   const composta=compositor.compor(textoContextual,analise);
