@@ -10,6 +10,7 @@ import { extrairBlocosCodigo, analisarCodigo, analisarProjeto, relatorioAnalise 
 import { corrigirProjeto, relatorioCorrecao } from "./fixer.js";
 import { sugerirMelhorias, aplicarMelhoriasSeguras, relatorioMelhorias } from "./improver.js";
 import { validarProjeto, relatorioValidacao } from "./validator.js";
+import { executarCicloEngenharia, relatorioEngenharia } from "./engine.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -69,6 +70,18 @@ function arquivosDaMensagem(texto){
     arquivos[nome]=codigo;
   });
   return arquivos;
+}
+
+function respostaEngenharia(texto){
+  const arquivos=arquivosDaMensagem(texto);
+  const temProjeto=Object.keys(arquivos).length>0;
+  const entrada=temProjeto?"Projeto fornecido pelo usuário":texto;
+  const resultado=executarCicloEngenharia(entrada,{criar:!temProjeto,files:arquivos});
+  const relatorio=relatorioEngenharia(resultado);
+  if(!resultado.ok)return relatorio+"\\n\\nO ciclo foi interrompido com segurança; nenhum código foi executado.";
+  const entry=resultado.files[resultado.entry]||resultado.files["index.html"]||"";
+  const limite=entry.length>12000?entry.slice(0,11997)+"...":entry;
+  return relatorio+"\\n\\nENTREGA: "+resultado.entry+"\\n\\n"+limite;
 }
 
 function respostaValidacao(texto){
@@ -314,6 +327,11 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     return r;
   }
   if(analise.confident&&analise.objetivo==="criar"&&["jogos","programacao"].includes(analise.intent)){
+    const r=respostaEngenharia(limpo);
+    contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"engenharia",assunto:memoria.estado.assuntoAtual});
+    return r;
+  }
+  
     const r=respostaCriacao(limpo,analise);
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"codigo",assunto:memoria.estado.assuntoAtual});
     return r;
