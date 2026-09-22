@@ -154,7 +154,7 @@ export class EstatisticaLinguistica{
     const regras=[
       {objetivo:"aprender",frases:["como faco","como fazer","passo a passo","me ensine"]},
       {objetivo:"explicar",frases:["o que e","como funciona","defina","explique"]},
-      {objetivo:"criar",frases:["crie","quero criar","preciso criar","gere","desenvolva","implemente"]},
+      {objetivo:"criar",frases:["crie","criar","quero criar","preciso criar","gere","gerar codigo","desenvolva","implemente","implementar","construa","faca","fazer codigo","escreva codigo","codifique","codificar","programe","programar"]},
       {objetivo:"melhorar",frases:["como melhorar","melhorar meu","sugira melhorias","dicas para melhorar"]},
       {objetivo:"analisar",frases:["analise","encontre bugs","encontre erros","diagnostique"]},
       {objetivo:"comparar",frases:["qual a diferenca","compare","versus"," vs "]},
