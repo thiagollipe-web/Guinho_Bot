@@ -6,8 +6,8 @@
   "scope":"./",
   "display":"standalone",
   "orientation":"portrait",
-  "background_color":"#000000",
-  "theme_color":"#000000",
+  "background_color":"#070b13",
+  "theme_color":"#070b13",
   "description":"Assistente virtual com PLN local no navegador e APIs públicas.",
   "icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
 }
