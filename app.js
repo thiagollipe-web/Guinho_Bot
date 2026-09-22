@@ -233,9 +233,11 @@ function respostaEngenharia(texto){
   if(!resultado.ok){
     return resumo.join("\n")+"\n\nO ciclo foi interrompido com segurança. Abra o Workspace para ver os problemas e tentativas.";
   }
-  return resumo.join("\n")+"\n\nO Workspace de Engenharia foi aberto. O relatório técnico completo ficou no painel de memória.";
-}
-function respostaValidacao(texto){
+  const entry=resultado.files?.[resultado.entry]||"";
+  const linguagem=resultado.entry?.endsWith(".js")?"javascript":resultado.entry?.endsWith(".css")?"css":"html";
+  const limite=entry.length>12000?entry.slice(0,11997)+"...":entry;
+  const fence="```";
+  return resumo.join("\n")+"\n\nCódigo gerado em "+resultado.entry+":\n\n"+fence+linguagem+"\n"+limite+"\n"+fence+"\n\nO Workspace de Engenharia foi aberto para editar, executar, corrigir e validar o projeto.";function respostaValidacao(texto){
   const arquivos=arquivosDaMensagem(texto);
   if(!Object.keys(arquivos).length)return "Para validar, cole o código ou projeto na mensagem. O VALIDAR verifica entrada, estrutura, referências, PWA e os achados do ANALYZE.";
   const resultado=validarProjeto(arquivos);
@@ -508,7 +510,7 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"diagnostico",assunto:memoria.estado.assuntoAtual});
     return r;
   }
-  if(analise.confident&&analise.objetivo==="criar"&&["jogos","programacao"].includes(analise.intent)){
+  if((pedidoDeCodigo(limpo)||(analise.confident&&analise.objetivo==="criar"))&&["jogos","programacao"].includes(analise.intent)){
     const r=respostaEngenharia(limpo);
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"engenharia",assunto:memoria.estado.assuntoAtual});
     return r;
@@ -599,6 +601,25 @@ function inserirQuebraAuto(){
   input.style.height=Math.min(input.scrollHeight,140)+"px";
 }
 
+function renderTextoMensagem(box,text){
+  const fence="```";
+  const partes=String(text??"").split(fence);
+  partes.forEach((parte,index)=>{
+    if(index%2===1){
+      const primeiraQuebra=parte.indexOf("\n");
+      const linguagem=primeiraQuebra>=0?parte.slice(0,primeiraQuebra).trim():"";
+      const codigo=primeiraQuebra>=0?parte.slice(primeiraQuebra+1):parte;
+      const pre=document.createElement("pre");
+      const code=document.createElement("code");
+      if(linguagem)code.className="language-"+linguagem;
+      code.textContent=codigo.trimEnd();
+      pre.appendChild(code);box.appendChild(pre);
+    }else if(parte){
+      box.appendChild(document.createTextNode(parte));
+    }
+  });
+}
+
 function add(role,text){
   const el=document.createElement("div");el.className="line "+(role==="user"?"user":"bot");
   const meta=document.createElement("div");meta.className="meta";meta.textContent=role==="user"?"VOCÊ >":"GUINHO >";
@@ -607,17 +628,16 @@ function add(role,text){
   if(role==="bot"&&fonteIndex>=0){
     const corpo=text.slice(0,fonteIndex);
     const fonte=text.slice(fonteIndex+2);
-    box.textContent=corpo;
+    renderTextoMensagem(box,corpo);
     const source=document.createElement("div");
     source.className="message-source";
     source.textContent=fonte;
     box.appendChild(source);
   }else{
-    box.textContent=text;
+    renderTextoMensagem(box,text);
   }
   el.append(meta,box);chat.appendChild(el);chat.scrollTop=chat.scrollHeight;
 }
-
 form.addEventListener("submit",async e=>{
   e.preventDefault();
   const texto=input.value.trim();
