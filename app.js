@@ -277,9 +277,10 @@ class GeradorRespostaEstruturada{
     });
   }
   estruturar(consulta,analise){
-    const {documentos}=this.recuperar(consulta,analise);
+    const recuperado=this.recuperar(consulta,analise);
+    const {documentos}=recuperado;
     if(!documentos.length)return null;
-    const frases=this.deduplicar(this.recuperar(consulta,analise).frases);
+    const frases=this.deduplicar(recuperado.frases);
     const melhor=documentos[0];
     const tema=melhor.titulo||melhor.tema||"o assunto";
     const tipo=analise.tipo||"geral";
