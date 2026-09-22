@@ -114,6 +114,7 @@ export function registrarTentativaAprendida(modelo,dados={}){
       chave:chaveAprendizado(categoria,estrategia),
       categoria:String(categoria),
       estrategia:String(estrategia),
+      origem:String(dados.origem||"ANALISE"),
       ciclo:Number(dados.ciclo)||0
     };
   }else{
@@ -122,10 +123,11 @@ export function registrarTentativaAprendida(modelo,dados={}){
   return r;
 }
 
-export function atualizarResultadosAprendidos(modelo,analise={},extrairProblemas,ciclo=0){
+export function atualizarResultadosAprendidos(modelo,analise={},extrairProblemas,ciclo=0,origem="ANALISE"){
   if(typeof extrairProblemas!=="function")return modelo;
   const atuais=new Set(extrairProblemas(analise).map(x=>x.fingerprint));
   for(const [fingerprint,pendente] of Object.entries({...modelo.pendentes})){
+    if(String(pendente.origem||"ANALISE")!==String(origem))continue;
     const r=modelo.estrategias[pendente.chave];
     if(!r){
       delete modelo.pendentes[fingerprint];
