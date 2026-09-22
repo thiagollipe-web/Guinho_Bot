@@ -88,6 +88,7 @@ export function registrarProblemas(memoria, analise = {}, ciclo = 0) {
         falhas: 0,
         sucessos: 0,
         resolvido: false,
+        resolvidoNoCiclo: null,
         ultimaAcao: null,
         ultimaVariacao: null
       });
@@ -96,9 +97,30 @@ export function registrarProblemas(memoria, analise = {}, ciclo = 0) {
   return memoria;
 }
 
+const slugEstratégia = valor => normalizarTexto(valor)
+  .replace(/[^a-z0-9]+/g, "_")
+  .replace(/^_+|_+$/g, "")
+  .toUpperCase();
+
+export function gerarEstrategiasProblema(problema = {}) {
+  const categoria = slugEstratégia(problema.categoria || "GERAL");
+  const especifica = categoria ? "CORRIGIR_" + categoria : "CORRIGIR";
+  return especifica === "CORRIGIR" ? ["CORRIGIR"] : [especifica, "CORRIGIR"];
+}
+
+export function selecionarEstrategia(memoria, problema = {}) {
+  const candidatas = gerarEstrategiasProblema(problema);
+  return candidatas.find(estrategia => !estrategiaJaTentada(memoria, problema.fingerprint, estrategia)) || null;
+}
+
+export function estrategiaJaTentada(memoria, fingerprint, estrategia = "CORRIGIR") {
+  const chave = fingerprint + "::" + normalizarTexto(estrategia);
+  return memoria.tentativas.some(x => x.chave === chave);
+}
+
 export function estrategiaJaFalhou(memoria, fingerprint, estrategia = "CORRIGIR") {
   const chave = fingerprint + "::" + normalizarTexto(estrategia);
-  return memoria.tentativas.some(x => x.chave === chave && x.status === "FALHOU");
+  return memoria.tentativas.some(x => x.chave === chave && x.status !== "RESOLVIDO");
 }
 
 export function registrarTentativa(memoria, dados = {}) {
@@ -123,10 +145,9 @@ export function registrarTentativa(memoria, dados = {}) {
     problema.tentativas += 1;
     problema.ultimaAcao = tentativa.estrategia;
     problema.ultimaVariacao = tentativa.ganho;
-    if (tentativa.status === "OK" || tentativa.status === "RESOLVIDO") {
+    if (tentativa.status === "RESOLVIDO") {
       problema.sucessos += 1;
-      problema.resolvido = true;
-    } else if (tentativa.status === "FALHOU" || tentativa.status === "PRESERVADO") {
+    } else if (tentativa.status === "FALHOU" || tentativa.status === "PRESERVADO" || tentativa.status === "SEM_PROGRESSO") {
       problema.falhas += 1;
     }
   }
