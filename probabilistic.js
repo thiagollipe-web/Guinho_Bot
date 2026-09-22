@@ -114,6 +114,12 @@ export class EstatisticaLinguistica{
     const feats=this.pesosTermos(text);
     const biblioteca=pontuarBiblioteca(text);
     const porIntent=new Map(Object.entries(biblioteca));
+    const q=this.normalizar(text);
+    const assinaturas=[
+      {intent:"jogos",regex:/\b(jogo|jogos|game|piskel|pixelorama|sprite|spritesheet|tilemap|makecode|microstudio|tic 80|kenney|opengameart)\b/,bonus:1.35},
+      {intent:"programacao",regex:/\b(codigo|código|programacao|programação|javascript|typescript|html|css|python|nodejs|node\.js|github|canvas|npm|git|ollama|llama\.cpp|gguf)\b/,bonus:1.35}
+    ];
+    for(const a of assinaturas)if(a.regex.test(q))porIntent.set(a.intent,(porIntent.get(a.intent)||0)+a.bonus);
     const rows=this.intentNames.map(intent=>{
       const prior=Math.log((this.intentDocs.get(intent)+1)/(this.totalDocs+this.intentNames.length));
       const likelihood=feats.reduce((sum,item)=>sum+item.peso*this.laplace(item.term,intent),0);
@@ -191,7 +197,7 @@ export class EstatisticaLinguistica{
       const ajustados=probs.map(item=>{
         if(item.intent!==contexto.intencao)return {...item};
         const vantagem=Math.max(0,maiorScore-item.logScore);
-        return {...item,logScore:item.logScore+vantagem+intensidade};
+        return {...item,logScore:item.logScore+vantagem+intensidade+(.001)};
       });
       const recalculadas=softmax(ajustados.map(x=>x.logScore),.82);
       probs=ajustados.map((x,i)=>({...x,probability:recalculadas[i]})).sort((a,b)=>b.probability-a.probability);
