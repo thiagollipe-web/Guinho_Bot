@@ -111,7 +111,8 @@ function aplicarCorrecaoAdaptativa(files,analise,memoria,aprendizado,ciclo,h,ori
     ganho,
     aplicada:houveAplicacao,
     origem,
-    status:statusTentativa
+    status:statusTentativa,
+    severidade:problema.severidade
   });
 
   if(!houveAplicacao){
