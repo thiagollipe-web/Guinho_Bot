@@ -5,7 +5,7 @@ import { EstatisticaLinguistica, GeradorEstatistico } from "./probabilistic.js";
 import { BIBLIOTECA_JOGOS } from "./game-library.js";
 import { ContextoConversacional } from "./context.js";
 import { perfilPergunta } from "./prompt-library.js";
-import { construirPerfilProgramador, respostaElizaProgramacao } from "./guinho-programmer.js";
+import { construirPerfilProgramador, respostaElizaProgramacao, ehConversaProgramacao } from "./guinho-programmer.js";
 import { gerarProjeto } from "./generator.js";
 import { extrairBlocosCodigo, analisarCodigo, analisarProjeto, relatorioAnalise } from "./analyzer.js";
 import { corrigirProjeto, relatorioCorrecao } from "./fixer.js";
@@ -553,6 +553,11 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     contexto:contexto.resumo(),
     historico:memoria.historico()
   });
+  if(!ehConversaProgramacao(limpo,perfilProgramador)){
+    const r="Eu sou o Guinho, seu companheiro de programação. Posso ajudar a criar, explicar, corrigir, analisar e melhorar código. Me conte o que você quer construir ou qual problema quer resolver.";
+    contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"escopo-programacao",assunto:memoria.estado.assuntoAtual});
+    return r;
+  }
   if(ehPerguntaGeralParaIA(limpo,analise,perfilProgramador)){
 
     const online=await consultarIAOnline(limpo);
