@@ -14,6 +14,7 @@ import { validarProjeto, relatorioValidacao } from "./validator.js";
 import { executarCicloEngenharia, relatorioEngenharia } from "./engine.js";
 import { hidratarModeloAprendizado, serializarModeloAprendizado } from "./engineering-learning.js";
 import { criarWorkspace, atualizarWorkspace, carregarWorkspace, salvarWorkspace, resumoWorkspace } from "./project-workspace.js";
+import { gerarDiffProjeto, resumoDiff } from "./project-diff.js";
 import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
 
 const chat=document.querySelector("#chat");
@@ -55,6 +56,7 @@ const engClose=document.querySelector("#eng-close");
 const engRun=document.querySelector("#eng-run");
 const engSummary=document.querySelector("#eng-summary");
 const engMemory=document.querySelector("#eng-memory");
+const engDiff=document.querySelector("#eng-diff");
 const LEARNING_KEY="guinho-engineering-learning-v1";
 let ultimoProjetoEngenharia=null;
 let workspaceEngenharia=null;
@@ -218,13 +220,14 @@ function executarAcaoWorkspace(tipo){
       const etapas=[...(ultimoProjetoEngenharia.historico||[]),{etapa:"ANALISAR",status:a.valido?"OK":"ACHADOS",score:a.score}];ultimoProjetoEngenharia={...ultimoProjetoEngenharia,files,analise:a,historico:etapas};atualizarPipelineEngenharia(etapas);return;
     }
     if(tipo==="corrigir"){
-      const r=corrigirProjeto({files});resultado={...ultimoProjetoEngenharia,files:r.files,analise:r.depois,historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"CORRIGIR",status:r.aplicado?"OK":"SEM_ALTERACOES",alteracoes:r.alteracoes||[]}]};
+      const r=corrigirProjeto({files});resultado={...ultimoProjetoEngenharia,files:r.files,analise:r.depois,lastDiff:gerarDiffProjeto(files,r.files),diffResumo:resumoDiff(files,r.files),historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"CORRIGIR",status:r.aplicado?"OK":"SEM_ALTERACOES",alteracoes:r.alteracoes||[]}]};
     }else if(tipo==="melhorar"){
-      const r=aplicarMelhoriasSeguras({files});resultado={...ultimoProjetoEngenharia,files:r.files,analise:r.depois,historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"MELHORAR",status:r.aplicado?"OK":"SEM_ALTERACOES"}]};
+      const r=aplicarMelhoriasSeguras({files});resultado={...ultimoProjetoEngenharia,files:r.files,analise:r.depois,lastDiff:gerarDiffProjeto(files,r.files),diffResumo:resumoDiff(files,r.files),historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"MELHORAR",status:r.aplicado?"OK":"SEM_ALTERACOES"}]};
     }else if(tipo==="validar"){
       const a=analisarProjeto(files),v=validarProjeto(files);resultado={...ultimoProjetoEngenharia,files,analise:a,validacao:v,status:v.valido?(v.estado==="APROVADO"?"APROVADO":"APROVADO_COM_AVISOS"):"REPROVADO",ok:v.valido,historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"VALIDAR",status:v.estado,score:v.score,bloqueadores:v.bloqueadores}]};
     }else if(tipo==="ciclo"){
       resultado=executarCicloComAprendizado("Projeto editado no Workspace",{criar:false,files,maxCiclos:4});
+      resultado={...resultado,lastDiff:gerarDiffProjeto(files,resultado.files),diffResumo:resumoDiff(files,resultado.files)};
     }
     if(resultado){atualizarResultadoWorkspace(resultado,tipo.toUpperCase());showToast(tipo.toUpperCase()+" concluído");}
   }catch(err){atualizarWorkspaceStatus("Erro: "+err.message,"ERRO");showToast("Erro: "+err.message);}
@@ -243,7 +246,10 @@ function executarNovoCicloWorkspace(){
 function respostaEngenharia(texto){
   const arquivos=arquivosDaMensagem(texto);
   const temProjeto=Object.keys(arquivos).length>0;
+  const arquivosAntes=temProjeto?arquivos:{};
   const resultado=executarCicloComAprendizado(temProjeto?"Projeto fornecido pelo usuário":texto,{criar:!temProjeto,files:arquivos});
+  resultado.lastDiff=gerarDiffProjeto(arquivosAntes,resultado.files);
+  resultado.diffResumo=resumoDiff(arquivosAntes,resultado.files);
   if(resultado.ok)abrirWorkspace(resultado);
   const relatorio=relatorioEngenharia(resultado);
   const resumo=[
@@ -255,6 +261,7 @@ function respostaEngenharia(texto){
     "Ciclos: "+(resultado.ciclos??0)
   ];
   if(resultado.plano?.tipo)resumo.push("Tipo: "+resultado.plano.tipo);
+  if(resultado.diffResumo?.total)resumo.push("Alterações: "+resultado.diffResumo.total+" arquivo(s) • +"+resultado.diffResumo.criados.length+" criado(s) • ~"+resultado.diffResumo.alterados.length+" alterado(s) • -"+resultado.diffResumo.removidos.length+" removido(s)");
   if(!resultado.ok){
     return resumo.join("\n")+"\n\nO ciclo foi interrompido com segurança. Abra o Workspace para ver os problemas e tentativas.";
   }
