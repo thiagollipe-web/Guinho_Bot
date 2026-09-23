@@ -5,6 +5,7 @@ import { EstatisticaLinguistica, GeradorEstatistico } from "./probabilistic.js";
 import { BIBLIOTECA_JOGOS } from "./game-library.js";
 import { ContextoConversacional } from "./context.js";
 import { perfilPergunta } from "./prompt-library.js";
+import { construirPerfilProgramador, respostaElizaProgramacao } from "./guinho-programmer.js";
 import { gerarProjeto } from "./generator.js";
 import { extrairBlocosCodigo, analisarCodigo, analisarProjeto, relatorioAnalise } from "./analyzer.js";
 import { corrigirProjeto, relatorioCorrecao } from "./fixer.js";
@@ -444,7 +445,12 @@ function ehComandoLocal(texto){
   return /^\s*\/(pnl|diagnostico|analisar|corrigir|melhorar|validar|ajuda|moeda|noticias|tempo)\b/i.test(String(texto||""));
 }
 
-function ehPerguntaGeralParaIA(texto,analise){
+function ehPerguntaGeralParaIA(texto,analise,perfil={}){
+  if(analise?.intent==="programacao"){
+    const tarefas=["criar","corrigir","analisar","diagnosticar","melhorar","validar"];
+    const localmenteGeravel=!perfil.linguagem||perfil.linguagem==="JavaScript";
+    if(tarefas.includes(analise.objetivo)&&perfil.linguagem&&!localmenteGeravel)return true;
+  }
   if(ehComandoLocal(texto))return false;
   if(pedidoDeCodigo(texto))return false;
   const dominiosLocais=new Set(["moeda","noticias","tempo","cep","matematica","memoria","jogos"]);
@@ -543,7 +549,12 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
   }
   const textoContextual=contexto.referencia(limpo,pnl);
   const analise=pnl.detectar(textoContextual,contexto.resumo());
-  if(ehPerguntaGeralParaIA(limpo,analise)){
+  const perfilProgramador=construirPerfilProgramador(textoContextual,{
+    contexto:contexto.resumo(),
+    historico:memoria.historico()
+  });
+  if(ehPerguntaGeralParaIA(limpo,analise,perfilProgramador)){
+
     const online=await consultarIAOnline(limpo);
     if(online){
       ultimaOrigemResposta="openai";
@@ -571,7 +582,20 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"diagnostico",assunto:memoria.estado.assuntoAtual});
     return r;
   }
-  if((pedidoDeCodigo(limpo)||(analise.confident&&analise.objetivo==="criar"))&&["jogos","programacao"].includes(analise.intent)){
+  const falaGuinho=respostaElizaProgramacao(limpo,perfilProgramador);
+  if(falaGuinho){
+    contexto.atualizar({
+      texto:limpo,
+      resposta:falaGuinho,
+      analise:{...analise,entidades:{...(analise.entidades||{}),linguagem:perfilProgramador.linguagem,tecnologia:perfilProgramador.tecnologia,tipoProjeto:perfilProgramador.tipoProjeto}},
+      estrategia:"conversa-programacao",
+      assunto:memoria.estado.assuntoAtual
+    });
+    return falaGuinho;
+  }
+  if((pedidoDeCodigo(limpo)||(analise.confident&&analise.objetivo==="criar"))&&["jogos","programacao"].includes(analise.intent)
+    &&(!perfilProgramador.linguagem||perfilProgramador.linguagem==="JavaScript")){
+
     const r=respostaEngenharia(limpo);
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"engenharia",assunto:memoria.estado.assuntoAtual});
     return r;
@@ -802,4 +826,4 @@ engRun?.addEventListener("click",executarNovoCicloWorkspace);
 engPreviewButton?.addEventListener("click",()=>{if(ultimoProjetoEngenharia?.ok)engPreview.srcdoc=String(ultimoProjetoEngenharia.files["index.html"]||"");});
 
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js"));
-const historico=memoria.historico();if(historico.length){historico.slice(-8).forEach(m=>add(m.role,m.content));}else add("bot","Sistema iniciado. Motor probabilístico local, recuperação semântica e memória de sessão ativos. Experimente: “o que é JavaScript?”, “por que existe o dia e a noite?” ou “diagnostico o que é um planeta”.");
+const historico=memoria.historico();if(historico.length){historico.slice(-8).forEach(m=>add(m.role,m.content));}else add("bot","Sistema iniciado. Sou o Guinho, seu companheiro de programação. Posso conversar sobre projetos, reconhecer linguagens e tecnologias, criar e corrigir código, analisar problemas e sugerir ideias. Experimente: “quero criar um jogo”, “corrija este código em Python” ou “tenho uma ideia”.");
