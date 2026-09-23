@@ -572,6 +572,23 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
   if(analise.confident&&analise.intent==="noticias"){const r=await api.noticias();contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
   if(analise.confident&&analise.intent==="tempo"){const r=await api.tempo(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
   if(analise.confident&&analise.intent==="cep"){const r=await api.cep(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
+  const pedidoEngenharia = ["criar","corrigir","analisar","diagnosticar","melhorar","validar"].includes(analise.objetivo)
+    && ["jogos","programacao"].includes(analise.intent);
+  const criacaoConcreta = analise.objetivo==="criar"
+    && (pedidoDeCodigo(limpo) || perfilProgramador.linguagem || perfilProgramador.tecnologia || perfilProgramador.tipoProjeto);
+
+  if(criacaoConcreta && (!perfilProgramador.linguagem || perfilProgramador.linguagem==="JavaScript")){
+    const r=respostaEngenharia(limpo);
+    contexto.atualizar({
+      texto:limpo,
+      resposta:r,
+      analise:{...analise,entidades:{...(analise.entidades||{}),linguagem:perfilProgramador.linguagem,tecnologia:perfilProgramador.tecnologia,tipoProjeto:perfilProgramador.tipoProjeto}},
+      estrategia:"agente-criar-projeto",
+      assunto:memoria.estado.assuntoAtual
+    });
+    return r;
+  }
+
   if(analise.confident&&analise.objetivo==="validar"&&["jogos","programacao"].includes(analise.intent)){
     const r=respostaValidacao(limpo);
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"validacao",assunto:memoria.estado.assuntoAtual});
@@ -587,6 +604,18 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"diagnostico",assunto:memoria.estado.assuntoAtual});
     return r;
   }
+  if(pedidoEngenharia && ["corrigir","analisar","diagnosticar","melhorar"].includes(analise.objetivo)){
+    const r=respostaEngenharia(limpo);
+    contexto.atualizar({
+      texto:limpo,
+      resposta:r,
+      analise,
+      estrategia:"agente-engenharia",
+      assunto:memoria.estado.assuntoAtual
+    });
+    return r;
+  }
+
   const falaGuinho=respostaElizaProgramacao(limpo,perfilProgramador);
   if(falaGuinho){
     contexto.atualizar({
