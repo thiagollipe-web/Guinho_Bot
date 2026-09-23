@@ -17,6 +17,8 @@ import { criarWorkspace, atualizarWorkspace, carregarWorkspace, salvarWorkspace,
 import { gerarDiffProjeto, resumoDiff } from "./project-diff.js";
 import { normalizarArquivosImportados, validarDependencias, arquivosRelacionados } from "./project-dependencies.js";
 import { gerarPlanoAlteracao, resumirPlano, arquivosImpactadosDoPlano } from "./project-plan.js";
+import { gerarArvoreProjeto } from "./project-tree.js";
+import { calcularImpactoProjeto, resumoImpacto } from "./project-impact.js";
 import { criarTokenRuntime, montarDocumentoSandbox, validarEventoRuntime, interpretarEventoRuntime } from "./sandbox-runtime.js";
 import { MAX_RUNTIME_AUTOFIX, deveAutocorrigirRuntime, proximaTentativaRuntime, construirPedidoAutocorrecao } from "./runtime-autofix.js";
 import { criarSnapshot, registrarSnapshot, desfazerWorkspace, removerUltimoSnapshot, salvarHistoricoWorkspace, carregarHistoricoWorkspace, resumoHistoricoWorkspace } from "./workspace-history.js";
@@ -73,6 +75,8 @@ const engPlanFiles=document.querySelector("#eng-plan-files");
 const engPlanApply=document.querySelector("#eng-plan-apply");
 const engPlanCancel=document.querySelector("#eng-plan-cancel");
 let planoEngenhariaPendente=null;
+let patchEngenhariaPendente=null;
+let impactoEngenhariaPendente=null;
 let runtimeToken="";
 let runtimeTimer=null;
 let runtimeAutofixAttempts=0;
@@ -191,10 +195,59 @@ async function importarArquivosProjeto(fileList){
   if(resultado.rejeitados.length)showToast("Importação concluída com "+resultado.rejeitados.length+" arquivo(s) rejeitado(s).");
   else showToast("Projeto importado: "+Object.keys(resultado.files).length+" arquivo(s)");
 }
+function renderArvoreProjeto(){
+  const host=document.querySelector("#eng-project-tree");
+  if(!host||!workspaceEngenharia)return;
+  host.innerHTML="";
+  const tree=gerarArvoreProjeto(workspaceEngenharia.files||{});
+  const render=(node,parent)=>{
+    (node.children||[]).forEach(child=>{
+      const row=document.createElement("div");
+      row.className="eng-tree-node "+child.type;
+      row.style.setProperty("--tree-depth",String(child.depth||0));
+      row.textContent=(child.type==="folder"?"▸ ":"▦ ")+child.name;
+      if(child.type==="file"){
+        if(impactoEngenhariaPendente?.diretos?.includes(child.path))row.dataset.impact="direct";
+        else if(impactoEngenhariaPendente?.relacionados?.includes(child.path))row.dataset.impact="related";
+        row.title=child.path;
+      }
+      parent.appendChild(row);
+      if(child.type==="folder")render(child,row);
+    });
+  };
+  render(tree,host);
+}
+function atualizarImpactoUI(impacto=null){
+  impactoEngenhariaPendente=impacto;
+  const box=document.querySelector("#eng-impact");
+  if(!box)return;
+  if(!impacto){box.textContent="Impact Analysis: aguardando plano.";box.dataset.state="IDLE";renderArvoreProjeto();return;}
+  box.textContent=resumoImpacto(impacto);
+  box.dataset.state=impacto.riscos?.length?"WARN":"OK";
+  renderArvoreProjeto();
+}
+function atualizarDiffPreview(diff="",resumo=null){
+  const panel=document.querySelector("#eng-diff-preview-panel");
+  const pre=document.querySelector("#eng-diff-preview");
+  const meta=document.querySelector("#eng-diff-preview-meta");
+  if(!panel||!pre)return;
+  panel.hidden=!diff;
+  pre.textContent=diff||"Nenhuma alteração proposta.";
+  if(meta)meta.textContent=resumo
+    ? resumo.total+" arquivo(s) • +"+resumo.criados.length+" criado(s) • ~"+resumo.alterados.length+" alterado(s) • -"+resumo.removidos.length+" removido(s)"
+    : "pré-visualização";
+}
 function atualizarPlanoUI(plano=null){
   if(!engPlan||!engPlanSummary||!engPlanFiles)return;
   engPlan.hidden=!plano;
-  if(!plano){engPlanSummary.textContent="Nenhum plano pendente.";engPlanFiles.innerHTML="";if(engPlanApply)engPlanApply.disabled=true;return;}
+  if(!plano){
+    engPlanSummary.textContent="Nenhum plano pendente.";
+    engPlanFiles.innerHTML="";
+    if(engPlanApply)engPlanApply.disabled=true;
+    atualizarImpactoUI(null);
+    atualizarDiffPreview("",null);
+    return;
+  }
   engPlanSummary.textContent=resumirPlano(plano);
   engPlanFiles.innerHTML="";
   for(const item of plano.files||[]){
@@ -206,7 +259,9 @@ function atualizarPlanoUI(plano=null){
     span.textContent=item.reason||"impacto identificado";
     row.append(strong,span);engPlanFiles.appendChild(row);
   }
-  if(engPlanApply)engPlanApply.disabled=!plano.files?.length;
+  const deps=validarDependencias(workspaceEngenharia?.files||{});
+  atualizarImpactoUI(calcularImpactoProjeto(plano,deps,workspaceEngenharia?.files||{}));
+  if(engPlanApply){engPlanApply.textContent=patchEngenhariaPendente?"Aplicar alterações":"Gerar diff";engPlanApply.disabled=!plano.files?.length;}
 }
 function cancelarPlanoEngenharia(){planoEngenhariaPendente=null;atualizarPlanoUI(null);atualizarWorkspaceStatus("Plano cancelado. Nenhuma alteração foi aplicada.","CANCELADO");}
 function atualizarDependenciasUI(deps){
@@ -308,7 +363,7 @@ function abrirWorkspace(resultado){
   const etapas=(resultado.historico||[]).map(x=>x.etapa);
   const ultima=etapas.at(-1);
   document.querySelectorAll("#eng-pipeline [data-stage]").forEach(el=>{el.classList.remove("active","done");const i=ordem.indexOf(el.dataset.stage);if(i>=0&&ordem.indexOf(ultima)>=i)el.classList.add("done");if(el.dataset.stage===ultima)el.classList.add("active");});
-  renderArquivosEngenharia(); mostrarArquivoEngenharia(arquivoEngenhariaAtual); atualizarPreviewEngenharia(); atualizarDependenciasUI(resultado.analise||validarDependencias(resultado.files||{}));
+  renderArquivosEngenharia(); mostrarArquivoEngenharia(arquivoEngenhariaAtual); atualizarPreviewEngenharia(); atualizarDependenciasUI(resultado.analise||validarDependencias(resultado.files||{})); renderArvoreProjeto();
   persistirWorkspaceEngenharia();
 }
 function renderArquivosEngenharia(){
@@ -782,17 +837,32 @@ async function consultarIAEngenharia(texto,runtime=null){
 
 async function aplicarPlanoPendente(){
   if(!planoEngenhariaPendente)return false;
+  if(patchEngenhariaPendente){
+    const pedido=planoEngenhariaPendente.pedido;
+    const r=aplicarPatchIAEngenharia(patchEngenhariaPendente,pedido);
+    if(!r)return false;
+    patchEngenhariaPendente=null;planoEngenhariaPendente=null;impactoEngenhariaPendente=null;
+    atualizarPlanoUI(null);
+    atualizarWorkspaceStatus("Alterações aplicadas, validadas e registradas no histórico.","APLICADO");
+    return true;
+  }
   const {pedido,plano}=planoEngenhariaPendente;
-  atualizarWorkspaceStatus("Gerando patch final conforme o plano aprovado.","APLICANDO");
+  atualizarWorkspaceStatus("Gerando patch para pré-visualização. Nada será aplicado ainda.","DIFF");
   const patch=await consultarIAEngenharia(pedido);
   if(!patch?.files?.length){atualizarWorkspaceStatus("A IA não gerou um patch aplicável.","ERRO");showToast("A IA não gerou o patch final.");return false;}
   const permitido=new Set((plano.files||[]).map(x=>x.path));
   if((patch.files||[]).some(x=>!permitido.has(x.path))){showToast("Patch excedeu o plano aprovado.");atualizarWorkspaceStatus("O patch tentou sair do conjunto aprovado.","BLOQUEADO");return false;}
-  const r=aplicarPatchIAEngenharia(patch,pedido);
-  if(!r)return false;
-  planoEngenhariaPendente=null;atualizarPlanoUI(null);return true;
+  const antes={...(workspaceEngenharia?.files||{})}, depois={...antes};
+  for(const item of patch.files){if(item.action==="delete")delete depois[item.path];else depois[item.path]=item.content;}
+  const depsDepois=validarDependencias(depois);
+  if(!depsDepois.ok){atualizarWorkspaceStatus("Pré-visualização bloqueada: o patch quebra dependências.","BLOQUEADO");showToast("Patch rejeitado antes da aplicação: dependência quebrada.");return false;}
+  patchEngenhariaPendente=patch;
+  atualizarDiffPreview(gerarDiffProjeto(antes,depois),resumoDiff(antes,depois));
+  if(engPlanApply){engPlanApply.textContent="Aplicar alterações";engPlanApply.disabled=false;}
+  atualizarWorkspaceStatus("Diff pronto. Revise as alterações antes de aplicar.","REVISÃO");
+  showToast("Diff gerado: nenhuma alteração foi aplicada.");
+  return true;
 }
-
 async function tentarAutocorrecaoRuntime(resultado){
   if(!deveAutocorrigirRuntime({
     temWorkspace:Boolean(workspaceEngenharia),
