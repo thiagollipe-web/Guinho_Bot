@@ -10,7 +10,7 @@ const MAX_WORKSPACE_FILES = 16;
 const MAX_WORKSPACE_FILE_CHARS = 16000;
 const MAX_WORKSPACE_TOTAL_CHARS = 48000;
 
-function validateWorkspace(workspace) {
+export function validateWorkspace(workspace) {
   if (!workspace || typeof workspace !== "object" || !workspace.files || typeof workspace.files !== "object" || Array.isArray(workspace.files)) {
     return { ok: false, status: 400, error: "Workspace de projeto inválido.", retryable: false };
   }
