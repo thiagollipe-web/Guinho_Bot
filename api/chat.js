@@ -132,6 +132,7 @@ function buildEngineeringInstructions() {
     "Para delete, content deve ser uma string vazia.",
     "Nunca altere .env, arquivos .git ou node_modules.",
     "Preserve funcionalidades existentes sempre que possível.",
+    "Use falhas de runtime fornecidas no workspace como evidência concreta para a correção.",
     "Não invente execução, testes ou resultados que você não realizou.",
     "Se o pedido for ambíguo demais, não faça uma alteração arriscada: devolva files vazio, explique a dúvida em summary e indique a próxima tarefa em next_task."
   ].join("\n");
