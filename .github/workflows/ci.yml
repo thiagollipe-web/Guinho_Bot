@@ -28,6 +28,7 @@ jobs:
       - run: node --check engine.js
       - run: node --check engineering-memory.js
       - run: node --check engineering-learning.js
+      - run: node --check guinho-programmer.js
       - run: node --check api/chat.js
       - run: git diff --check
       - run: npm test
