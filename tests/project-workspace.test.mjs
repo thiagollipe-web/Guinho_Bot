@@ -30,6 +30,7 @@ test("workspace cria manifesto persistente e sugere próximas tarefas",()=>{
     ok:true
   });
   assert.equal(projeto.linguagem,"JavaScript");
+  assert.equal(Object.keys(projeto.files).length,2);
   assert.equal(projeto.status,"APROVADO");
   assert.ok(projeto.proximasTarefas.includes("Separar e organizar o estilo em styles.css"));
   assert.ok(projeto.proximasTarefas.some(x=>/PWA|offline/.test(x)));
