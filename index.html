@@ -201,11 +201,22 @@
     <span data-stage="CRIAR">CRIAR</span><i>→</i><span data-stage="ANALISAR">ANALISAR</span><i>→</i><span data-stage="CORRIGIR">CORRIGIR</span><i>→</i><span data-stage="MELHORAR">MELHORAR</span><i>→</i><span data-stage="VALIDAR">VALIDAR</span><i>→</i><span data-stage="EXECUTAR">EXECUTAR</span><i>→</i><b>ENTREGAR</b>
   </div>
   <div class="eng-body">
-    <aside class="eng-files"><div class="section-title">ARQUIVOS</div><div id="eng-file-list"></div></aside>
+    <aside class="eng-files">
+  <div class="section-title">ÁRVORE DO PROJETO</div>
+  <div id="eng-project-tree" class="eng-project-tree"></div>
+  <div class="eng-tree-legend"><span data-kind="direct">● direto</span><span data-kind="related">● relacionado</span></div>
+  <div class="section-title eng-files-title">EDITOR</div>
+  <div id="eng-file-list"></div>
+</aside>
     <section class="eng-code"><div class="eng-code-head"><strong id="eng-file-name">index.html</strong><span id="eng-file-meta"></span></div><textarea id="eng-editor" class="eng-editor" spellcheck="false" aria-label="Editor de código"></textarea></section>
     <section class="eng-preview-panel"><div class="eng-code-head"><strong>PREVIEW / RUNTIME</strong><span id="eng-preview-note">somente projetos gerados</span></div><div id="eng-deps" class="eng-deps" data-state="IDLE">Dependências: não analisadas</div><div id="eng-runtime" class="eng-runtime" data-state="IDLE">IDLE: aguardando execução</div><iframe id="eng-preview-frame" title="Preview do projeto" sandbox="allow-scripts allow-forms"></iframe></section>
   </div>
-  <section class="eng-plan" id="eng-plan" hidden><div class="eng-plan-head"><div><div class="eyebrow">PLANO DE ALTERAÇÃO</div><strong>Arquivos que serão considerados</strong></div><div class="eng-plan-actions"><button type="button" class="icon-btn" id="eng-plan-cancel">Cancelar</button><button type="button" class="icon-btn eng-action-primary" id="eng-plan-apply">Aplicar plano</button></div></div><div id="eng-plan-summary" class="eng-plan-summary"></div><div id="eng-plan-files" class="eng-plan-files"></div></section>
+  <section class="eng-impact-bar" id="eng-impact" data-state="IDLE">Impact Analysis: aguardando plano.</section>
+<section class="eng-plan" id="eng-plan" hidden><div class="eng-plan-head"><div><div class="eyebrow">PLANO DE ALTERAÇÃO</div><strong>Arquivos que serão considerados</strong></div><div class="eng-plan-actions"><button type="button" class="icon-btn" id="eng-plan-cancel">Cancelar</button><button type="button" class="icon-btn eng-action-primary" id="eng-plan-apply">Aplicar plano</button></div></div><div id="eng-plan-summary" class="eng-plan-summary"></div><div id="eng-plan-files" class="eng-plan-files"></div></section>
+<section class="eng-diff-preview-panel" id="eng-diff-preview-panel" hidden>
+  <div class="eng-code-head"><strong>DIFF ANTES DA APLICAÇÃO</strong><span id="eng-diff-preview-meta">pré-visualização</span></div>
+  <pre id="eng-diff-preview" class="eng-diff">Nenhuma alteração proposta.</pre>
+</section>
 <section class="eng-diff-panel"><div class="eng-code-head"><strong>ÚLTIMO DIFF</strong><span>alterações do ciclo atual</span></div><pre id="eng-diff" class="eng-diff">Nenhuma alteração registrada neste ciclo.</pre></section>
   <footer class="eng-foot"><div class="eng-foot-info"><div id="eng-summary">Nenhum ciclo executado.</div><details class="eng-memory"><summary>Memória + aprendizado</summary><pre id="eng-memory">Nenhuma memória de engenharia.</pre></details></div><div class="eng-foot-actions"><button type="button" class="icon-btn" id="eng-cycle">Executar ciclo</button><button type="button" class="icon-btn" id="eng-run">Novo projeto</button></div></footer>
 </section>
