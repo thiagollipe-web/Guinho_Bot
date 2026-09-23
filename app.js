@@ -136,7 +136,7 @@ function arquivosDaMensagem(texto){
 function persistirWorkspaceEngenharia(){
   if(!ultimoProjetoEngenharia)return;
   workspaceEngenharia=atualizarWorkspace(workspaceEngenharia||criarWorkspace(ultimoProjetoEngenharia),ultimoProjetoEngenharia);
-  workspaceEngenharia=atualizarWorkspace(workspaceEngenharia,{files:ultimoProjetoEngenharia.files,entry:ultimoProjetoEngenharia.entry,status:ultimoProjetoEngenharia.status,ok:ultimoProjetoEngenharia.ok,plano:ultimoProjetoEngenharia.plano,historico:ultimoProjetoEngenharia.historico,problemas:ultimoProjetoEngenharia.memoria?.problemas||workspaceEngenharia.problemas});
+  workspaceEngenharia=atualizarWorkspace(workspaceEngenharia,{files:ultimoProjetoEngenharia.files,entry:ultimoProjetoEngenharia.entry,status:ultimoProjetoEngenharia.status,ok:ultimoProjetoEngenharia.ok,plano:ultimoProjetoEngenharia.plano,historico:ultimoProjetoEngenharia.historico,problemas:ultimoProjetoEngenharia.memoria?.problemas||workspaceEngenharia.problemas,runtime:ultimoProjetoEngenharia.runtime||workspaceEngenharia.runtime||null});
   salvarWorkspace(workspaceEngenharia);
 }
 function restaurarWorkspaceEngenharia(){
@@ -146,6 +146,7 @@ function restaurarWorkspaceEngenharia(){
   ultimoProjetoEngenharia={files:{...salvo.files},entry:salvo.entry,plano:salvo.plano,status:salvo.status,ok:Boolean(salvo.ok),historico:salvo.historico||[],memoria:{problemas:salvo.problemas||[]},proximasTarefas:salvo.proximasTarefas||[]};
   abrirWorkspace(ultimoProjetoEngenharia);
   atualizarWorkspaceStatus(resumoWorkspace(salvo),"RECUPERADO");
+  if(salvo.runtime)atualizarRuntimeStatus(salvo.runtime.estado,salvo.runtime.mensagem,salvo.runtime.detalhes);
   return true;
 }
 
@@ -169,7 +170,7 @@ function abrirWorkspace(resultado){
   engStatus.textContent=resultado.status||"SEM RESULTADO";
   atualizarWorkspaceStatus(relatorioEngenharia(resultado).split("\\n").slice(0,3).join(" • "),resultado.status);
   if(engMemory)engMemory.textContent=[resultado.relatorioMemoria,resultado.relatorioAprendizado].filter(Boolean).join("\\n\\n")||"Nenhuma memória de engenharia registrada.";
-  const ordem=["CRIAR","ANALISAR","CORRIGIR","MELHORAR","VALIDAR"];
+  const ordem=["CRIAR","ANALISAR","CORRIGIR","MELHORAR","VALIDAR","EXECUTAR"];
   const etapas=(resultado.historico||[]).map(x=>x.etapa);
   const ultima=etapas.at(-1);
   document.querySelectorAll("#eng-pipeline [data-stage]").forEach(el=>{el.classList.remove("active","done");const i=ordem.indexOf(el.dataset.stage);if(i>=0&&ordem.indexOf(ultima)>=i)el.classList.add("done");if(el.dataset.stage===ultima)el.classList.add("active");});
@@ -289,7 +290,7 @@ function executarAcaoWorkspace(tipo){
   }catch(err){atualizarWorkspaceStatus("Erro: "+err.message,"ERRO");showToast("Erro: "+err.message);}
 }
 function atualizarPipelineEngenharia(etapas){
-  const ordem=["CRIAR","ANALISAR","CORRIGIR","MELHORAR","VALIDAR"];const ultima=etapas.at(-1)?.etapa;
+  const ordem=["CRIAR","ANALISAR","CORRIGIR","MELHORAR","VALIDAR","EXECUTAR"];const ultima=etapas.at(-1)?.etapa;
   document.querySelectorAll("#eng-pipeline [data-stage]").forEach(el=>{el.classList.remove("active","done");const i=ordem.indexOf(el.dataset.stage);if(i>=0&&ordem.indexOf(ultima)>=i)el.classList.add("done");if(el.dataset.stage===ultima)el.classList.add("active");});
 }
 function fecharWorkspace(){sincronizarEditorEngenharia();if(engineeringWorkspace)engineeringWorkspace.hidden=true;}
