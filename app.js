@@ -17,6 +17,7 @@ import { criarWorkspace, atualizarWorkspace, carregarWorkspace, salvarWorkspace,
 import { gerarDiffProjeto, resumoDiff } from "./project-diff.js";
 import { criarTokenRuntime, montarDocumentoSandbox, validarEventoRuntime, interpretarEventoRuntime } from "./sandbox-runtime.js";
 import { MAX_RUNTIME_AUTOFIX, deveAutocorrigirRuntime, proximaTentativaRuntime, construirPedidoAutocorrecao } from "./runtime-autofix.js";
+import { criarSnapshot, registrarSnapshot, desfazerWorkspace, removerUltimoSnapshot, salvarHistoricoWorkspace, carregarHistoricoWorkspace, resumoHistoricoWorkspace } from "./workspace-history.js";
 import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
 
 const chat=document.querySelector("#chat");
@@ -60,6 +61,7 @@ const engSummary=document.querySelector("#eng-summary");
 const engMemory=document.querySelector("#eng-memory");
 const engRuntime=document.querySelector("#eng-runtime");
 const engExecute=document.querySelector("#eng-execute");
+const engUndo=document.querySelector("#eng-undo");
 let runtimeToken="";
 let runtimeTimer=null;
 let runtimeAutofixAttempts=0;
@@ -68,6 +70,7 @@ const engDiff=document.querySelector("#eng-diff");
 const LEARNING_KEY="guinho-engineering-learning-v1";
 let ultimoProjetoEngenharia=null;
 let workspaceEngenharia=null;
+let historicoWorkspace=[];
 let arquivoEngenhariaAtual="index.html";
 
 const pnl=new EstatisticaLinguistica();
@@ -134,6 +137,47 @@ function arquivosDaMensagem(texto){
     arquivos[nome]=codigo;
   });
   return arquivos;
+}
+
+function atualizarUndoUI(){
+  if(!engUndo)return;
+  engUndo.disabled=historicoWorkspace.length===0;
+  engUndo.title=historicoWorkspace.length
+    ?"Desfazer última alteração ("+historicoWorkspace.length+" ponto(s) de restauração)"
+    :"Nenhum ponto de restauração";
+  if(engMemory&&historicoWorkspace.length){
+    const base=engMemory.textContent||"";
+    if(!base.includes("HISTÓRICO DE RESTAURAÇÃO"))engMemory.textContent=base+"\n\nHISTÓRICO DE RESTAURAÇÃO\n"+resumoHistoricoWorkspace(historicoWorkspace);
+  }
+}
+function criarPontoRestauracao(motivo){
+  const base=workspaceEngenharia||ultimoProjetoEngenharia;
+  if(!base||!Object.keys(base.files||{}).length)return false;
+  const snapshot=criarSnapshot(base,motivo);
+  historicoWorkspace=registrarSnapshot(historicoWorkspace,snapshot);
+  salvarHistoricoWorkspace(historicoWorkspace);
+  atualizarUndoUI();
+  return true;
+}
+function desfazerUltimaAlteracao(){
+  sincronizarEditorEngenharia();
+  if(!historicoWorkspace.length){showToast("Nenhum ponto de restauração disponível");return;}
+  const antes={...(ultimoProjetoEngenharia?.files||{})};
+  const snapshot=historicoWorkspace.at(-1);
+  const restaurado=desfazerWorkspace(ultimoProjetoEngenharia||workspaceEngenharia||{},historicoWorkspace);
+  if(!restaurado)return;
+  const delta=gerarDiffProjeto(antes,restaurado.files);
+  const resumo=resumoDiff(antes,restaurado.files);
+  const resultado={...restaurado,lastDiff:delta,diffResumo:resumo,runtime:null,historico:[...(restaurado.historico||[]),{etapa:"UNDO",status:"OK",motivo:snapshot.motivo||"alteração"}]};
+  historicoWorkspace=removerUltimoSnapshot(historicoWorkspace);
+  salvarHistoricoWorkspace(historicoWorkspace);
+  ultimoProjetoEngenharia=resultado;
+  workspaceEngenharia=atualizarWorkspace(workspaceEngenharia||criarWorkspace(resultado),resultado);
+  salvarWorkspace(workspaceEngenharia);
+  abrirWorkspace(resultado);
+  atualizarWorkspaceStatus("Última alteração desfeita.","RESTAURADO");
+  atualizarUndoUI();
+  showToast("Alteração desfeita");
 }
 
 function persistirWorkspaceEngenharia(){
@@ -259,6 +303,7 @@ function montarPreviewEngenharia(){
   return html;
 }
 function salvarWorkspaceEngenharia(){
+  criarPontoRestauracao("edição manual salva");
   sincronizarEditorEngenharia();
   persistirWorkspaceEngenharia();
   mostrarArquivoEngenharia(arquivoEngenhariaAtual); atualizarPreviewEngenharia(); atualizarWorkspaceStatus("Alterações salvas no Workspace local.","SALVO"); showToast("Arquivo salvo");
@@ -282,12 +327,15 @@ function executarAcaoWorkspace(tipo){
       const etapas=[...(ultimoProjetoEngenharia.historico||[]),{etapa:"ANALISAR",status:a.valido?"OK":"ACHADOS",score:a.score}];ultimoProjetoEngenharia={...ultimoProjetoEngenharia,files,analise:a,historico:etapas};atualizarPipelineEngenharia(etapas);return;
     }
     if(tipo==="corrigir"){
+      criarPontoRestauracao("correção automática");
       const r=corrigirProjeto({files});resultado={...ultimoProjetoEngenharia,files:r.files,analise:r.depois,lastDiff:gerarDiffProjeto(files,r.files),diffResumo:resumoDiff(files,r.files),historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"CORRIGIR",status:r.aplicado?"OK":"SEM_ALTERACOES",alteracoes:r.alteracoes||[]}]};
     }else if(tipo==="melhorar"){
+      criarPontoRestauracao("melhoria automática");
       const r=aplicarMelhoriasSeguras({files});resultado={...ultimoProjetoEngenharia,files:r.files,analise:r.depois,lastDiff:gerarDiffProjeto(files,r.files),diffResumo:resumoDiff(files,r.files),historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"MELHORAR",status:r.aplicado?"OK":"SEM_ALTERACOES"}]};
     }else if(tipo==="validar"){
       const a=analisarProjeto(files),v=validarProjeto(files);resultado={...ultimoProjetoEngenharia,files,analise:a,validacao:v,status:v.valido?(v.estado==="APROVADO"?"APROVADO":"APROVADO_COM_AVISOS"):"REPROVADO",ok:v.valido,historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"VALIDAR",status:v.estado,score:v.score,bloqueadores:v.bloqueadores}]};
     }else if(tipo==="ciclo"){
+      criarPontoRestauracao("ciclo de engenharia");
       resultado=executarCicloComAprendizado("Projeto editado no Workspace",{criar:false,files,maxCiclos:4});
       resultado={...resultado,lastDiff:gerarDiffProjeto(files,resultado.files),diffResumo:resumoDiff(files,resultado.files)};
     }
@@ -309,6 +357,7 @@ function respostaEngenharia(texto){
   const arquivos=arquivosDaMensagem(texto);
   const temProjeto=Object.keys(arquivos).length>0;
   const arquivosAntes=temProjeto?arquivos:{};
+  criarPontoRestauracao(temProjeto?"substituição por projeto fornecido":"novo projeto");
   const resultado=executarCicloComAprendizado(temProjeto?"Projeto fornecido pelo usuário":texto,{criar:!temProjeto,files:arquivos});
   resultado.lastDiff=gerarDiffProjeto(arquivosAntes,resultado.files);
   resultado.diffResumo=resumoDiff(arquivosAntes,resultado.files);
@@ -666,6 +715,7 @@ function patchEngenhariaSeguro(patch,files){
 }
 
 function aplicarPatchIAEngenharia(patch,pedido){
+  criarPontoRestauracao("alteração da IA: "+String(patch?.summary||"patch").slice(0,140));
   const antes={...(workspaceEngenharia?.files||{})};
   if(!patchEngenhariaSeguro(patch,antes))return null;
   const files={...antes};
@@ -1094,8 +1144,11 @@ engEditor?.addEventListener("input",()=>{engEditor.dataset.dirty="true";atualiza
 engClose?.addEventListener("click",fecharWorkspace);
 engRun?.addEventListener("click",executarNovoCicloWorkspace);
 engExecute?.addEventListener("click",executarProjetoNoSandbox);
+engUndo?.addEventListener("click",desfazerUltimaAlteracao);
 engPreviewButton?.addEventListener("click",executarProjetoNoSandbox);
 
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js"));
+historicoWorkspace=carregarHistoricoWorkspace();
 restaurarWorkspaceEngenharia();
+atualizarUndoUI();
 const historico=memoria.historico();if(historico.length){historico.slice(-8).forEach(m=>add(m.role,m.content));}else add("bot","Sistema iniciado. Sou o Guinho, seu companheiro de programação. Posso conversar sobre projetos, reconhecer linguagens e tecnologias, criar e corrigir código, analisar problemas e sugerir ideias. Experimente: “quero criar um jogo”, “corrija este código em Python” ou “tenho uma ideia”.");
