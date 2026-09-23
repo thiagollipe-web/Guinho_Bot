@@ -13,6 +13,7 @@ import { sugerirMelhorias, aplicarMelhoriasSeguras, relatorioMelhorias } from ".
 import { validarProjeto, relatorioValidacao } from "./validator.js";
 import { executarCicloEngenharia, relatorioEngenharia } from "./engine.js";
 import { hidratarModeloAprendizado, serializarModeloAprendizado } from "./engineering-learning.js";
+import { criarWorkspace, atualizarWorkspace, carregarWorkspace, salvarWorkspace, resumoWorkspace } from "./project-workspace.js";
 import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
 
 const chat=document.querySelector("#chat");
@@ -56,6 +57,7 @@ const engSummary=document.querySelector("#eng-summary");
 const engMemory=document.querySelector("#eng-memory");
 const LEARNING_KEY="guinho-engineering-learning-v1";
 let ultimoProjetoEngenharia=null;
+let workspaceEngenharia=null;
 let arquivoEngenhariaAtual="index.html";
 
 const pnl=new EstatisticaLinguistica();
@@ -124,11 +126,28 @@ function arquivosDaMensagem(texto){
   return arquivos;
 }
 
+function persistirWorkspaceEngenharia(){
+  if(!ultimoProjetoEngenharia)return;
+  workspaceEngenharia=atualizarWorkspace(workspaceEngenharia||criarWorkspace(ultimoProjetoEngenharia),ultimoProjetoEngenharia);
+  workspaceEngenharia=atualizarWorkspace(workspaceEngenharia,{files:ultimoProjetoEngenharia.files,entry:ultimoProjetoEngenharia.entry,status:ultimoProjetoEngenharia.status,ok:ultimoProjetoEngenharia.ok,plano:ultimoProjetoEngenharia.plano,historico:ultimoProjetoEngenharia.historico,problemas:ultimoProjetoEngenharia.memoria?.problemas||workspaceEngenharia.problemas});
+  salvarWorkspace(workspaceEngenharia);
+}
+function restaurarWorkspaceEngenharia(){
+  const salvo=carregarWorkspace();
+  if(!salvo||!Object.keys(salvo.files||{}).length)return false;
+  workspaceEngenharia=salvo;
+  ultimoProjetoEngenharia={files:{...salvo.files},entry:salvo.entry,plano:salvo.plano,status:salvo.status,ok:Boolean(salvo.ok),historico:salvo.historico||[],memoria:{problemas:salvo.problemas||[]},proximasTarefas:salvo.proximasTarefas||[]};
+  abrirWorkspace(ultimoProjetoEngenharia);
+  atualizarWorkspaceStatus(resumoWorkspace(salvo),"RECUPERADO");
+  return true;
+}
+
 function sincronizarEditorEngenharia(){
   if(!ultimoProjetoEngenharia||!engEditor)return;
   ultimoProjetoEngenharia.files=ultimoProjetoEngenharia.files||{};
   ultimoProjetoEngenharia.files[arquivoEngenhariaAtual]=engEditor.value;
   ultimoProjetoEngenharia._editado=true;
+  persistirWorkspaceEngenharia();
 }
 function atualizarWorkspaceStatus(texto,estado){
   if(engSummary)engSummary.textContent=texto;
@@ -148,6 +167,7 @@ function abrirWorkspace(resultado){
   const ultima=etapas.at(-1);
   document.querySelectorAll("#eng-pipeline [data-stage]").forEach(el=>{el.classList.remove("active","done");const i=ordem.indexOf(el.dataset.stage);if(i>=0&&ordem.indexOf(ultima)>=i)el.classList.add("done");if(el.dataset.stage===ultima)el.classList.add("active");});
   renderArquivosEngenharia(); mostrarArquivoEngenharia(arquivoEngenhariaAtual); atualizarPreviewEngenharia();
+  persistirWorkspaceEngenharia();
 }
 function renderArquivosEngenharia(){
   if(!engFileList||!ultimoProjetoEngenharia)return;
@@ -176,13 +196,15 @@ function montarPreviewEngenharia(){
 }
 function salvarWorkspaceEngenharia(){
   sincronizarEditorEngenharia();
-  try{localStorage.setItem("guinho-engineering-workspace-v1",JSON.stringify({files:ultimoProjetoEngenharia.files,entry:ultimoProjetoEngenharia.entry,plano:ultimoProjetoEngenharia.plano}));}catch{}
+  persistirWorkspaceEngenharia();
   mostrarArquivoEngenharia(arquivoEngenhariaAtual); atualizarPreviewEngenharia(); atualizarWorkspaceStatus("Alterações salvas no Workspace local.","SALVO"); showToast("Arquivo salvo");
 }
 function atualizarResultadoWorkspace(resultado,etapa){
   ultimoProjetoEngenharia=resultado;
   arquivoEngenhariaAtual=resultado.entry||arquivoEngenhariaAtual;
+  workspaceEngenharia=atualizarWorkspace(workspaceEngenharia||criarWorkspace(resultado),resultado);
   abrirWorkspace(resultado);
+  persistirWorkspaceEngenharia();
   atualizarWorkspaceStatus(etapa+" • "+(resultado.validacao?.estado||resultado.status||"concluído"),resultado.status);
 }
 function executarAcaoWorkspace(tipo){
@@ -860,4 +882,5 @@ engRun?.addEventListener("click",executarNovoCicloWorkspace);
 engPreviewButton?.addEventListener("click",()=>{if(ultimoProjetoEngenharia?.ok)engPreview.srcdoc=String(ultimoProjetoEngenharia.files["index.html"]||"");});
 
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js"));
+restaurarWorkspaceEngenharia();
 const historico=memoria.historico();if(historico.length){historico.slice(-8).forEach(m=>add(m.role,m.content));}else add("bot","Sistema iniciado. Sou o Guinho, seu companheiro de programação. Posso conversar sobre projetos, reconhecer linguagens e tecnologias, criar e corrigir código, analisar problemas e sugerir ideias. Experimente: “quero criar um jogo”, “corrija este código em Python” ou “tenho uma ideia”.");
