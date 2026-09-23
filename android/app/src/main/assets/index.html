@@ -9,7 +9,9 @@ const out=document.querySelector('#answer'),model=document.querySelector('#model
 function nativeReady(){return !!(window.GuinhoNativeAI&&typeof window.GuinhoNativeAI.generate==='function');}
 document.querySelector('#pick').onclick=()=>{if(!nativeReady())return out.textContent='Bridge Android não encontrado.';window.GuinhoNativeAI.openGgufPicker(model.value);};
 document.querySelector('#models').onclick=()=>{if(!nativeReady())return out.textContent='Bridge Android não encontrado.';out.textContent=window.GuinhoNativeAI.listModels();};
+window.onGgufImportProgress=(progress)=>{out.textContent='Importando GGUF... '+progress+'%';};
 window.onGgufImported=(id,size)=>{out.textContent='GGUF importado: '+id+' ('+Math.round(size/1048576)+' MB).';};
+
 window.onGgufImportError=(message)=>{out.textContent='Erro ao importar: '+message;};
 document.querySelector('#send').onclick=()=>{if(!nativeReady())return out.textContent='Bridge Android não encontrado.';if(!prompt.value.trim())return;out.textContent='Carregando GGUF e gerando...';try{const raw=window.GuinhoNativeAI.generate(JSON.stringify({modelId:model.value,prompt:prompt.value,maxTokens:Number(tokens.value)}));const result=JSON.parse(raw);out.textContent=result.error||result.content||'Resposta vazia.';}catch(error){out.textContent='Erro: '+error.message;}};
 </script></body></html>
