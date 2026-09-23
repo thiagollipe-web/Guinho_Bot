@@ -441,7 +441,7 @@ function intencaoEspecial(analise,texto){
 }
 
 function ehComandoLocal(texto){
-  return /^\\s*\\/(pnl|diagnostico|analisar|corrigir|melhorar|validar|ajuda|moeda|noticias|tempo)\\b/i.test(String(texto||""));
+  return /^\s*\/(pnl|diagnostico|analisar|corrigir|melhorar|validar|ajuda|moeda|noticias|tempo)\b/i.test(String(texto||""));
 }
 
 function ehPerguntaGeralParaIA(texto,analise){
@@ -487,6 +487,7 @@ async function consultarIAOnline(texto){
 }
 
 async function responder(texto){
+  ultimaOrigemResposta="local";
   extrairMemoria(texto);
   const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar|corrigir|melhorar|validar)\b/i,"$1").trim();
   if(/^validar\b|^valide\b|^validacao\b|^validação\b/i.test(limpo)){
@@ -595,6 +596,7 @@ const especial=analise.confident?intencaoEspecial(analise,limpo):null;
 }
 
 function adaptarModo(resposta){
+  if(ultimaOrigemResposta==="openai")return resposta;
   if(modoAtual==="standard")return resposta;
   if(modoAtual==="resumido"){
     const partes=resposta.split(/\n\n+/).filter(Boolean);
