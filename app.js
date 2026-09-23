@@ -16,6 +16,7 @@ import { hidratarModeloAprendizado, serializarModeloAprendizado } from "./engine
 import { criarWorkspace, atualizarWorkspace, carregarWorkspace, salvarWorkspace, resumoWorkspace } from "./project-workspace.js";
 import { gerarDiffProjeto, resumoDiff } from "./project-diff.js";
 import { criarTokenRuntime, montarDocumentoSandbox, validarEventoRuntime, interpretarEventoRuntime } from "./sandbox-runtime.js";
+import { MAX_RUNTIME_AUTOFIX, deveAutocorrigirRuntime, proximaTentativaRuntime, construirPedidoAutocorrecao } from "./runtime-autofix.js";
 import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
 
 const chat=document.querySelector("#chat");
@@ -61,7 +62,6 @@ const engRuntime=document.querySelector("#eng-runtime");
 const engExecute=document.querySelector("#eng-execute");
 let runtimeToken="";
 let runtimeTimer=null;
-const MAX_RUNTIME_AUTOFIX=2;
 let runtimeAutofixAttempts=0;
 let runtimeAutofixRunning=false;
 const engDiff=document.querySelector("#eng-diff");
@@ -616,18 +616,17 @@ async function consultarIAEngenharia(texto,runtime=null){
 }
 
 async function tentarAutocorrecaoRuntime(resultado){
-  if(!workspaceEngenharia||runtimeAutofixRunning||runtimeAutofixAttempts>=MAX_RUNTIME_AUTOFIX)return false;
+  if(!deveAutocorrigirRuntime({
+    temWorkspace:Boolean(workspaceEngenharia),
+    estado:resultado?.estado||"ERRO",
+    tentativas:runtimeAutofixAttempts,
+    emExecucao:runtimeAutofixRunning
+  }))return false;
   runtimeAutofixRunning=true;
-  runtimeAutofixAttempts+=1;
+  runtimeAutofixAttempts=proximaTentativaRuntime(runtimeAutofixAttempts);
   const tentativa=runtimeAutofixAttempts;
   atualizarRuntimeStatus("CORRIGINDO","IA analisando erro de runtime","tentativa "+tentativa+"/"+MAX_RUNTIME_AUTOFIX);
-  const pedido=[
-    "Corrija o erro de runtime detectado no projeto.",
-    "Não remova funcionalidades sem necessidade.",
-    "Faça a menor alteração possível.",
-    "Erro: "+String(resultado?.mensagem||"erro desconhecido"),
-    resultado?.detalhes?"Detalhes: "+resultado.detalhes:""
-  ].filter(Boolean).join("\n");
+  const pedido=construirPedidoAutocorrecao(resultado||{});
   try{
     const patch=await consultarIAEngenharia(pedido,resultado);
     if(!patch?.files?.length){
