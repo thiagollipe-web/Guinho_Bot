@@ -205,6 +205,7 @@ test("modo engineering retorna patch estruturado e valida operações", async ()
 test("workspace e patch rejeitam caminhos e arquivos protegidos", () => {
   assert.equal(validateWorkspace({ files: { "../segredo.js": "x" } }).ok, false);
   assert.equal(validateWorkspace({ files: { ".env": "x" } }).ok, false);
+  assert.equal(validateWorkspace({ files: { "node_modules/x.js": "x" } }).ok, false);
 
   const patch = validateWorkspacePatch({
     summary: "x",
