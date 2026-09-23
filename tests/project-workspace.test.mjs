@@ -30,10 +30,17 @@ test("workspace cria manifesto persistente e sugere próximas tarefas",()=>{
     ok:true
   });
   assert.equal(projeto.linguagem,"JavaScript");
+  assert.equal(projeto.runtime,null);
   assert.equal(Object.keys(projeto.files).length,2);
   assert.equal(projeto.status,"APROVADO");
   assert.ok(projeto.proximasTarefas.includes("Separar e organizar o estilo em styles.css"));
   assert.ok(projeto.proximasTarefas.some(x=>/PWA|offline/.test(x)));
+});
+
+test("workspace preserva estado do runtime",()=>{
+  const projeto=criarWorkspace({files:{"index.html":"ok"},runtime:{estado:"OK",mensagem:"executado"}});
+  const atualizado=atualizarWorkspace(projeto,{runtime:{estado:"ERRO",mensagem:"boom"}});
+  assert.equal(atualizado.runtime.estado,"ERRO");
 });
 
 test("workspace preserva arquivos editados e recalcula tarefas",()=>{
