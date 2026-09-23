@@ -61,6 +61,9 @@ const engRuntime=document.querySelector("#eng-runtime");
 const engExecute=document.querySelector("#eng-execute");
 let runtimeToken="";
 let runtimeTimer=null;
+const MAX_RUNTIME_AUTOFIX=2;
+let runtimeAutofixAttempts=0;
+let runtimeAutofixRunning=false;
 const engDiff=document.querySelector("#eng-diff");
 const LEARNING_KEY="guinho-engineering-learning-v1";
 let ultimoProjetoEngenharia=null;
@@ -231,7 +234,9 @@ window.addEventListener("message",event=>{
     };
     ultimoProjetoEngenharia={...antes,historico:[...(antes.historico||[]),falha],runtime:resultado};
     persistirWorkspaceEngenharia();
+    void tentarAutocorrecaoRuntime(resultado);
   }else{
+    runtimeAutofixAttempts=0;
     ultimoProjetoEngenharia={...ultimoProjetoEngenharia,runtime:resultado,historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"EXECUTAR",status:"OK",detalhes:resultado.detalhes}]};
     persistirWorkspaceEngenharia();
   }
@@ -578,7 +583,7 @@ async function consultarIAOnline(texto){
   }
 }
 
-async function consultarIAEngenharia(texto){
+async function consultarIAEngenharia(texto,runtime=null){
   if(!workspaceEngenharia||!Object.keys(workspaceEngenharia.files||{}).length)return null;
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),AI_CHAT_TIMEOUT_MS);
@@ -594,7 +599,8 @@ async function consultarIAEngenharia(texto){
         workspace:{
           name:workspaceEngenharia.nome||"Projeto Guinho",
           language:workspaceEngenharia.linguagem||"JavaScript",
-          files:workspaceEngenharia.files
+          files:workspaceEngenharia.files,
+          runtime:runtime||workspaceEngenharia.runtime||null
         }
       }),
       signal:controller.signal
@@ -606,6 +612,40 @@ async function consultarIAEngenharia(texto){
     return null;
   }finally{
     clearTimeout(timer);
+  }
+}
+
+async function tentarAutocorrecaoRuntime(resultado){
+  if(!workspaceEngenharia||runtimeAutofixRunning||runtimeAutofixAttempts>=MAX_RUNTIME_AUTOFIX)return false;
+  runtimeAutofixRunning=true;
+  runtimeAutofixAttempts+=1;
+  const tentativa=runtimeAutofixAttempts;
+  atualizarRuntimeStatus("CORRIGINDO","IA analisando erro de runtime","tentativa "+tentativa+"/"+MAX_RUNTIME_AUTOFIX);
+  const pedido=[
+    "Corrija o erro de runtime detectado no projeto.",
+    "Não remova funcionalidades sem necessidade.",
+    "Faça a menor alteração possível.",
+    "Erro: "+String(resultado?.mensagem||"erro desconhecido"),
+    resultado?.detalhes?"Detalhes: "+resultado.detalhes:""
+  ].filter(Boolean).join("\n");
+  try{
+    const patch=await consultarIAEngenharia(pedido,resultado);
+    if(!patch?.files?.length){
+      atualizarRuntimeStatus("ERRO","IA não produziu uma correção aplicável","tentativa "+tentativa+"/"+MAX_RUNTIME_AUTOFIX);
+      return false;
+    }
+    const resposta=aplicarPatchIAEngenharia(patch,pedido);
+    if(!resposta){
+      atualizarRuntimeStatus("ERRO","patch de autocorreção rejeitado","tentativa "+tentativa+"/"+MAX_RUNTIME_AUTOFIX);
+      return false;
+    }
+    atualizarRuntimeStatus("EXECUTANDO","retestando após autocorreção","tentativa "+tentativa+"/"+MAX_RUNTIME_AUTOFIX);
+    return true;
+  }catch{
+    atualizarRuntimeStatus("ERRO","falha na autocorreção","tentativa "+tentativa+"/"+MAX_RUNTIME_AUTOFIX);
+    return false;
+  }finally{
+    runtimeAutofixRunning=false;
   }
 }
 
