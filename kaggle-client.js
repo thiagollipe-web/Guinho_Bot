@@ -1,3 +1,5 @@
+import { KAGGLE_API_URL } from "./ai-config.js";
+
 const MAX_KAGGLE_QUERY=240;
 const MAX_RESULTS=6;
 
@@ -78,7 +80,7 @@ function fallbackText(result){
 }
 
 export async function consultarKaggle(action,name,argumentsObject={}){
-  const response=await fetch("/api/kaggle",{
+  const response=await fetch(KAGGLE_API_URL,{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({action,name,arguments:argumentsObject})
