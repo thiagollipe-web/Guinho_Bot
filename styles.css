@@ -340,3 +340,5 @@ body{
   .bubble pre{margin-left:-2px;margin-right:-2px;padding:11px;font-size:10px}
   .bubble pre code{font-size:10px;line-height:1.55}
 }
+
+.eng-diff-panel{min-height:150px;max-height:31vh;border-top:1px solid var(--line);background:#070d16;display:flex;flex-direction:column}.eng-diff{margin:0;padding:12px;overflow:auto;color:#9fb2c8;font:10px/1.55 "SFMono-Regular",Consolas,"Liberation Mono",monospace;white-space:pre}.eng-diff-panel .eng-code-head{background:#0a111b}@media(max-width:900px){.eng-diff-panel{max-height:27vh}}@media(max-width:560px){.eng-diff-panel{max-height:24vh}.eng-diff{font-size:9px}}
