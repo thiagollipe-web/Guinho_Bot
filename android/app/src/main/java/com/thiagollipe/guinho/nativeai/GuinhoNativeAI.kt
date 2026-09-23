@@ -61,6 +61,17 @@ class GuinhoNativeAI(private val context: Context, private val filesDir: File, p
     }
 
     @JavascriptInterface
+    fun deleteModel(modelId: String): String = runCatching {
+        require(modelId in MODEL_IDS) { "Modelo local inválido." }
+        val file = File(modelsDir, "$modelId.gguf")
+        val deleted = !file.exists() || file.delete()
+        require(deleted) { "Não foi possível remover o GGUF." }
+        JSONObject().put("ok", true).put("model", modelId).toString()
+    }.getOrElse {
+        JSONObject().put("ok", false).put("error", it.message ?: "Falha ao remover GGUF.").toString()
+    }
+
+    @JavascriptInterface
     fun runtimeInfo(): String = JSONObject()
         .put("engine", "llama.cpp")
         .put("version", "d2e54583c7452353eb35d40431281f6ee984332f")
