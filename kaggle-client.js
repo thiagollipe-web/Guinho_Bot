@@ -7,6 +7,7 @@ function compactQuery(text) {
 function extractToolText(result) {
   const content = result?.result?.content || result?.content;
   if (!Array.isArray(content)) return "";
+
   return content
     .map(item => typeof item?.text === "string" ? item.text : "")
     .filter(Boolean)
@@ -18,10 +19,17 @@ export async function consultarKaggle(action, name, argumentsObject = {}) {
   const response = await fetch("/api/kaggle", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, name, arguments: argumentsObject })
+    body: JSON.stringify({
+      action,
+      name,
+      arguments: argumentsObject
+    })
   });
+
   const data = await response.json().catch(() => null);
+
   if (!response.ok || data?.ok !== true) return null;
+
   return data.result;
 }
 
@@ -38,8 +46,14 @@ export function detectarIntencaoKaggle(texto) {
   if (!(explicit || dataset || competition || model || notebook)) return null;
 
   let tool = "search_datasets";
-  if (competition) tool = "search_competitions";
-  else if (model) tool = "search_models";
+
+  if (competition) {
+    tool = "search_competitions";
+  } else if (model) {
+    tool = "search_models";
+  } else if (notebook) {
+    tool = "search_notebooks";
+  }
 
   return {
     tool,
@@ -54,6 +68,7 @@ export async function pesquisarKaggle(texto) {
   const result = await consultarKaggle("call", intent.tool, {
     search: intent.query
   });
+
   const text = extractToolText(result);
   if (!text) return null;
 
