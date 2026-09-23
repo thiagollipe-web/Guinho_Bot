@@ -16,6 +16,7 @@ import { hidratarModeloAprendizado, serializarModeloAprendizado } from "./engine
 import { criarWorkspace, atualizarWorkspace, carregarWorkspace, salvarWorkspace, resumoWorkspace } from "./project-workspace.js";
 import { gerarDiffProjeto, resumoDiff } from "./project-diff.js";
 import { normalizarArquivosImportados, validarDependencias, arquivosRelacionados } from "./project-dependencies.js";
+import { gerarPlanoAlteracao, resumirPlano, arquivosImpactadosDoPlano } from "./project-plan.js";
 import { criarTokenRuntime, montarDocumentoSandbox, validarEventoRuntime, interpretarEventoRuntime } from "./sandbox-runtime.js";
 import { MAX_RUNTIME_AUTOFIX, deveAutocorrigirRuntime, proximaTentativaRuntime, construirPedidoAutocorrecao } from "./runtime-autofix.js";
 import { criarSnapshot, registrarSnapshot, desfazerWorkspace, removerUltimoSnapshot, salvarHistoricoWorkspace, carregarHistoricoWorkspace, resumoHistoricoWorkspace } from "./workspace-history.js";
@@ -66,6 +67,12 @@ const engUndo=document.querySelector("#eng-undo");
 const engImport=document.querySelector("#eng-import");
 const engImportInput=document.querySelector("#eng-import-input");
 const engDeps=document.querySelector("#eng-deps");
+const engPlan=document.querySelector("#eng-plan");
+const engPlanSummary=document.querySelector("#eng-plan-summary");
+const engPlanFiles=document.querySelector("#eng-plan-files");
+const engPlanApply=document.querySelector("#eng-plan-apply");
+const engPlanCancel=document.querySelector("#eng-plan-cancel");
+let planoEngenhariaPendente=null;
 let runtimeToken="";
 let runtimeTimer=null;
 let runtimeAutofixAttempts=0;
@@ -184,6 +191,24 @@ async function importarArquivosProjeto(fileList){
   if(resultado.rejeitados.length)showToast("Importação concluída com "+resultado.rejeitados.length+" arquivo(s) rejeitado(s).");
   else showToast("Projeto importado: "+Object.keys(resultado.files).length+" arquivo(s)");
 }
+function atualizarPlanoUI(plano=null){
+  if(!engPlan||!engPlanSummary||!engPlanFiles)return;
+  engPlan.hidden=!plano;
+  if(!plano){engPlanSummary.textContent="Nenhum plano pendente.";engPlanFiles.innerHTML="";if(engPlanApply)engPlanApply.disabled=true;return;}
+  engPlanSummary.textContent=resumirPlano(plano);
+  engPlanFiles.innerHTML="";
+  for(const item of plano.files||[]){
+    const row=document.createElement("div");
+    row.className="eng-plan-file";
+    const strong=document.createElement("strong");
+    strong.textContent=String(item.action||"update").toUpperCase()+" "+item.path;
+    const span=document.createElement("span");
+    span.textContent=item.reason||"impacto identificado";
+    row.append(strong,span);engPlanFiles.appendChild(row);
+  }
+  if(engPlanApply)engPlanApply.disabled=!plano.files?.length;
+}
+function cancelarPlanoEngenharia(){planoEngenhariaPendente=null;atualizarPlanoUI(null);atualizarWorkspaceStatus("Plano cancelado. Nenhuma alteração foi aplicada.","CANCELADO");}
 function atualizarDependenciasUI(deps){
   if(!engDeps)return;
   if(!deps){engDeps.textContent="Dependências: não analisadas";engDeps.dataset.state="IDLE";return;}
@@ -694,6 +719,34 @@ async function consultarIAOnline(texto){
   }
 }
 
+async function consultarPlanoIAEngenharia(texto){
+  if(!workspaceEngenharia||!Object.keys(workspaceEngenharia.files||{}).length)return null;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),AI_CHAT_TIMEOUT_MS);
+  try{
+    const mensagens=historicoParaIA();
+    if(!mensagens.length||mensagens.at(-1)?.content!==texto)mensagens.push({role:"user",content:texto});
+    const response=await fetch(AI_CHAT_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:"engineering-plan",messages:mensagens.slice(-12),workspace:{name:workspaceEngenharia.nome||"Projeto Guinho",language:workspaceEngenharia.linguagem||"JavaScript",entry:workspaceEngenharia.entry||"index.html",files:workspaceEngenharia.files,dependencies:validarDependencias(workspaceEngenharia.files)}}),signal:controller.signal});
+    const data=await response.json().catch(()=>null);
+    if(!response.ok||data?.ok!==true||data?.mode!=="engineering-plan"||!data.plan)return null;
+    return data.plan;
+  }catch{return null}finally{clearTimeout(timer);}
+}
+
+async function prepararAlteracaoIA(texto){
+  const deps=validarDependencias(workspaceEngenharia?.files||{});
+  let plano=await consultarPlanoIAEngenharia(texto);
+  if(!plano){plano=gerarPlanoAlteracao(texto,workspaceEngenharia||{},deps);ultimaOrigemResposta="local-fallback";}
+  else ultimaOrigemResposta="openai";
+  if(!plano)return null;
+  plano={...plano,files:arquivosImpactadosDoPlano(plano,workspaceEngenharia?.files||{})};
+  if(!plano.files.length&&Object.keys(workspaceEngenharia?.files||{}).length)plano=gerarPlanoAlteracao(texto,workspaceEngenharia,deps);
+  planoEngenhariaPendente={pedido:texto,plano};
+  atualizarPlanoUI(plano);
+  atualizarWorkspaceStatus("Plano de alteração pronto. Revise os arquivos impactados antes de aplicar.","PLANO");
+  return plano;
+}
+
 async function consultarIAEngenharia(texto,runtime=null){
   if(!workspaceEngenharia||!Object.keys(workspaceEngenharia.files||{}).length)return null;
   const controller=new AbortController();
@@ -725,6 +778,19 @@ async function consultarIAEngenharia(texto,runtime=null){
   }finally{
     clearTimeout(timer);
   }
+}
+
+async function aplicarPlanoPendente(){
+  if(!planoEngenhariaPendente)return false;
+  const {pedido,plano}=planoEngenhariaPendente;
+  atualizarWorkspaceStatus("Gerando patch final conforme o plano aprovado.","APLICANDO");
+  const patch=await consultarIAEngenharia(pedido);
+  if(!patch?.files?.length){atualizarWorkspaceStatus("A IA não gerou um patch aplicável.","ERRO");showToast("A IA não gerou o patch final.");return false;}
+  const permitido=new Set((plano.files||[]).map(x=>x.path));
+  if((patch.files||[]).some(x=>!permitido.has(x.path))){showToast("Patch excedeu o plano aprovado.");atualizarWorkspaceStatus("O patch tentou sair do conjunto aprovado.","BLOQUEADO");return false;}
+  const r=aplicarPatchIAEngenharia(patch,pedido);
+  if(!r)return false;
+  planoEngenhariaPendente=null;atualizarPlanoUI(null);return true;
 }
 
 async function tentarAutocorrecaoRuntime(resultado){
@@ -914,14 +980,11 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     && (pedidoDeCodigo(limpo) || perfilProgramador.linguagem || perfilProgramador.tecnologia || perfilProgramador.tipoProjeto);
 
   if(workspaceEngenharia && pedidoEngenharia && ["criar","corrigir","melhorar","analisar","diagnosticar"].includes(analise.objetivo)){
-    const patch=await consultarIAEngenharia(limpo);
-    if(patch){
-      ultimaOrigemResposta="openai";
-      const r=aplicarPatchIAEngenharia(patch,limpo);
-      if(r){
-        contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"agente-ia-patch",assunto:memoria.estado.assuntoAtual});
-        return r;
-      }
+    const plano=await prepararAlteracaoIA(limpo);
+    if(plano){
+      const respostaPlano="PLANO DE ALTERAÇÃO\\n\\n"+resumirPlano(plano)+"\\n\\nRevise os arquivos e clique em Aplicar plano para gerar o patch final.";
+      contexto.atualizar({texto:limpo,resposta:respostaPlano,analise,estrategia:"agente-plano",assunto:memoria.estado.assuntoAtual});
+      return respostaPlano;
     }
     ultimaOrigemResposta="local-fallback";
   }
@@ -1208,6 +1271,8 @@ engClose?.addEventListener("click",fecharWorkspace);
 engRun?.addEventListener("click",executarNovoCicloWorkspace);
 engExecute?.addEventListener("click",executarProjetoNoSandbox);
 engUndo?.addEventListener("click",desfazerUltimaAlteracao);
+engPlanApply?.addEventListener("click",()=>void aplicarPlanoPendente());
+engPlanCancel?.addEventListener("click",cancelarPlanoEngenharia);
 inicializarImportacaoProjeto();
 engPreviewButton?.addEventListener("click",executarProjetoNoSandbox);
 

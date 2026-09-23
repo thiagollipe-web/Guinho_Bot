@@ -247,3 +247,14 @@ test("modo engineering rejeita patch que quebra dependência local", async () =>
   assert.equal(response.status, 422);
   assert.equal(data.ok, false);
 });
+
+
+test("modo engineering-plan retorna plano estruturado", async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({output_text:JSON.stringify({summary:"Adicionar inimigos",reason:"impacta a lógica",files:[{path:"app.js",action:"update",reason:"integração"}],risks:[],next_task:"revisar"})}),{status:200,headers:{"Content-Type":"application/json"}});
+  const response = await handler(request({mode:"engineering-plan",messages:[{role:"user",content:"adicione sistema de inimigos"}],workspace:{name:"Teste",files:{"app.js":"export const x=1;"}}}));
+  const data=await response.json(); assert.equal(response.status,200); assert.equal(data.ok,true); assert.equal(data.mode,"engineering-plan"); assert.equal(data.plan.files.length,1);
+});
+test("modo engineering-plan bloqueia arquivo protegido", async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({output_text:JSON.stringify({summary:"x",reason:"x",files:[{path:".env",action:"update",reason:"x"}],risks:[],next_task:"x"})}),{status:200,headers:{"Content-Type":"application/json"}});
+  const response = await handler(request({mode:"engineering-plan",messages:[{role:"user",content:"alterar segredo"}],workspace:{files:{"app.js":"x"}}})); assert.equal(response.status,502);
+});

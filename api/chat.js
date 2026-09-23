@@ -124,6 +124,42 @@ function projectPatchFormat() {
   };
 }
 
+function projectPlanFormat() {
+  return {
+    type: "json_schema",
+    name: "guinho_project_plan",
+    description: "Plano estruturado de alteração antes da geração do patch.",
+    strict: true,
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        summary: { type: "string" },
+        reason: { type: "string" },
+        files: { type: "array", items: { type: "object", additionalProperties: false, properties: {
+          path: { type: "string" }, action: { type: "string", enum: ["create","update","delete"] }, reason: { type: "string" }
+        }, required: ["path","action","reason"] } },
+        risks: { type: "array", items: { type: "string" } },
+        next_task: { type: "string" }
+      },
+      required: ["summary","reason","files","risks","next_task"]
+    }
+  };
+}
+
+function buildEngineeringPlanInstructions() {
+  return [
+    "Você é o Guinho, agente de engenharia de software.",
+    "Nesta chamada você NÃO gera código e NÃO aplica alterações. Gere somente um plano estruturado.",
+    "Analise o pedido, a estrutura do workspace, o ponto de entrada e as dependências locais.",
+    "Liste somente arquivos existentes para update/delete ou arquivos realmente necessários para create.",
+    "Inclua dependentes quando uma mudança puder afetar imports, exports, referências HTML/CSS ou integração entre módulos.",
+    "Não inclua .env, .git ou node_modules.",
+    "Se o pedido for ambíguo, retorne files vazio e explique o que falta em summary e next_task.",
+    "Retorne somente o objeto exigido pelo schema."
+  ].join("\n");
+}
+
 function buildEngineeringInstructions() {
   return [
     "Você é o Guinho, agente de engenharia de software.",
@@ -315,8 +351,9 @@ export async function chatHandler(request) {
 
   const model = String(process.env.OPENAI_MODEL || DEFAULT_MODEL).trim();
   const isEngineering = body?.mode === "engineering";
+  const isEngineeringPlan = body?.mode === "engineering-plan";
   let engineeringWorkspace = null;
-  if (isEngineering) {
+  if (isEngineering || isEngineeringPlan) {
     const workspaceValidation = validateWorkspace(body?.workspace);
     if (!workspaceValidation.ok) {
       return safeError(workspaceValidation.error, workspaceValidation.status, workspaceValidation.retryable, headers);
@@ -337,12 +374,12 @@ export async function chatHandler(request) {
       },
       body: JSON.stringify({
         model,
-        instructions: isEngineering ? buildEngineeringInstructions() : "Você é o Guinho, um companheiro de programação em português do Brasil, inspirado no estilo conversacional da ELIZA: converse naturalmente, faça perguntas quando faltarem informações, mantenha o contexto do projeto e ajude o usuário a transformar ideias em software. Seu foco é programação. Reconheça linguagens, frameworks e ferramentas. Pode criar, explicar, analisar, corrigir, refatorar, testar, otimizar e sugerir melhorias. Não imponha decisões: apresente opções e deixe a escolha ao usuário. Quando a tarefa estiver ambígua, pergunte primeiro. Ao gerar código, entregue código utilizável e explique somente o necessário. Preserve blocos de código em Markdown quando forem úteis. Não invente que executou código, acessou arquivos, consultou a internet ou serviços que não foram fornecidos. Se não puder verificar algo, diga isso claramente. Quando o pedido não for relacionado a programação ou desenvolvimento de software, redirecione brevemente a conversa para esse domínio em vez de responder ao assunto externo. Seja preciso, colaborativo e incremental.",
-        input: isEngineering
+        instructions: isEngineeringPlan ? buildEngineeringPlanInstructions() : isEngineering ? buildEngineeringInstructions() : "Você é o Guinho, um companheiro de programação em português do Brasil, inspirado no estilo conversacional da ELIZA: converse naturalmente, faça perguntas quando faltarem informações, mantenha o contexto do projeto e ajude o usuário a transformar ideias em software. Seu foco é programação. Reconheça linguagens, frameworks e ferramentas. Pode criar, explicar, analisar, corrigir, refatorar, testar, otimizar e sugerir melhorias. Não imponha decisões: apresente opções e deixe a escolha ao usuário. Quando a tarefa estiver ambígua, pergunte primeiro. Ao gerar código, entregue código utilizável e explique somente o necessário. Preserve blocos de código em Markdown quando forem úteis. Não invente que executou código, acessou arquivos, consultou a internet ou serviços que não foram fornecidos. Se não puder verificar algo, diga isso claramente. Quando o pedido não for relacionado a programação ou desenvolvimento de software, redirecione brevemente a conversa para esse domínio em vez de responder ao assunto externo. Seja preciso, colaborativo e incremental.",
+        input: (isEngineering || isEngineeringPlan)
           ? [{ role: "user", content: JSON.stringify({ request: validation.messages.at(-1)?.content || "", workspace: engineeringWorkspace }) }]
           : validation.messages,
         max_output_tokens: maxTokens,
-        ...(isEngineering ? { text: { format: projectPatchFormat() } } : {})
+        ...(isEngineeringPlan ? { text: { format: projectPlanFormat() } } : isEngineering ? { text: { format: projectPatchFormat() } } : {})
       }),
       signal: timeout.signal
     });
@@ -362,6 +399,27 @@ export async function chatHandler(request) {
     const content = extractResponseText(providerData);
     if (!content) {
       return safeError("O serviço de IA não retornou conteúdo.", 502, true, headers);
+    }
+
+    if (isEngineeringPlan) {
+      let plan;
+      try { plan = JSON.parse(content); } catch { return safeError("A IA retornou um plano que não pôde ser interpretado.", 502, false, headers); }
+      if (!plan || !Array.isArray(plan.files) || plan.files.length > 12) return safeError("Plano de engenharia inválido.", 502, false, headers);
+      const current = engineeringWorkspace.files || {};
+      const seen = new Set();
+      const files = [];
+      for (const item of plan.files) {
+        const path = String(item?.path || "");
+        const action = String(item?.action || "");
+        if (!path || path.length > 180 || path.startsWith("/") || path.includes("\\") || path.split("/").includes("..")) return safeError("O plano contém um caminho inválido.",502,false,headers);
+        if (path === ".env" || path.startsWith(".env.") || path.startsWith(".git/") || path.startsWith("node_modules/")) return safeError("O plano tentou incluir arquivo protegido.",502,false,headers);
+        if (seen.has(path) || !["create","update","delete"].includes(action)) return safeError("O plano contém operação duplicada ou inválida.",502,false,headers);
+        if (action === "create" && Object.prototype.hasOwnProperty.call(current,path)) return safeError("O plano tenta criar arquivo existente.",502,false,headers);
+        if ((action === "update" || action === "delete") && !Object.prototype.hasOwnProperty.call(current,path)) return safeError("O plano tenta alterar arquivo inexistente.",502,false,headers);
+        seen.add(path);
+        files.push({path,action,reason:String(item?.reason || "impacto identificado").slice(0,600)});
+      }
+      return json({ok:true,mode:"engineering-plan",plan:{summary:String(plan.summary||"").slice(0,1000),reason:String(plan.reason||"").slice(0,1200),files,risks:Array.isArray(plan.risks)?plan.risks.slice(0,8).map(x=>String(x).slice(0,500)):[],next_task:String(plan.next_task||"").slice(0,500)},content:plan.summary||"Plano de engenharia gerado.",provider:"openai",model},200,headers);
     }
 
     if (isEngineering) {
