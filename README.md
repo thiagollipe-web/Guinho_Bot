@@ -147,3 +147,45 @@ Com Vercel local, use a CLI da Vercel e configure as variáveis no ambiente loca
 ## Status da integração
 
 A branch `ai-integration` prepara o backend, frontend, testes e configuração de Vercel. O deploy real e uma chamada real à OpenAI somente podem ser declarados como produção depois que as variáveis forem cadastradas na Vercel e a rota `/api/chat` for testada no navegador.
+
+
+## Kaggle MCP
+
+O Guinho pode consultar a Kaggle por meio do servidor MCP oficial, sem expor o token no navegador. A Kaggle disponibiliza o endpoint remoto `https://www.kaggle.com/mcp`, com ferramentas para datasets, competições, modelos e notebooks.
+
+### Configuração
+
+Na Vercel, adicione uma variável de ambiente de Production:
+
+```env
+KAGGLE_API_TOKEN=KGAT_...
+```
+
+Gere o token em **Kaggle → Settings → Generate New Token**. Nunca coloque esse token em `app.js`, `kaggle-client.js`, HTML, GitHub ou GitHub Pages.
+
+O fluxo fica:
+
+```
+Usuário
+  ↓
+Guinho
+  ├── tarefa de engenharia → pipeline local
+  ├── pergunta geral → OpenAI → fallback local
+  └── pedido sobre Kaggle → /api/kaggle → Kaggle MCP
+                                      ↓
+                         datasets / competições / modelos
+```
+
+O endpoint do Guinho usa uma lista de ferramentas permitidas para evitar que o navegador consiga solicitar arbitrariamente qualquer operação MCP. O token permanece exclusivamente no servidor.
+
+Exemplos de pedidos reconhecidos:
+
+- `procure datasets de imagens de gatos na Kaggle`
+- `quais competições de Python existem na Kaggle?`
+- `procure modelos de classificação de texto na Kaggle`
+
+A integração inicial é de descoberta/pesquisa. Operações destrutivas ou publicação/submissão não são expostas ao frontend nesta etapa.
+
+### Próxima etapa
+
+Depois de validar a autenticação, a evolução natural é permitir que o Guinho crie e execute Notebooks Kaggle para experimentos, acompanhe a execução, recupere outputs e entregue os artefatos ao Workspace de Engenharia. Isso deve ser habilitado gradualmente porque execução remota e submissão de competições são ações com efeitos externos.
