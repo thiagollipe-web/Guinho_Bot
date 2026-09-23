@@ -139,6 +139,16 @@ test("origem diferente é rejeitada", async () => {
   assert.equal(response.status, 403);
 });
 
+test("origem do próprio deployment Vercel é aceita", async () => {
+  process.env.VERCEL_URL = "guinho-bot.vercel.app";
+  const response = await handler(request(
+    { messages: [{ role: "user", content: "Olá" }] },
+    { headers: { Origin: "https://guinho-bot.vercel.app" } }
+  ));
+  assert.notEqual(response.status, 403);
+  delete process.env.VERCEL_URL;
+});
+
 test("validação aceita apenas user e assistant", () => {
   assert.equal(validateMessages([{ role: "system", content: "x" }]).ok, false);
   assert.equal(validateMessages([{ role: "user", content: "x" }]).ok, true);
