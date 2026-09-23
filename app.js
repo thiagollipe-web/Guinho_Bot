@@ -200,19 +200,45 @@ function renderArvoreProjeto(){
   if(!host||!workspaceEngenharia)return;
   host.innerHTML="";
   const tree=gerarArvoreProjeto(workspaceEngenharia.files||{});
+  const expandState=workspaceEngenharia.treeState&&typeof workspaceEngenharia.treeState==="object"?workspaceEngenharia.treeState:{};
   const render=(node,parent)=>{
     (node.children||[]).forEach(child=>{
-      const row=document.createElement("div");
+      const row=document.createElement("button");
+      row.type="button";
       row.className="eng-tree-node "+child.type;
       row.style.setProperty("--tree-depth",String(child.depth||0));
-      row.textContent=(child.type==="folder"?"▸ ":"▦ ")+child.name;
-      if(child.type==="file"){
-        if(impactoEngenhariaPendente?.diretos?.includes(child.path))row.dataset.impact="direct";
-        else if(impactoEngenhariaPendente?.relacionados?.includes(child.path))row.dataset.impact="related";
-        row.title=child.path;
+      if(child.type==="folder"){
+        const aberto=expandState[child.path]!==false;
+        row.setAttribute("aria-expanded",String(aberto));
+        row.innerHTML="<span class=\"eng-tree-caret\">"+(aberto?"▾":"▸")+"</span><span>"+child.name+"</span>";
+        row.addEventListener("click",()=>{
+          workspaceEngenharia.treeState={...(workspaceEngenharia.treeState||{}),[child.path]:!aberto};
+          persistirWorkspaceEngenharia();
+          renderArvoreProjeto();
+        });
+        parent.appendChild(row);
+        const childrenHost=document.createElement("div");
+        childrenHost.className="eng-tree-children";
+        childrenHost.hidden=!aberto;
+        parent.appendChild(childrenHost);
+        render(child,childrenHost);
+        return;
       }
+      row.innerHTML="<span class=\"eng-tree-icon\">▦</span><span class=\"eng-tree-name\"></span><span class=\"eng-tree-badge\"></span>";
+      row.querySelector(".eng-tree-name").textContent=child.name;
+      const badge=row.querySelector(".eng-tree-badge");
+      if(impactoEngenhariaPendente?.diretos?.includes(child.path)){row.dataset.impact="direct";badge.textContent="D";}
+      else if(impactoEngenhariaPendente?.relacionados?.includes(child.path)){row.dataset.impact="related";badge.textContent="R";}
+      row.title=child.path;
+      row.addEventListener("click",()=>{
+        sincronizarEditorEngenharia();
+        if(!workspaceEngenharia.files?.[child.path])return;
+        arquivoEngenhariaAtual=child.path;
+        renderArquivosEngenharia();
+        mostrarArquivoEngenharia(child.path);
+        atualizarWorkspaceStatus("Arquivo aberto: "+child.path,"EDITOR");
+      });
       parent.appendChild(row);
-      if(child.type==="folder")render(child,row);
     });
   };
   render(tree,host);
