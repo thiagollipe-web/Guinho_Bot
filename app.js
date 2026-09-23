@@ -521,6 +521,104 @@ async function consultarIAOnline(texto){
   }
 }
 
+async function consultarIAEngenharia(texto){
+  if(!workspaceEngenharia||!Object.keys(workspaceEngenharia.files||{}).length)return null;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),AI_CHAT_TIMEOUT_MS);
+  try{
+    const mensagens=historicoParaIA();
+    if(!mensagens.length||mensagens.at(-1)?.content!==texto)mensagens.push({role:"user",content:texto});
+    const response=await fetch(AI_CHAT_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        mode:"engineering",
+        messages:mensagens.slice(-12),
+        workspace:{
+          name:workspaceEngenharia.nome||"Projeto Guinho",
+          language:workspaceEngenharia.linguagem||"JavaScript",
+          files:workspaceEngenharia.files
+        }
+      }),
+      signal:controller.signal
+    });
+    const data=await response.json().catch(()=>null);
+    if(!response.ok||data?.ok!==true||data?.mode!=="engineering"||!data.patch)return null;
+    return data.patch;
+  }catch{
+    return null;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+function patchEngenhariaSeguro(patch,files){
+  if(!patch||!Array.isArray(patch.files)||patch.files.length>8)return false;
+  const vistos=new Set();
+  for(const item of patch.files){
+    const path=String(item?.path||"");
+    const action=String(item?.action||"");
+    if(!path||path.length>180||path.startsWith("/")||path.includes("\\")||path.split("/").includes(".."))return false;
+    if(path===".env"||path.startsWith(".env.")||path.startsWith(".git/")||path.startsWith("node_modules/"))return false;
+    if(!["create","update","delete"].includes(action)||vistos.has(path))return false;
+    vistos.add(path);
+    if(action==="create"&&Object.prototype.hasOwnProperty.call(files,path))return false;
+    if((action==="update"||action==="delete")&&!Object.prototype.hasOwnProperty.call(files,path))return false;
+    if(typeof item?.content!=="string"||item.content.length>16000)return false;
+  }
+  return true;
+}
+
+function aplicarPatchIAEngenharia(patch,pedido){
+  const antes={...(workspaceEngenharia?.files||{})};
+  if(!patchEngenhariaSeguro(patch,antes))return null;
+  const files={...antes};
+  for(const item of patch.files){
+    if(item.action==="delete")delete files[item.path];
+    else files[item.path]=item.content;
+  }
+  const resultado=executarCicloComAprendizado(pedido,{
+    criar:false,
+    files,
+    maxCiclos:4
+  });
+  const depois=resultado.files||files;
+  const delta=gerarDiffProjeto(antes,depois);
+  const deltaResumo=resumoDiff(antes,depois);
+  const enriquecido={
+    ...resultado,
+    lastDiff:delta,
+    diffResumo:deltaResumo,
+    patchResumo:patch.summary||"Alteração aplicada.",
+    proximaTarefa:patch.next_task||"Executar uma nova auditoria antes da próxima alteração."
+  };
+  ultimoProjetoEngenharia=enriquecido;
+  workspaceEngenharia=atualizarWorkspace(workspaceEngenharia||criarWorkspace(enriquecido),{
+    ...enriquecido,
+    files:enriquecido.files,
+    lastDiff:delta,
+    diffResumo:deltaResumo
+  });
+  salvarWorkspace(workspaceEngenharia);
+  if(resultado.ok)abrirWorkspace(enriquecido);
+  else{
+    ultimoProjetoEngenharia=enriquecido;
+    abrirWorkspace(enriquecido);
+  }
+  const alterados=deltaResumo.alterados.length,criados=deltaResumo.criados.length,removidos=deltaResumo.removidos.length;
+  const linhas=[
+    "ALTERAÇÃO DE PROJETO CONCLUÍDA",
+    "Status: "+(resultado.status||"SEM RESULTADO"),
+    "Resumo: "+(patch.summary||"patch aplicado"),
+    "Arquivos: "+Object.keys(depois).length,
+    "Mudanças: "+(criados+alterados+removidos)+" • criados="+criados+" • alterados="+alterados+" • removidos="+removidos,
+    "Validação: "+(resultado.validacao?.estado||"não executada")+" ("+(resultado.validacao?.score??0)+"/100)"
+  ];
+  if(patch.next_task)linhas.push("Próxima tarefa: "+patch.next_task);
+  if(delta)linhas.push("\nDiff disponível no Workspace de Engenharia.");
+  return linhas.join("\n");
+}
+
 async function responder(texto){
   ultimaOrigemResposta="local";
   extrairMemoria(texto);
@@ -605,6 +703,19 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     && ["jogos","programacao"].includes(analise.intent);
   const criacaoConcreta = analise.objetivo==="criar"
     && (pedidoDeCodigo(limpo) || perfilProgramador.linguagem || perfilProgramador.tecnologia || perfilProgramador.tipoProjeto);
+
+  if(workspaceEngenharia && pedidoEngenharia && ["criar","corrigir","melhorar","analisar","diagnosticar"].includes(analise.objetivo)){
+    const patch=await consultarIAEngenharia(limpo);
+    if(patch){
+      ultimaOrigemResposta="openai";
+      const r=aplicarPatchIAEngenharia(patch,limpo);
+      if(r){
+        contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"agente-ia-patch",assunto:memoria.estado.assuntoAtual});
+        return r;
+      }
+    }
+    ultimaOrigemResposta="local-fallback";
+  }
 
   if(criacaoConcreta && (!perfilProgramador.linguagem || perfilProgramador.linguagem==="JavaScript")){
     const r=respostaEngenharia(limpo);
