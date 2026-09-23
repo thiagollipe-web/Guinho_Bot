@@ -980,14 +980,11 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
     && (pedidoDeCodigo(limpo) || perfilProgramador.linguagem || perfilProgramador.tecnologia || perfilProgramador.tipoProjeto);
 
   if(workspaceEngenharia && pedidoEngenharia && ["criar","corrigir","melhorar","analisar","diagnosticar"].includes(analise.objetivo)){
-    const patch=await consultarIAEngenharia(limpo);
-    if(patch){
-      ultimaOrigemResposta="openai";
-      const r=aplicarPatchIAEngenharia(patch,limpo);
-      if(r){
-        contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"agente-ia-patch",assunto:memoria.estado.assuntoAtual});
-        return r;
-      }
+    const plano=await prepararAlteracaoIA(limpo);
+    if(plano){
+      const respostaPlano="PLANO DE ALTERAÇÃO\\n\\n"+resumirPlano(plano)+"\\n\\nRevise os arquivos e clique em Aplicar plano para gerar o patch final.";
+      contexto.atualizar({texto:limpo,resposta:respostaPlano,analise,estrategia:"agente-plano",assunto:memoria.estado.assuntoAtual});
+      return respostaPlano;
     }
     ultimaOrigemResposta="local-fallback";
   }
