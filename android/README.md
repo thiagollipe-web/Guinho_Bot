@@ -19,7 +19,7 @@ adb shell mkdir -p /data/data/com.thiagollipe.guinho/files/models
 adb push modelo.gguf /data/data/com.thiagollipe.guinho/files/models/qwen-0.5b.gguf
 ```
 
-Em um APK instalado sem root, o caminho privado não é gravável pelo ADB em dispositivos comuns. Nesse caso, a próxima camada deve usar `ACTION_OPEN_DOCUMENT` para importar o GGUF pelo seletor de arquivos e copiá-lo para o diretório privado.
+Para uso normal no APK, selecione o modelo no campo de modelo e toque em `Adicionar GGUF`. O Android abre o seletor nativo, valida a extensão `.gguf`, copia o arquivo para o armazenamento privado do aplicativo e informa o progresso da importação. O arquivo não é enviado para Vercel/Ollama.
 
 ## Build
 
