@@ -4,6 +4,7 @@ const MAX_CONTENT_CHARS = 12000;
 const MAX_TOTAL_CONTENT_CHARS = 48000;
 const DEFAULT_TIMEOUT_MS = 25000;
 const DEFAULT_MAX_TOKENS = 1200;
+const DEFAULT_MODEL = "gpt-5.6-luna";
 
 function json(data, status, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -16,7 +17,7 @@ function json(data, status, headers = {}) {
 }
 
 function corsHeaders(request) {
-  const configured = String(process.env.CORS_ORIGIN || "").trim();
+  const configured = String(process.env.CORS_ORIGIN || "https://thiagollipe-web.github.io").trim();
   const origin = request.headers.get("origin");
   const vercelOrigin = process.env.VERCEL_URL
     ? `https://${String(process.env.VERCEL_URL).trim()}`
@@ -177,10 +178,7 @@ export async function chatHandler(request) {
     return safeError(validation.error, validation.status, validation.retryable, headers);
   }
 
-  const model = String(process.env.OPENAI_MODEL || "").trim();
-  if (!model) {
-    return safeError("Modelo de IA não configurado. Defina OPENAI_MODEL no servidor.", 503, true, headers);
-  }
+  const model = String(process.env.OPENAI_MODEL || DEFAULT_MODEL).trim();
 
   const timeoutMs = parseLimit(process.env.AI_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 1000, 30000);
   const maxTokens = parseLimit(process.env.AI_MAX_TOKENS, DEFAULT_MAX_TOKENS, 64, 4000);
