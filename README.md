@@ -1,50 +1,149 @@
 # Guinho-Bot
 
-PWA de assistente virtual com processamento de linguagem natural local em JavaScript Vanilla.
+PWA de assistente híbrido em JavaScript Vanilla. O navegador mantém o motor local como fallback e, quando a conversa é geral e a aplicação está publicada com a função serverless, o frontend consulta a OpenAI através de `/api/chat`.
 
-## Publicação
+## Arquitetura
 
-O projeto é estático e foi preparado para GitHub Pages. Não depende de servidor Node em produção e não usa API_KEY de IA.
+```
+Usuário
+  ↓
+app.js
+  ├── comandos de engenharia → motor local
+  ├── APIs públicas → motor local
+  └── perguntas gerais → /api/chat
+                         ↓
+                    OpenAI API
+                         ↓
+                  resposta no chat
 
-URL esperada:
+Falha/timeout/limite/ausência de configuração
+  └────────────────────────────→ motor local
+```
 
-https://thiagollipe-web.github.io/Guinho_Bot/
+A chave da OpenAI existe somente no ambiente do servidor/Vercel. Ela não é enviada ao navegador.
 
-O deploy é automático pelo workflow `.github/workflows/deploy-pages.yml`.
+## Estrutura ativa
 
-## Núcleo local
+A publicação atual usa a versão da raiz do repositório:
 
-- `MotorPNL`: normalização, tokens, distância de edição e detecção de intenção.
-- `knowledge.js`: base local com 116 documentos.
-- `retrieval.js`: TF-IDF, cosseno, Jaccard, stemming e sinônimos.
-- `memory.js`: memória de sessão via sessionStorage.
-- `CompositorRespostas`: combina documentos recuperados em respostas compostas.
+- `index.html`
+- `app.js`
+- `styles.css`
+- módulos locais e Workspace de Engenharia
 
-## Dados online
+A pasta `public/` contém uma cópia/versão legada menor do aplicativo. Ela não deve ser usada para aplicar correções da aplicação atual enquanto o Pages estiver configurado para a raiz.
 
-Somente consultas públicas em tempo real:
+O frontend atual importa `./app.js` diretamente no `index.html` da raiz.
 
-- AwesomeAPI — USD/BRL e EUR/BRL.
-- IBGE — últimas notícias.
-- Open-Meteo — clima.
-- ViaCEP — endereços por CEP.
+## Motor local preservado
 
-## PWA
+A integração não remove:
 
-`manifest.json` e `service-worker.js` estão configurados com caminhos relativos para funcionar em `/Guinho_Bot/`.
+- PLN probabilístico;
+- recuperação semântica;
+- memória de sessão;
+- base `knowledge.js`;
+- biblioteca de jogos;
+- comandos `/pnl`, `/analisar`, `/corrigir`, `/melhorar` e `/validar`;
+- CREATE/ANALYZE/FIX/IMPROVE/VALIDATE;
+- Workspace de Engenharia;
+- PWA e cache offline;
+- APIs públicas de moeda, notícias, clima e CEP.
 
-O service worker mantém o núcleo local disponível offline. APIs externas continuam exigindo internet.
+Perguntas gerais tentam a IA online primeiro. Operações de engenharia continuam locais para preservar o pipeline determinístico e a validação do projeto.
 
-## Execução local
+## OpenAI
 
-Sirva a pasta por HTTP para que o ES Modules e o service worker funcionem:
+O backend usa a API oficial da OpenAI pelo endpoint de Responses API.
+
+Variáveis necessárias no servidor:
+
+```env
+OPENAI_API_KEY=
+OPENAI_MODEL=
+AI_TIMEOUT_MS=25000
+AI_MAX_TOKENS=1200
+CORS_ORIGIN=https://thiagollipe-web.github.io
+```
+
+`OPENAI_MODEL` não possui um valor padrão propositalmente. Preencha com um ID de modelo que esteja disponível e habilitado no seu projeto OpenAI. Não coloque a chave no Git, HTML, JavaScript público ou README.
+
+Na Vercel, cadastre a chave diretamente em **Settings → Environment Variables**, de preferência como variável sensível de Production. Depois faça um novo deploy para que a alteração tenha efeito. citeturn5search0turn5search5
+
+## Vercel
+
+O projeto está preparado para ser importado com a raiz do repositório. A função é:
+
+```
+/api/chat.js
+```
+
+O `vercel.json` configura a função Node.js e o timeout máximo da função.
+
+Para a arquitetura mais simples, publique frontend e backend no mesmo projeto Vercel. Nesse cenário o frontend usa:
+
+```
+/api/chat
+```
+
+e não precisa de CORS entre páginas e API.
+
+Se o frontend continuar no GitHub Pages, `ai-config.js` contém o único ponto público de configuração do endpoint. Substitua `/api/chat` pela URL HTTPS exata da função Vercel. Não coloque nenhum segredo nesse arquivo. O backend deve manter `CORS_ORIGIN` exatamente igual à origem do GitHub Pages; não use `*`.
+
+Observação de segurança: CORS limita chamadas feitas por navegadores de outras origens, mas não é autenticação para clientes arbitrários. Para uma API pública com uso relevante, adicione autenticação/rate limiting no backend.
+
+A Vercel suporta funções Node.js no diretório `api/` e também permite configurar cancelamento de requisições e duração por função. citeturn3search2turn3search1
+
+## Fallback
+
+O frontend considera falha da IA:
+
+- HTTP não-2xx;
+- timeout;
+- erro de rede;
+- resposta vazia;
+- API sem configuração;
+- limite/rate limit;
+- indisponibilidade do provedor.
+
+Em qualquer desses casos a execução volta ao motor local e o usuário recebe uma indicação de **MOTOR LOCAL**.
+
+A resposta online é marcada como **IA ONLINE**.
+
+## Testes
+
+Execute:
+
+```bash
+node --check app.js
+node --check api/chat.js
+npm test
+npm run benchmark
+git diff --check
+```
+
+Os testes do backend cobrem validação de payload, ausência da chave, chamada bem-sucedida, resposta vazia, timeout, erro HTTP, payload excessivo, método inválido e origem não autorizada.
+
+Há também um teste de segurança que verifica que a chave não aparece no bundle público e que a função não usa `eval`/execução dinâmica.
+
+## GitHub Pages
+
+O GitHub Pages continua sendo útil para a versão offline/local. A URL histórica da aplicação é:
+
+`https://thiagollipe-web.github.io/Guinho_Bot/`
+
+A integração com IA generativa exige a função serverless. Por isso, a recomendação operacional é publicar o mesmo repositório na Vercel e usar a Vercel como origem principal do frontend + backend.
+
+## Desenvolvimento local
+
+Sem API:
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Depois abra `http://127.0.0.1:8080/`.
+Com Vercel local, use a CLI da Vercel e configure as variáveis no ambiente local. Nunca comite `.env`.
 
-## Limite técnico
+## Status da integração
 
-O Guinho-Bot não é um LLM. Ele usa recuperação semântica, regras e composição determinística. Isso elimina APIs pagas de IA, mas não fornece geração aberta de texto como um modelo generativo.
+A branch `ai-integration` prepara o backend, frontend, testes e configuração de Vercel. O deploy real e uma chamada real à OpenAI somente podem ser declarados como produção depois que as variáveis forem cadastradas na Vercel e a rota `/api/chat` for testada no navegador.
