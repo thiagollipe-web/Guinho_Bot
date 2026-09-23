@@ -225,5 +225,8 @@ export function respostaElizaProgramacao(texto,perfil){
   if(intencao==="explicar"&&(linguagem||tecnologia)){
     return "Posso explicar isso no contexto de "+(linguagem||tecnologia)+". Cole o trecho de código ou diga qual conceito você quer entender.";
   }
+  if((linguagem||tecnologia)&&intencao==="conversar"){
+    return "Certo. Podemos trabalhar com "+(linguagem||tecnologia)+". Me diga o que você quer construir ou qual problema está tentando resolver.";
+  }
   return null;
 }
