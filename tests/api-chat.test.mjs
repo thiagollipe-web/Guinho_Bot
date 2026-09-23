@@ -21,15 +21,19 @@ function configure() {
 }
 
 function request(body, options = {}) {
-  return new Request("https://guinho-test.vercel.app/api/chat", {
-    method: options.method || "POST",
+  const method = options.method || "POST";
+  const init = {
+    method,
     headers: {
       "Content-Type": "application/json",
       Origin: "https://thiagollipe-web.github.io",
       ...(options.headers || {})
-    },
-    body: options.body === undefined ? JSON.stringify(body) : options.body
-  });
+    }
+  };
+  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+    init.body = options.body === undefined ? JSON.stringify(body) : options.body;
+  }
+  return new Request("https://guinho-test.vercel.app/api/chat", init);
 }
 
 test.beforeEach(() => {
