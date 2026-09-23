@@ -57,9 +57,10 @@ class GuinhoNativeAI(private val context: Context, private val filesDir: File, p
     @JavascriptInterface
     fun listModels(): String {
         val result = JSONArray()
-        modelsDir.listFiles { file -> file.isFile && file.extension.equals("gguf", true) }
-            ?.sortedBy { it.name.lowercase() }
-            ?.forEach { result.put(JSONObject().put("name", it.name).put("path", it.absolutePath).put("size", it.length())) }
+        MODEL_IDS.forEach { id ->
+            val file = resolveModel(id)
+            result.put(JSONObject().put("id", id).put("name", MODEL_NAMES[id]).put("installed", file.isFile && file.length() > 0).put("size", if (file.isFile) file.length() else 0))
+        }
         return result.toString()
     }
 
