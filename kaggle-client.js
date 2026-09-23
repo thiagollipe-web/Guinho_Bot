@@ -91,11 +91,11 @@ export async function consultarKaggle(action,name,argumentsObject={}){
 export function detectarIntencaoKaggle(texto){
   const q=compactQuery(texto).toLowerCase();
   if(!q)return null;
-  const explicit=/\\bkaggle\\b/.test(q);
-  const dataset=/\\b(dataset|datasets|conjunto de dados|base de dados)\\b/.test(q);
-  const competition=/\\b(competição|competicoes|competições|competition|competitions)\\b/.test(q);
-  const model=/\\b(modelo|modelos|model|models|llm)\\b/.test(q);
-  const notebook=/\\b(notebook|notebooks)\\b/.test(q);
+  const explicit=/\bkaggle\b/.test(q);
+  const dataset=/\b(dataset|datasets|conjunto de dados|base de dados)\b/.test(q);
+  const competition=/\b(competição|competicoes|competições|competition|competitions)\b/.test(q);
+  const model=/\b(modelo|modelos|model|models|llm)\b/.test(q);
+  const notebook=/\b(notebook|notebooks)\b/.test(q);
   if(!(explicit||dataset||competition||model||notebook))return null;
   return {
     type:competition?"competition":model?"model":notebook?"notebook":"dataset",
