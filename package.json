@@ -2,8 +2,11 @@
   "name": "guinho-bot",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "benchmark": "node --input-type=module -e \"import { avaliarClassificador, relatorioCalibracao } from './calibration.js'; console.log(relatorioCalibracao(avaliarClassificador()));\""
+    "benchmark": "node --input-type=module -e "import { avaliarClassificador, relatorioCalibracao } from './calibration.js'; console.log(relatorioCalibracao(avaliarClassificador()));""
   }
 }
