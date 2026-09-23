@@ -140,7 +140,7 @@ export function detectarIntencaoProgramacao(texto){
 export function detectarTipoProjeto(texto){
   const q=normalizar(texto);
   const encontrados=TIPOS_PROJETO.map(([tipo,padroes])=>({
-    tipo,score:padroes.reduce((total,p)=>total+(q.includes(normalizar(p))?1:0),0)
+    tipo,score:padroes.reduce((total,p)=>total+(contem(q,p)?1:0),0)
   })).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
   return encontrados[0]?.tipo||null;
 }
