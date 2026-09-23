@@ -213,12 +213,11 @@ function renderArvoreProjeto(){
         row.innerHTML="<span class=\"eng-tree-caret\">"+(aberto?"▾":"▸")+"</span><span>"+child.name+"</span>";
         row.addEventListener("click",()=>{
           workspaceEngenharia.treeState={...(workspaceEngenharia.treeState||{}),[child.path]:!aberto};
-          persistirWorkspaceEngenharia();
+          salvarWorkspace(workspaceEngenharia);
           renderArvoreProjeto();
         });
         parent.appendChild(row);
         const childrenHost=document.createElement("div");
-        childrenHost.className="eng-tree-children";
         childrenHost.hidden=!aberto;
         parent.appendChild(childrenHost);
         render(child,childrenHost);
