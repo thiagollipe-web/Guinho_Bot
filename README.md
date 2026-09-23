@@ -1,149 +1,92 @@
-# Guinho-Bot
+# Guinho Programador — WhatsApp Bot
 
-PWA de assistente híbrido em JavaScript Vanilla. O navegador mantém o motor local como fallback e, quando a conversa é geral e a aplicação está publicada com a função serverless, o frontend consulta a OpenAI através de `/api/chat`.
+Bot de WhatsApp focado em programação usando Node.js, `whatsapp-web.js`, `LocalAuth`, `qrcode-terminal` e a API da OpenAI.
 
-## Arquitetura
+## Requisitos
 
-```
-Usuário
-  ↓
-app.js
-  ├── comandos de engenharia → motor local
-  ├── APIs públicas → motor local
-  └── perguntas gerais → /api/chat
-                         ↓
-                    OpenAI API
-                         ↓
-                  resposta no chat
+- Node.js 20 ou superior
+- Uma conta do WhatsApp para conectar o bot
+- Uma chave da OpenAI
 
-Falha/timeout/limite/ausência de configuração
-  └────────────────────────────→ motor local
+## Instalação
+
+Clone o projeto e entre na pasta:
+
+```bash
+git clone https://github.com/thiagollipe-web/Guinho_Bot.git
+cd Guinho_Bot
 ```
 
-A chave da OpenAI existe somente no ambiente do servidor/Vercel. Ela não é enviada ao navegador.
+Instale as dependências:
 
-## Estrutura ativa
+```bash
+npm install
+```
 
-A publicação atual usa a versão da raiz do repositório:
+Crie o arquivo `.env`:
 
-- `index.html`
-- `app.js`
-- `styles.css`
-- módulos locais e Workspace de Engenharia
+Linux/macOS:
 
-A pasta `public/` contém uma cópia/versão legada menor do aplicativo. Ela não deve ser usada para aplicar correções da aplicação atual enquanto o Pages estiver configurado para a raiz.
+```bash
+cp .env.example .env
+```
 
-O frontend atual importa `./app.js` diretamente no `index.html` da raiz.
+Windows PowerShell:
 
-## Motor local preservado
+```powershell
+Copy-Item .env.example .env
+```
 
-A integração não remove:
-
-- PLN probabilístico;
-- recuperação semântica;
-- memória de sessão;
-- base `knowledge.js`;
-- biblioteca de jogos;
-- comandos `/pnl`, `/analisar`, `/corrigir`, `/melhorar` e `/validar`;
-- CREATE/ANALYZE/FIX/IMPROVE/VALIDATE;
-- Workspace de Engenharia;
-- PWA e cache offline;
-- APIs públicas de moeda, notícias, clima e CEP.
-
-Perguntas gerais tentam a IA online primeiro. Operações de engenharia continuam locais para preservar o pipeline determinístico e a validação do projeto.
-
-## OpenAI
-
-O backend usa a API oficial da OpenAI pelo endpoint de Responses API.
-
-Variáveis necessárias no servidor:
+Edite o `.env` e coloque sua chave:
 
 ```env
-OPENAI_API_KEY=
-OPENAI_MODEL=
-AI_TIMEOUT_MS=25000
-AI_MAX_TOKENS=1200
-CORS_ORIGIN=https://thiagollipe-web.github.io
+OPENAI_API_KEY=sua_chave_aqui
+OPENAI_MODEL=gpt-4o
 ```
 
-`OPENAI_MODEL` não possui um valor padrão propositalmente. Preencha com um ID de modelo que esteja disponível e habilitado no seu projeto OpenAI. Não coloque a chave no Git, HTML, JavaScript público ou README.
-
-Na Vercel, cadastre a chave diretamente em **Settings → Environment Variables**, de preferência como variável sensível de Production. Depois faça um novo deploy para que a alteração tenha efeito. Não cole a chave no chat nem em arquivos públicos.
-
-## Vercel
-
-O projeto está preparado para ser importado com a raiz do repositório. A função é:
-
-```
-/api/chat.js
-```
-
-O `vercel.json` configura a função Node.js e o timeout máximo da função.
-
-Para a arquitetura mais simples, publique frontend e backend no mesmo projeto Vercel. Nesse cenário o frontend usa:
-
-```
-/api/chat
-```
-
-e não precisa de CORS entre páginas e API.
-
-Se o frontend continuar no GitHub Pages, `ai-config.js` contém o único ponto público de configuração do endpoint. Substitua `/api/chat` pela URL HTTPS exata da função Vercel. Não coloque nenhum segredo nesse arquivo. O backend deve manter `CORS_ORIGIN` exatamente igual à origem do GitHub Pages; não use `*`.
-
-Observação de segurança: CORS limita chamadas feitas por navegadores de outras origens, mas não é autenticação para clientes arbitrários. Para uma API pública com uso relevante, adicione autenticação/rate limiting no backend.
-
-A Vercel suporta funções Node.js no diretório `api/` e também permite configurar cancelamento de requisições e duração por função.
-
-## Fallback
-
-O frontend considera falha da IA:
-
-- HTTP não-2xx;
-- timeout;
-- erro de rede;
-- resposta vazia;
-- API sem configuração;
-- limite/rate limit;
-- indisponibilidade do provedor.
-
-Em qualquer desses casos a execução volta ao motor local e o usuário recebe uma indicação de **MOTOR LOCAL**.
-
-A resposta online é marcada como **IA ONLINE**.
-
-## Testes
-
-Execute:
+Inicie:
 
 ```bash
-node --check app.js
-node --check api/chat.js
-npm test
-npm run benchmark
-git diff --check
+npm start
 ```
 
-Os testes do backend cobrem validação de payload, ausência da chave, chamada bem-sucedida, resposta vazia, timeout, erro HTTP, payload excessivo, método inválido e origem não autorizada.
+Na primeira execução, o terminal exibirá um QR Code. No WhatsApp, abra **Dispositivos conectados → Conectar dispositivo** e escaneie o QR Code.
 
-Há também um teste de segurança que verifica que a chave não aparece no bundle público e que a função não usa `eval`/execução dinâmica.
+Depois da autenticação, o terminal exibirá:
 
-## GitHub Pages
-
-O GitHub Pages continua sendo útil para a versão offline/local. A URL histórica da aplicação é:
-
-`https://thiagollipe-web.github.io/Guinho_Bot/`
-
-A integração com IA generativa exige a função serverless. Por isso, a recomendação operacional é publicar o mesmo repositório na Vercel e usar a Vercel como origem principal do frontend + backend.
-
-## Desenvolvimento local
-
-Sem API:
-
-```bash
-python3 -m http.server 8080
+```
+Bot conectado com sucesso!
 ```
 
-Com Vercel local, use a CLI da Vercel e configure as variáveis no ambiente local. Nunca comite `.env`.
+A sessão fica salva localmente por meio do `LocalAuth`, portanto o QR Code não precisa ser escaneado em toda inicialização.
 
-## Status da integração
+## Comando
 
-A branch `ai-integration` prepara o backend, frontend, testes e configuração de Vercel. O deploy real e uma chamada real à OpenAI somente podem ser declarados como produção depois que as variáveis forem cadastradas na Vercel e a rota `/api/chat` for testada no navegador.
+O bot só responde a mensagens que começam com:
+
+```
+!code 
+```
+
+Exemplo:
+
+```
+!code como faço um loop for em Python?
+```
+
+## Segurança
+
+Nunca publique o arquivo `.env` nem sua chave da OpenAI no GitHub. O projeto já ignora `.env`, `.wwebjs_auth/` e `.wwebjs_cache/`.
+
+## Estrutura
+
+```
+.
+├── .env.example
+├── .gitignore
+├── index.js
+├── package.json
+└── README.md
+```
+
+O projeto foi deliberadamente reduzido a essa estrutura para eliminar o código anterior do Guinho Bot e manter somente o novo bot de WhatsApp.
