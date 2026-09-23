@@ -1,8 +1,8 @@
 {
-  "name": "guinho-whatsapp-bot",
-  "version": "1.0.0",
+  "name": "guinho-whatsapp-codegemma",
+  "version": "2.0.0",
   "private": true,
-  "description": "Bot do WhatsApp focado em programação com whatsapp-web.js e OpenAI.",
+  "description": "Bot do WhatsApp para assistência de programação usando CodeGemma local via Ollama.",
   "type": "module",
   "main": "index.js",
   "scripts": {
@@ -13,8 +13,8 @@
   },
   "dependencies": {
     "dotenv": "^17.2.2",
-    "openai": "^5.19.1",
+    "ollama": "^0.6.3",
     "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.34.2"
+    "whatsapp-web.js": "^1.34.7"
   }
 }
