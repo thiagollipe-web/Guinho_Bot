@@ -6,6 +6,8 @@ const DEFAULT_TIMEOUT_MS = 25000;
 const DEFAULT_MAX_TOKENS = 1200;
 const DEFAULT_MODEL = "gpt-5.6-luna";
 
+import { validarDependencias } from "../project-dependencies.js";
+
 const MAX_WORKSPACE_FILES = 16;
 const MAX_WORKSPACE_FILE_CHARS = 16000;
 const MAX_WORKSPACE_TOTAL_CHARS = 48000;
@@ -126,7 +128,8 @@ function buildEngineeringInstructions() {
   return [
     "Você é o Guinho, agente de engenharia de software.",
     "Seu trabalho nesta chamada é transformar o pedido do usuário em um patch para o workspace fornecido.",
-    "Analise primeiro a estrutura dos arquivos e altere somente os arquivos necessários.",
+    "Analise primeiro a estrutura dos arquivos, suas dependências e altere somente os arquivos necessários.",
+    "Se uma alteração quebrar uma dependência local, inclua também o arquivo dependente ou ajuste o import para manter o projeto consistente.",
     "Retorne somente o objeto exigido pelo schema.",
     "Para create e update, content deve ser o conteúdo COMPLETO final do arquivo, não um diff parcial.",
     "Para delete, content deve ser uma string vazia.",
@@ -369,6 +372,22 @@ export async function chatHandler(request) {
         return safeError("A IA retornou um patch que não pôde ser interpretado.", 502, false, headers);
       }
       const patchValidation = validateWorkspacePatch(patch, engineeringWorkspace);
+      if (patchValidation.ok) {
+        const merged = { ...(engineeringWorkspace.files || {}) };
+        for (const item of patchValidation.patch.files) {
+          if (item.action === "delete") delete merged[item.path];
+          else merged[item.path] = item.content;
+        }
+        const deps = validarDependencias(merged);
+        if (!deps.ok) {
+          return safeError(
+            "O patch deixaria dependências locais quebradas: " + deps.problemas.slice(0, 5).map(x => x.arquivo + " → " + x.alvo).join("; "),
+            422,
+            false,
+            headers
+          );
+        }
+      }
       if (!patchValidation.ok) {
         return safeError(patchValidation.error, patchValidation.status, patchValidation.retryable, headers);
       }
