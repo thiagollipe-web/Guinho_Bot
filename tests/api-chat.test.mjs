@@ -160,3 +160,11 @@ test("extrator suporta output_text e estrutura output", () => {
     output: [{ content: [{ type: "output_text", text: "B" }] }]
   }), "B");
 });
+
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+test("segredo não aparece no bundle público", () => {
+  const arquivos = ["index.html", "app.js", "ai-config.js", "styles.css"].map(nome => readFileSync(resolve(process.cwd(), nome), "utf8")).join("\n");
+  assert.equal(arquivos.includes("OPENAI_API_KEY"), false);
+});
