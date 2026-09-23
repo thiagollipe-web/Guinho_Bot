@@ -344,3 +344,5 @@ body{
 .eng-diff-panel{min-height:150px;max-height:31vh;border-top:1px solid var(--line);background:#070d16;display:flex;flex-direction:column}.eng-diff{margin:0;padding:12px;overflow:auto;color:#9fb2c8;font:10px/1.55 "SFMono-Regular",Consolas,"Liberation Mono",monospace;white-space:pre}.eng-diff-panel .eng-code-head{background:#0a111b}@media(max-width:900px){.eng-diff-panel{max-height:27vh}}@media(max-width:560px){.eng-diff-panel{max-height:24vh}.eng-diff{font-size:9px}}
 
 .eng-runtime{padding:7px 10px;border-bottom:1px solid var(--line);background:#09111c;color:#8292a8;font:9px/1.45 "SFMono-Regular",Consolas,"Liberation Mono",monospace;letter-spacing:.03em}.eng-runtime[data-state="OK"]{color:#8fe0bb}.eng-runtime[data-state="ERRO"]{color:#ff9d9d}.eng-runtime[data-state="EXECUTANDO"]{color:#bcd9ff}.eng-runtime[data-state="BLOQUEADO"],.eng-runtime[data-state="TIMEOUT"]{color:#ffd18a}
+
+#eng-undo{margin-left:auto}#eng-undo:disabled{opacity:.45;cursor:not-allowed}
