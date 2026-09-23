@@ -196,6 +196,12 @@ export function respostaElizaProgramacao(texto,perfil){
   if(precisaPerguntar){
     return "Vamos construir isso juntos. Qual linguagem ou tecnologia você quer usar? Se ainda não escolheu, me diga o que pretende criar e eu te ajudo a escolher.";
   }
+  if(intencao==="criar"&&linguagem&&!tipoProjeto){
+    return "Entendi. Vamos construir em "+linguagem+". O que você quer criar com essa linguagem?";
+  }
+  if(intencao==="criar"&&linguagem&&tipoProjeto&&linguagem!=="JavaScript"){
+    return "Entendi: "+tipoProjeto+" em "+linguagem+". A estrutura está definida. No modo local, vou orientar e analisar o projeto; com a IA online disponível, também posso gerar a implementação completa.";
+  }
   if(intencao==="criar"&&!linguagem&&!tecnologia&&tipoProjeto){
     return "Entendi: você quer trabalhar em um projeto de "+tipoProjeto+". Algumas ideias: "+sugerirIdeiasProgramacao(perfil).join("; ")+". Qual linguagem ou stack você quer usar?";
   }
