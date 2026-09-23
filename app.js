@@ -143,7 +143,7 @@ function restaurarWorkspaceEngenharia(){
   const salvo=carregarWorkspace();
   if(!salvo||!Object.keys(salvo.files||{}).length)return false;
   workspaceEngenharia=salvo;
-  ultimoProjetoEngenharia={files:{...salvo.files},entry:salvo.entry,plano:salvo.plano,status:salvo.status,ok:Boolean(salvo.ok),historico:salvo.historico||[],memoria:{problemas:salvo.problemas||[]},proximasTarefas:salvo.proximasTarefas||[]};
+  ultimoProjetoEngenharia={files:{...salvo.files},entry:salvo.entry,plano:salvo.plano,status:salvo.status,ok:Boolean(salvo.ok),runtime:salvo.runtime||null,historico:salvo.historico||[],memoria:{problemas:salvo.problemas||[]},proximasTarefas:salvo.proximasTarefas||[]};
   abrirWorkspace(ultimoProjetoEngenharia);
   atualizarWorkspaceStatus(resumoWorkspace(salvo),"RECUPERADO");
   if(salvo.runtime)atualizarRuntimeStatus(salvo.runtime.estado,salvo.runtime.mensagem,salvo.runtime.detalhes);
