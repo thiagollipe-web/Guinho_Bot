@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import handler, { extractResponseText, validateMessages } from "../api/chat.js";
+import handler, { extractResponseText, validateMessages, validateWorkspace, validateWorkspacePatch } from "../api/chat.js";
 
 const originalEnv = { ...process.env };
 const originalFetch = globalThis.fetch;
@@ -167,4 +167,58 @@ import { resolve } from "node:path";
 test("segredo não aparece no bundle público", () => {
   const arquivos = ["index.html", "app.js", "ai-config.js", "styles.css"].map(nome => readFileSync(resolve(process.cwd(), nome), "utf8")).join("\n");
   assert.equal(arquivos.includes("OPENAI_API_KEY"), false);
+});
+
+test("modo engineering retorna patch estruturado e valida operações", async () => {
+  let captured;
+  globalThis.fetch = async (url, options) => {
+    captured = { url, options };
+    return new Response(JSON.stringify({
+      output_text: JSON.stringify({
+        summary: "Adicionado contador",
+        next_task: "Validar interação no navegador",
+        files: [
+          { path: "app.js", action: "update", content: "const contador = 1;" }
+        ]
+      })
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  const response = await handler(request({
+    mode: "engineering",
+    messages: [{ role: "user", content: "adicione um contador" }],
+    workspace: {
+      name: "Teste",
+      files: { "app.js": "const contador = 0;" }
+    }
+  }));
+
+  const data = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(data.ok, true);
+  assert.equal(data.mode, "engineering");
+  assert.equal(data.patch.files[0].action, "update");
+  assert.equal(data.patch.files[0].path, "app.js");
+  assert.match(captured.options.body, /json_schema/);
+});
+
+test("workspace e patch rejeitam caminhos e arquivos protegidos", () => {
+  assert.equal(validateWorkspace({ files: { "../segredo.js": "x" } }).ok, false);
+  assert.equal(validateWorkspace({ files: { ".env": "x" } }).ok, false);
+  assert.equal(validateWorkspace({ files: { "node_modules/x.js": "x" } }).ok, false);
+  assert.equal(validateWorkspace({ files: { "src/main.js": "console.log(1);" } }).ok, true);
+
+  const patch = validateWorkspacePatch({
+    summary: "x",
+    next_task: "y",
+    files: [{ path: "novo.js", action: "create", content: "x" }]
+  }, { files: {} });
+  assert.equal(patch.ok, true);
+
+  const invalido = validateWorkspacePatch({
+    summary: "x",
+    next_task: "y",
+    files: [{ path: "app.js", action: "update", content: "x" }]
+  }, { files: {} });
+  assert.equal(invalido.ok, false);
 });
