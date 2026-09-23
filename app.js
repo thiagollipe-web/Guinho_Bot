@@ -711,6 +711,7 @@ async function consultarIAEngenharia(texto,runtime=null){
           name:workspaceEngenharia.nome||"Projeto Guinho",
           language:workspaceEngenharia.linguagem||"JavaScript",
           files:workspaceEngenharia.files,
+          dependencies:validarDependencias(workspaceEngenharia.files),
           runtime:runtime||workspaceEngenharia.runtime||null
         }
       }),
