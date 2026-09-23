@@ -44,6 +44,8 @@ export function criarWorkspace(resultado={}){
     ultimaEtapa:resultado.historico?.at(-1)?.etapa||null,
     historico:Array.isArray(resultado.historico)?resultado.historico.slice(-40):[],
     problemas:resultado.memoria?.problemas||[],
+    lastDiff:resultado.lastDiff||"",
+    diffResumo:resultado.diffResumo||null,
     proximasTarefas:gerarProximasTarefas({files,...resultado}),
     atualizadoEm:Date.now()
   };
@@ -63,6 +65,8 @@ export function gerarProximasTarefas(projeto={}){
 export function atualizarWorkspace(workspace={},patch={}){
   const atual={...workspace,...patch,files:{...(workspace.files||{}),...(patch.files||{})}};
   atual.linguagem=patch.linguagem||linguagemDosArquivos(atual.files);
+  atual.lastDiff=patch.lastDiff??atual.lastDiff??"";
+  atual.diffResumo=patch.diffResumo??atual.diffResumo??null;
   atual.proximasTarefas=gerarProximasTarefas(atual);
   atual.atualizadoEm=Date.now();
   return atual;
@@ -91,6 +95,7 @@ export function resumoWorkspace(workspace={}){
     "Linguagem: "+(workspace.linguagem||"não definida"),
     "Arquivos: "+Object.keys(workspace.files||{}).length,
     "Status: "+(workspace.status||"AGUARDANDO"),
+    "Última alteração: "+((workspace.diffResumo?.total||0)>0?workspace.diffResumo.total+" arquivo(s)":"nenhuma"),
     "Próximas tarefas: "+(tarefas.length?tarefas.join(" • "):"nenhuma registrada")
   ].join("\n");
 }
