@@ -578,6 +578,7 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
   }
   
   function respostaNaturalFallback(texto,analise){
+  ultimaOrigemResposta=ultimaOrigemResposta==="local-fallback"?"local-fallback":"local";
   const resultado=geradorResposta.gerar(texto,analise);
   if(!resultado)return null;
   contexto.atualizar({texto,resposta:resultado.texto,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:resultado.assunto});
