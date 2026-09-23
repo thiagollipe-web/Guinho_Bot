@@ -240,7 +240,7 @@ function atualizarPreviewEngenharia(){
   const pode=Boolean(ultimoProjetoEngenharia?.ok&&ultimoProjetoEngenharia?.files?.["index.html"]);
   engPreviewButton.disabled=!pode;
   document.querySelector("#eng-preview-note").textContent=pode?"sandbox • projeto atual":"preview indisponível";
-  if(pode){engPreview.setAttribute("sandbox","allow-scripts");engPreview.srcdoc=montarDocumentoSandbox(montarPreviewEngenharia(),runtimeToken||criarTokenRuntime());runtimeToken=runtimeToken||"disabled";}
+  if(pode){runtimeToken=criarTokenRuntime();engPreview.setAttribute("sandbox","allow-scripts");engPreview.srcdoc=montarDocumentoSandbox(montarPreviewEngenharia(),runtimeToken);}
   else {engPreview.setAttribute("sandbox","allow-scripts");engPreview.srcdoc="<body style='font-family:system-ui;padding:24px'>Execute VALIDAR/CORRIGIR até obter um projeto válido para visualizar.</body>";}
   if(engRuntime&&!pode)atualizarRuntimeStatus("INDISPONÍVEL","preview indisponível");
 }
@@ -1054,7 +1054,7 @@ engEditor?.addEventListener("input",()=>{engEditor.dataset.dirty="true";atualiza
 engClose?.addEventListener("click",fecharWorkspace);
 engRun?.addEventListener("click",executarNovoCicloWorkspace);
 engExecute?.addEventListener("click",executarProjetoNoSandbox);
-engPreviewButton?.addEventListener("click",()=>{if(ultimoProjetoEngenharia?.ok)engPreview.srcdoc=String(ultimoProjetoEngenharia.files["index.html"]||"");});
+engPreviewButton?.addEventListener("click",executarProjetoNoSandbox);
 
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js"));
 restaurarWorkspaceEngenharia();
