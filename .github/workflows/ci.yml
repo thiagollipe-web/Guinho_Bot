@@ -34,6 +34,7 @@ jobs:
       - run: node --check sandbox-runtime.js
       - run: node --check runtime-autofix.js
       - run: node --check workspace-history.js
+      - run: node --check project-dependencies.js
             # valida o núcleo conversacional especializado em programação
       - run: node --check api/chat.js
       - run: git diff --check

@@ -15,6 +15,7 @@ import { executarCicloEngenharia, relatorioEngenharia } from "./engine.js";
 import { hidratarModeloAprendizado, serializarModeloAprendizado } from "./engineering-learning.js";
 import { criarWorkspace, atualizarWorkspace, carregarWorkspace, salvarWorkspace, resumoWorkspace } from "./project-workspace.js";
 import { gerarDiffProjeto, resumoDiff } from "./project-diff.js";
+import { normalizarArquivosImportados, validarDependencias, arquivosRelacionados } from "./project-dependencies.js";
 import { criarTokenRuntime, montarDocumentoSandbox, validarEventoRuntime, interpretarEventoRuntime } from "./sandbox-runtime.js";
 import { MAX_RUNTIME_AUTOFIX, deveAutocorrigirRuntime, proximaTentativaRuntime, construirPedidoAutocorrecao } from "./runtime-autofix.js";
 import { criarSnapshot, registrarSnapshot, desfazerWorkspace, removerUltimoSnapshot, salvarHistoricoWorkspace, carregarHistoricoWorkspace, resumoHistoricoWorkspace } from "./workspace-history.js";
@@ -62,6 +63,9 @@ const engMemory=document.querySelector("#eng-memory");
 const engRuntime=document.querySelector("#eng-runtime");
 const engExecute=document.querySelector("#eng-execute");
 const engUndo=document.querySelector("#eng-undo");
+const engImport=document.querySelector("#eng-import");
+const engImportInput=document.querySelector("#eng-import-input");
+const engDeps=document.querySelector("#eng-deps");
 let runtimeToken="";
 let runtimeTimer=null;
 let runtimeAutofixAttempts=0;
@@ -137,6 +141,64 @@ function arquivosDaMensagem(texto){
     arquivos[nome]=codigo;
   });
   return arquivos;
+}
+
+async function importarArquivosProjeto(fileList){
+  const entradas=[];
+  for(const file of Array.from(fileList||[])){
+    if(file.size>120000){showToast("Arquivo grande demais: "+file.name);continue;}
+    try{
+      const content=await file.text();
+      const path=file.webkitRelativePath||file.name;
+      entradas.push({path,content,name:file.name});
+    }catch{}
+  }
+  const resultado=normalizarArquivosImportados(entradas);
+  if(!Object.keys(resultado.files).length){showToast("Nenhum arquivo válido foi importado.");return;}
+  criarPontoRestauracao("importação de "+Object.keys(resultado.files).length+" arquivo(s)");
+  sincronizarEditorEngenharia();
+  const antes={...(ultimoProjetoEngenharia?.files||{})};
+  const files={...antes,...resultado.files};
+  const deps=validarDependencias(files);
+  const projeto={
+    ...(ultimoProjetoEngenharia||criarWorkspace({files})),
+    files,
+    entry:files["index.html"]?"index.html":(ultimoProjetoEngenharia?.entry||Object.keys(files)[0]),
+    status:deps.ok?"IMPORTADO":"IMPORTADO COM DEPENDÊNCIAS",
+    ok:deps.ok,
+    validacao:{valido:deps.ok,estado:deps.ok?"OK":"DEPENDÊNCIAS QUEBRADAS",score:deps.score,erros:deps.problemas.map(x=>x.arquivo+" → "+x.alvo),avisos:[]},
+    analise:deps,
+    historico:[...(ultimoProjetoEngenharia?.historico||[]),{etapa:"IMPORTAR",status:deps.ok?"OK":"ACHADOS",arquivos:Object.keys(resultado.files).length,problemas:deps.problemas.length}],
+    lastDiff:gerarDiffProjeto(antes,files),
+    diffResumo:resumoDiff(antes,files)
+  };
+  ultimoProjetoEngenharia=projeto;
+  workspaceEngenharia=atualizarWorkspace(workspaceEngenharia||criarWorkspace(projeto),projeto);
+  salvarWorkspace(workspaceEngenharia);
+  abrirWorkspace(projeto);
+  atualizarDependenciasUI(deps);
+  atualizarWorkspaceStatus(
+    "Importados "+Object.keys(resultado.files).length+" arquivo(s). "+(deps.ok?"Todas as dependências locais foram resolvidas.":"Há "+deps.problemas.length+" dependência(s) local(is) sem arquivo."),
+    deps.ok?"IMPORTADO":"ATENÇÃO"
+  );
+  if(resultado.rejeitados.length)showToast("Importação concluída com "+resultado.rejeitados.length+" arquivo(s) rejeitado(s).");
+  else showToast("Projeto importado: "+Object.keys(resultado.files).length+" arquivo(s)");
+}
+function atualizarDependenciasUI(deps){
+  if(!engDeps)return;
+  if(!deps){engDeps.textContent="Dependências: não analisadas";engDeps.dataset.state="IDLE";return;}
+  engDeps.dataset.state=deps.ok?"OK":"ERRO";
+  engDeps.textContent=deps.ok
+    ?"Dependências: OK • "+deps.total+" arquivo(s)"
+    :"Dependências: "+deps.problemas.length+" quebrada(s) • "+deps.total+" arquivo(s)";
+}
+function inicializarImportacaoProjeto(){
+  engImport?.addEventListener("click",()=>engImportInput?.click());
+  engImportInput?.addEventListener("change",async event=>{
+    await importarArquivosProjeto(event.target.files);
+    event.target.value="";
+  });
+  if(engImportInput)engImportInput.addEventListener("drop",()=>{});
 }
 
 function atualizarUndoUI(){
@@ -221,7 +283,7 @@ function abrirWorkspace(resultado){
   const etapas=(resultado.historico||[]).map(x=>x.etapa);
   const ultima=etapas.at(-1);
   document.querySelectorAll("#eng-pipeline [data-stage]").forEach(el=>{el.classList.remove("active","done");const i=ordem.indexOf(el.dataset.stage);if(i>=0&&ordem.indexOf(ultima)>=i)el.classList.add("done");if(el.dataset.stage===ultima)el.classList.add("active");});
-  renderArquivosEngenharia(); mostrarArquivoEngenharia(arquivoEngenhariaAtual); atualizarPreviewEngenharia();
+  renderArquivosEngenharia(); mostrarArquivoEngenharia(arquivoEngenhariaAtual); atualizarPreviewEngenharia(); atualizarDependenciasUI(resultado.analise||validarDependencias(resultado.files||{}));
   persistirWorkspaceEngenharia();
 }
 function renderArquivosEngenharia(){
@@ -649,6 +711,7 @@ async function consultarIAEngenharia(texto,runtime=null){
           name:workspaceEngenharia.nome||"Projeto Guinho",
           language:workspaceEngenharia.linguagem||"JavaScript",
           files:workspaceEngenharia.files,
+          dependencies:validarDependencias(workspaceEngenharia.files),
           runtime:runtime||workspaceEngenharia.runtime||null
         }
       }),
@@ -1145,6 +1208,7 @@ engClose?.addEventListener("click",fecharWorkspace);
 engRun?.addEventListener("click",executarNovoCicloWorkspace);
 engExecute?.addEventListener("click",executarProjetoNoSandbox);
 engUndo?.addEventListener("click",desfazerUltimaAlteracao);
+inicializarImportacaoProjeto();
 engPreviewButton?.addEventListener("click",executarProjetoNoSandbox);
 
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js"));

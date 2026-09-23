@@ -222,3 +222,28 @@ test("workspace e patch rejeitam caminhos e arquivos protegidos", () => {
   }, { files: {} });
   assert.equal(invalido.ok, false);
 });
+
+test("modo engineering rejeita patch que quebra dependência local", async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    output_text: JSON.stringify({
+      summary: "Remove player",
+      next_task: "n/a",
+      files: [{ path: "player.js", action: "delete", content: "" }]
+    })
+  }), { status: 200, headers: { "Content-Type": "application/json" } });
+
+  const response = await handler(request({
+    mode: "engineering",
+    messages: [{ role: "user", content: "remova player" }],
+    workspace: {
+      name: "Teste",
+      files: {
+        "app.js": 'import "./player.js";',
+        "player.js": "export const player={};"
+      }
+    }
+  }));
+  const data = await response.json();
+  assert.equal(response.status, 422);
+  assert.equal(data.ok, false);
+});
