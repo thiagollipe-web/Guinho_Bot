@@ -36,9 +36,12 @@ jobs:
       - run: node --check workspace-history.js
       - run: node --check project-dependencies.js
       - run: node --check project-plan.js
+      - run: node --check project-tree.js
+      - run: node --check project-impact.js
             # valida o núcleo conversacional especializado em programação
       - run: node --check api/chat.js
       - run: git diff --check
       - run: node --test tests/guinho-programmer.test.mjs
+      - run: node --test tests/project-tree-impact.test.mjs
       - run: npm test
       - run: npm run benchmark
