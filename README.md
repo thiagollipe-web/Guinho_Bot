@@ -1,92 +1,140 @@
-# Guinho Programador — WhatsApp Bot
+# Guinho WhatsApp + CodeGemma + Ollama
 
-Bot de WhatsApp focado em programação usando Node.js, `whatsapp-web.js`, `LocalAuth`, `qrcode-terminal` e a API da OpenAI.
+Bot de WhatsApp focado em programação com IA local. O processamento é realizado pelo modelo CodeGemma através do Ollama instalado na própria máquina, sem API da OpenAI.
 
 ## Requisitos
 
-- Node.js 20 ou superior
-- Uma conta do WhatsApp para conectar o bot
-- Uma chave da OpenAI
+- Node.js 20 ou superior.
+- Ollama instalado e em execução na mesma máquina do bot.
+- WhatsApp no celular para escanear o QR Code na primeira autenticação.
 
-## Instalação
+## 1. Instalar o Ollama
 
-Clone o projeto e entre na pasta:
+Instale o Ollama pela página oficial:
 
-```bash
+https://ollama.com/download
+
+Confirme a instalação:
+
+~~~bash
+ollama --version
+~~~
+
+## 2. Baixar o CodeGemma
+
+Execute exatamente:
+
+~~~bash
+ollama pull codegemma:instruct
+~~~
+
+A página oficial do modelo disponibiliza o modelo codegemma:instruct e também o comando ollama run codegemma:instruct.
+
+Faça um teste:
+
+~~~bash
+ollama run codegemma:instruct
+~~~
+
+Depois encerre o teste com Ctrl+C.
+
+## 3. Instalar o projeto
+
+Clone o repositório:
+
+~~~bash
 git clone https://github.com/thiagollipe-web/Guinho_Bot.git
 cd Guinho_Bot
-```
+~~~
 
 Instale as dependências:
 
-```bash
+~~~bash
 npm install
-```
+~~~
 
-Crie o arquivo `.env`:
+Crie o arquivo .env:
 
 Linux/macOS:
 
-```bash
+~~~bash
 cp .env.example .env
-```
+~~~
 
 Windows PowerShell:
 
-```powershell
+~~~powershell
 Copy-Item .env.example .env
-```
+~~~
 
-Edite o `.env` e coloque sua chave:
+Configuração padrão:
 
-```env
-OPENAI_API_KEY=sua_chave_aqui
-OPENAI_MODEL=gpt-4o
-```
+~~~env
+OLLAMA_HOST=http://127.0.0.1:11434
+OLLAMA_MODEL=codegemma:instruct
+HISTORY_LIMIT=10
+~~~
 
-Inicie:
+## 4. Iniciar
 
-```bash
+~~~bash
 npm start
-```
+~~~
 
-Na primeira execução, o terminal exibirá um QR Code. No WhatsApp, abra **Dispositivos conectados → Conectar dispositivo** e escaneie o QR Code.
+Na primeira execução, o terminal exibirá o QR Code.
+
+No celular:
+
+WhatsApp → Dispositivos conectados → Conectar dispositivo
+
+Escaneie o QR Code.
 
 Depois da autenticação, o terminal exibirá:
 
-```
-Bot conectado com sucesso!
-```
+~~~text
+Bot conectado!
+~~~
 
-A sessão fica salva localmente por meio do `LocalAuth`, portanto o QR Code não precisa ser escaneado em toda inicialização.
+A autenticação fica salva localmente pelo LocalAuth.
 
-## Comando
+## 5. Comando do bot
 
 O bot só responde a mensagens que começam com:
 
-```
+~~~text
 !code 
-```
+~~~
 
-Exemplo:
+Exemplos:
 
-```
-!code como faço um loop for em Python?
-```
+~~~text
+!code como fazer um loop for em Python?
+~~~
 
-## Segurança
+~~~text
+!code corrija este JavaScript: const x = ;
+~~~
 
-Nunca publique o arquivo `.env` nem sua chave da OpenAI no GitHub. O projeto já ignora `.env`, `.wwebjs_auth/` e `.wwebjs_cache/`.
+O histórico recente de cada conversa é enviado junto com a nova pergunta.
 
-## Estrutura
+## 6. Ollama parado
 
-```
+O bot pode iniciar o WhatsApp mesmo que o Ollama esteja temporariamente indisponível. Ao receber !code, ele retorna um aviso amigável.
+
+Ligue o Ollama e tente novamente.
+
+## 7. Estrutura
+
+~~~text
 .
 ├── .env.example
 ├── .gitignore
 ├── index.js
-├── package.json
-└── README.md
-```
+└── package.json
+~~~
 
-O projeto foi deliberadamente reduzido a essa estrutura para eliminar o código anterior do Guinho Bot e manter somente o novo bot de WhatsApp.
+Não coloque .env, a sessão do WhatsApp ou os modelos do Ollama no Git.
+
+## Observação
+
+whatsapp-web.js automatiza o WhatsApp Web por meio de um cliente não oficial. O próprio projeto alerta que o uso pode estar sujeito a bloqueios e não é um cliente oficial do WhatsApp.
