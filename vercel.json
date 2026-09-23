@@ -4,6 +4,10 @@
     "api/chat.js": {
       "maxDuration": 30,
       "supportsCancellation": true
+    },
+    "api/kaggle.js": {
+      "maxDuration": 15,
+      "supportsCancellation": true
     }
   }
 }
