@@ -1,7 +1,8 @@
 const BRIDGE_NAME="GuinhoNativeAI";
 
 export function runtimeNativoDisponivel(globalThisRef=globalThis){
-  return Boolean(globalThisRef?.[BRIDGE_NAME]&&typeof globalThisRef[BRIDGE_NAME].generate==="function");
+  const bridge=globalThisRef?.[BRIDGE_NAME];
+  return Boolean(bridge&&typeof bridge.generate==="function");
 }
 
 export async function gerarRespostaLocal({model,prompt,history=[]}={},globalThisRef=globalThis){
@@ -10,7 +11,18 @@ export async function gerarRespostaLocal({model,prompt,history=[]}={},globalThis
   if(!bridge||typeof bridge.generate!=="function"){
     throw new Error("Runtime nativo ainda não está disponível neste ambiente.");
   }
-  const result=await bridge.generate({modelId:model.id,prompt:String(prompt??""),history:Array.isArray(history)?history:[]});
+  const payload=JSON.stringify({
+    modelId:model.id,
+    prompt:String(prompt??""),
+    history:Array.isArray(history)?history:[],
+    maxTokens:512
+  });
+  const raw=await bridge.generate(payload);
+  let result=raw;
+  if(typeof raw==="string"){
+    try{result=JSON.parse(raw);}catch{}
+  }
+  if(result?.error)throw new Error(String(result.error));
   const content=typeof result==="string"?result:result?.content;
   if(!String(content??"").trim())throw new Error("O runtime local não retornou conteúdo.");
   return {content:String(content),model:model.id};
@@ -19,7 +31,7 @@ export async function gerarRespostaLocal({model,prompt,history=[]}={},globalThis
 export function especificacaoRuntime(){
   return {
     bridge:BRIDGE_NAME,
-    protocol:"generate({modelId,prompt,history}) -> {content}",
+    protocol:"generate(JSON.stringify({modelId,prompt,history,maxTokens})) -> JSON {content}",
     transport:"Android WebView JavaScript bridge",
     models:["qwen-0.5b","qwen-1.5b","nemotron-4b"]
   };
