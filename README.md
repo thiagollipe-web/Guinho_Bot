@@ -151,7 +151,7 @@ A branch `ai-integration` prepara o backend, frontend, testes e configuração d
 
 ## Kaggle MCP
 
-O Guinho consulta a Kaggle pelo servidor MCP oficial em `https://www.kaggle.com/mcp`. A resposta atual do servidor usa `text/event-stream`, por isso o Gateway interpreta tanto JSON direto quanto eventos SSE. A Kaggle documenta o MCP oficial como a interface remota para datasets, competições, modelos, notebooks e outros recursos. citeturn408834search0
+O Guinho consulta a Kaggle pelo servidor MCP oficial em `https://www.kaggle.com/mcp`. A resposta atual do servidor usa `text/event-stream`, por isso o Gateway interpreta tanto JSON direto quanto eventos SSE. A Kaggle disponibiliza esse servidor MCP como interface remota para datasets, competições, modelos, notebooks e outros recursos.
 
 O token permanece exclusivamente no servidor. Para o cenário Android, o Gateway pode rodar no Termux; GitHub Pages continua apenas como frontend estático.
 
