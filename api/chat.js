@@ -7,6 +7,7 @@ const DEFAULT_MAX_TOKENS = 1200;
 const DEFAULT_MODEL = "gpt-5.6-luna";
 
 import { validarDependencias } from "../project-dependencies.js";
+import { buildProjectIntelligence, selectRelevantContext, formatIntelligenceContext } from "../project-intelligence.js";
 
 const MAX_WORKSPACE_FILES = 16;
 const MAX_WORKSPACE_FILE_CHARS = 16000;
@@ -353,12 +354,27 @@ export async function chatHandler(request) {
   const isEngineering = body?.mode === "engineering";
   const isEngineeringPlan = body?.mode === "engineering-plan";
   let engineeringWorkspace = null;
+  let engineeringIntelligence = null;
+  let engineeringContext = null;
   if (isEngineering || isEngineeringPlan) {
     const workspaceValidation = validateWorkspace(body?.workspace);
     if (!workspaceValidation.ok) {
       return safeError(workspaceValidation.error, workspaceValidation.status, workspaceValidation.retryable, headers);
     }
     engineeringWorkspace = workspaceValidation.workspace;
+    const intelligenceResult = buildProjectIntelligence({
+      name: engineeringWorkspace.name,
+      language: engineeringWorkspace.language,
+      entry: engineeringWorkspace.entry,
+      request: validation.messages.at(-1)?.content || "",
+      files: engineeringWorkspace.files
+    });
+    if (!intelligenceResult.ok) return safeError(intelligenceResult.error, intelligenceResult.status, false, headers);
+    engineeringIntelligence = intelligenceResult.intelligence;
+    engineeringContext = selectRelevantContext({
+      files: engineeringWorkspace.files,
+      request: validation.messages.at(-1)?.content || ""
+    }, engineeringIntelligence);
   }
 
   const timeoutMs = parseLimit(process.env.AI_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 1000, 30000);
@@ -376,7 +392,7 @@ export async function chatHandler(request) {
         model,
         instructions: isEngineeringPlan ? buildEngineeringPlanInstructions() : isEngineering ? buildEngineeringInstructions() : "Você é o Guinho, um companheiro de programação em português do Brasil, inspirado no estilo conversacional da ELIZA: converse naturalmente, faça perguntas quando faltarem informações, mantenha o contexto do projeto e ajude o usuário a transformar ideias em software. Seu foco é programação. Reconheça linguagens, frameworks e ferramentas. Pode criar, explicar, analisar, corrigir, refatorar, testar, otimizar e sugerir melhorias. Não imponha decisões: apresente opções e deixe a escolha ao usuário. Quando a tarefa estiver ambígua, pergunte primeiro. Ao gerar código, entregue código utilizável e explique somente o necessário. Preserve blocos de código em Markdown quando forem úteis. Não invente que executou código, acessou arquivos, consultou a internet ou serviços que não foram fornecidos. Se não puder verificar algo, diga isso claramente. Quando o pedido não for relacionado a programação ou desenvolvimento de software, redirecione brevemente a conversa para esse domínio em vez de responder ao assunto externo. Seja preciso, colaborativo e incremental.",
         input: (isEngineering || isEngineeringPlan)
-          ? [{ role: "user", content: JSON.stringify({ request: validation.messages.at(-1)?.content || "", workspace: engineeringWorkspace }) }]
+          ? [{ role: "user", content: JSON.stringify({ request: validation.messages.at(-1)?.content || "", workspace: engineeringWorkspace, intelligence: formatIntelligenceContext(engineeringIntelligence, engineeringContext) }) }]
           : validation.messages,
         max_output_tokens: maxTokens,
         ...(isEngineeringPlan ? { text: { format: projectPlanFormat() } } : isEngineering ? { text: { format: projectPatchFormat() } } : {})
