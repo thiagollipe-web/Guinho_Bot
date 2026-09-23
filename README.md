@@ -1,149 +1,140 @@
-# Guinho-Bot
+# Guinho WhatsApp + CodeGemma + Ollama
 
-PWA de assistente híbrido em JavaScript Vanilla. O navegador mantém o motor local como fallback e, quando a conversa é geral e a aplicação está publicada com a função serverless, o frontend consulta a OpenAI através de `/api/chat`.
+Bot de WhatsApp focado em programação com IA local. O processamento é realizado pelo modelo CodeGemma através do Ollama instalado na própria máquina, sem API da OpenAI.
 
-## Arquitetura
+## Requisitos
 
-```
-Usuário
-  ↓
-app.js
-  ├── comandos de engenharia → motor local
-  ├── APIs públicas → motor local
-  └── perguntas gerais → /api/chat
-                         ↓
-                    OpenAI API
-                         ↓
-                  resposta no chat
+- Node.js 20 ou superior.
+- Ollama instalado e em execução na mesma máquina do bot.
+- WhatsApp no celular para escanear o QR Code na primeira autenticação.
 
-Falha/timeout/limite/ausência de configuração
-  └────────────────────────────→ motor local
-```
+## 1. Instalar o Ollama
 
-A chave da OpenAI existe somente no ambiente do servidor/Vercel. Ela não é enviada ao navegador.
+Instale o Ollama pela página oficial:
 
-## Estrutura ativa
+https://ollama.com/download
 
-A publicação atual usa a versão da raiz do repositório:
+Confirme a instalação:
 
-- `index.html`
-- `app.js`
-- `styles.css`
-- módulos locais e Workspace de Engenharia
+~~~bash
+ollama --version
+~~~
 
-A pasta `public/` contém uma cópia/versão legada menor do aplicativo. Ela não deve ser usada para aplicar correções da aplicação atual enquanto o Pages estiver configurado para a raiz.
+## 2. Baixar o CodeGemma
 
-O frontend atual importa `./app.js` diretamente no `index.html` da raiz.
+Execute exatamente:
 
-## Motor local preservado
+~~~bash
+ollama pull codegemma:instruct
+~~~
 
-A integração não remove:
+A página oficial do modelo disponibiliza o modelo codegemma:instruct e também o comando ollama run codegemma:instruct.
 
-- PLN probabilístico;
-- recuperação semântica;
-- memória de sessão;
-- base `knowledge.js`;
-- biblioteca de jogos;
-- comandos `/pnl`, `/analisar`, `/corrigir`, `/melhorar` e `/validar`;
-- CREATE/ANALYZE/FIX/IMPROVE/VALIDATE;
-- Workspace de Engenharia;
-- PWA e cache offline;
-- APIs públicas de moeda, notícias, clima e CEP.
+Faça um teste:
 
-Perguntas gerais tentam a IA online primeiro. Operações de engenharia continuam locais para preservar o pipeline determinístico e a validação do projeto.
+~~~bash
+ollama run codegemma:instruct
+~~~
 
-## OpenAI
+Depois encerre o teste com Ctrl+C.
 
-O backend usa a API oficial da OpenAI pelo endpoint de Responses API.
+## 3. Instalar o projeto
 
-Variáveis necessárias no servidor:
+Clone o repositório:
 
-```env
-OPENAI_API_KEY=
-OPENAI_MODEL=
-AI_TIMEOUT_MS=25000
-AI_MAX_TOKENS=1200
-CORS_ORIGIN=https://thiagollipe-web.github.io
-```
+~~~bash
+git clone https://github.com/thiagollipe-web/Guinho_Bot.git
+cd Guinho_Bot
+~~~
 
-`OPENAI_MODEL` não possui um valor padrão propositalmente. Preencha com um ID de modelo que esteja disponível e habilitado no seu projeto OpenAI. Não coloque a chave no Git, HTML, JavaScript público ou README.
+Instale as dependências:
 
-Na Vercel, cadastre a chave diretamente em **Settings → Environment Variables**, de preferência como variável sensível de Production. Depois faça um novo deploy para que a alteração tenha efeito. Não cole a chave no chat nem em arquivos públicos.
+~~~bash
+npm install
+~~~
 
-## Vercel
+Crie o arquivo .env:
 
-O projeto está preparado para ser importado com a raiz do repositório. A função é:
+Linux/macOS:
 
-```
-/api/chat.js
-```
+~~~bash
+cp .env.example .env
+~~~
 
-O `vercel.json` configura a função Node.js e o timeout máximo da função.
+Windows PowerShell:
 
-Para a arquitetura mais simples, publique frontend e backend no mesmo projeto Vercel. Nesse cenário o frontend usa:
+~~~powershell
+Copy-Item .env.example .env
+~~~
 
-```
-/api/chat
-```
+Configuração padrão:
 
-e não precisa de CORS entre páginas e API.
+~~~env
+OLLAMA_HOST=http://127.0.0.1:11434
+OLLAMA_MODEL=codegemma:instruct
+HISTORY_LIMIT=10
+~~~
 
-Se o frontend continuar no GitHub Pages, `ai-config.js` contém o único ponto público de configuração do endpoint. Substitua `/api/chat` pela URL HTTPS exata da função Vercel. Não coloque nenhum segredo nesse arquivo. O backend deve manter `CORS_ORIGIN` exatamente igual à origem do GitHub Pages; não use `*`.
+## 4. Iniciar
 
-Observação de segurança: CORS limita chamadas feitas por navegadores de outras origens, mas não é autenticação para clientes arbitrários. Para uma API pública com uso relevante, adicione autenticação/rate limiting no backend.
+~~~bash
+npm start
+~~~
 
-A Vercel suporta funções Node.js no diretório `api/` e também permite configurar cancelamento de requisições e duração por função.
+Na primeira execução, o terminal exibirá o QR Code.
 
-## Fallback
+No celular:
 
-O frontend considera falha da IA:
+WhatsApp → Dispositivos conectados → Conectar dispositivo
 
-- HTTP não-2xx;
-- timeout;
-- erro de rede;
-- resposta vazia;
-- API sem configuração;
-- limite/rate limit;
-- indisponibilidade do provedor.
+Escaneie o QR Code.
 
-Em qualquer desses casos a execução volta ao motor local e o usuário recebe uma indicação de **MOTOR LOCAL**.
+Depois da autenticação, o terminal exibirá:
 
-A resposta online é marcada como **IA ONLINE**.
+~~~text
+Bot conectado!
+~~~
 
-## Testes
+A autenticação fica salva localmente pelo LocalAuth.
 
-Execute:
+## 5. Comando do bot
 
-```bash
-node --check app.js
-node --check api/chat.js
-npm test
-npm run benchmark
-git diff --check
-```
+O bot só responde a mensagens que começam com:
 
-Os testes do backend cobrem validação de payload, ausência da chave, chamada bem-sucedida, resposta vazia, timeout, erro HTTP, payload excessivo, método inválido e origem não autorizada.
+~~~text
+!code 
+~~~
 
-Há também um teste de segurança que verifica que a chave não aparece no bundle público e que a função não usa `eval`/execução dinâmica.
+Exemplos:
 
-## GitHub Pages
+~~~text
+!code como fazer um loop for em Python?
+~~~
 
-O GitHub Pages continua sendo útil para a versão offline/local. A URL histórica da aplicação é:
+~~~text
+!code corrija este JavaScript: const x = ;
+~~~
 
-`https://thiagollipe-web.github.io/Guinho_Bot/`
+O histórico recente de cada conversa é enviado junto com a nova pergunta.
 
-A integração com IA generativa exige a função serverless. Por isso, a recomendação operacional é publicar o mesmo repositório na Vercel e usar a Vercel como origem principal do frontend + backend.
+## 6. Ollama parado
 
-## Desenvolvimento local
+O bot pode iniciar o WhatsApp mesmo que o Ollama esteja temporariamente indisponível. Ao receber !code, ele retorna um aviso amigável.
 
-Sem API:
+Ligue o Ollama e tente novamente.
 
-```bash
-python3 -m http.server 8080
-```
+## 7. Estrutura
 
-Com Vercel local, use a CLI da Vercel e configure as variáveis no ambiente local. Nunca comite `.env`.
+~~~text
+.
+├── .env.example
+├── .gitignore
+├── index.js
+└── package.json
+~~~
 
-## Status da integração
+Não coloque .env, a sessão do WhatsApp ou os modelos do Ollama no Git.
 
-A branch `ai-integration` prepara o backend, frontend, testes e configuração de Vercel. O deploy real e uma chamada real à OpenAI somente podem ser declarados como produção depois que as variáveis forem cadastradas na Vercel e a rota `/api/chat` for testada no navegador.
+## Observação
+
+whatsapp-web.js automatiza o WhatsApp Web por meio de um cliente não oficial. O próprio projeto alerta que o uso pode estar sujeito a bloqueios e não é um cliente oficial do WhatsApp.

@@ -1,51 +1,20 @@
-name: CI
+name: Node CI
+
 on:
   push:
-    branches: ["main"]
   pull_request:
-    branches: ["main"]
+
 jobs:
   syntax:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-      - run: node --check app.js
-      - run: node --check retrieval.js
-      - run: node --check memory.js
-      - run: node --check context.js
-      - run: node --check probabilistic.js
-      - run: node --check knowledge.js
-      - run: node --check prompt-library.js
-      - run: node --check calibration.js
-      - run: node --check generator.js
-      - run: node --check analyzer.js
-      - run: node --check fixer.js
-      - run: node --check improver.js
-      - run: node --check validator.js
-      - run: node --check engine.js
-      - run: node --check engineering-memory.js
-      - run: node --check engineering-learning.js
-      - run: node --check guinho-programmer.js
-      - run: node --check project-workspace.js
-      - run: node --check project-diff.js
-      - run: node --check sandbox-runtime.js
-      - run: node --check runtime-autofix.js
-      - run: node --check workspace-history.js
-      - run: node --check project-dependencies.js
-      - run: node --check project-plan.js
-      - run: node --check project-tree.js
-      - run: node --check project-impact.js
-      - run: node --check project-intelligence.js
-      - run: node --check request-classifier.js
-      - run: node --check api/project-intelligence.js
-            # valida o núcleo conversacional especializado em programação
-      - run: node --check api/chat.js
-      - run: git diff --check
-      - run: node --test tests/guinho-programmer.test.mjs
-      - run: node --test tests/project-tree-impact.test.mjs
-      - run: node --test tests/project-intelligence.test.mjs
-      - run: npm test
-      - run: npm run benchmark
+          node-version: 20
+      - name: Check package.json
+        run: node -e "const p=require('./package.json'); if(p.dependencies['ollama']!=='^0.6.3') process.exit(1); if(p.dependencies['whatsapp-web.js']!=='^1.34.7') process.exit(1)"
+      - name: Check index.js syntax
+        run: node --check index.js
+      - name: Install dependencies
+        run: npm install
