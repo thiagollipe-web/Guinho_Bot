@@ -15,6 +15,7 @@ import { executarCicloEngenharia, relatorioEngenharia } from "./engine.js";
 import { hidratarModeloAprendizado, serializarModeloAprendizado } from "./engineering-learning.js";
 import { criarWorkspace, atualizarWorkspace, carregarWorkspace, salvarWorkspace, resumoWorkspace } from "./project-workspace.js";
 import { gerarDiffProjeto, resumoDiff } from "./project-diff.js";
+import { criarTokenRuntime, montarDocumentoSandbox, validarEventoRuntime, interpretarEventoRuntime } from "./sandbox-runtime.js";
 import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
 
 const chat=document.querySelector("#chat");
@@ -56,6 +57,10 @@ const engClose=document.querySelector("#eng-close");
 const engRun=document.querySelector("#eng-run");
 const engSummary=document.querySelector("#eng-summary");
 const engMemory=document.querySelector("#eng-memory");
+const engRuntime=document.querySelector("#eng-runtime");
+const engExecute=document.querySelector("#eng-execute");
+let runtimeToken="";
+let runtimeTimer=null;
 const engDiff=document.querySelector("#eng-diff");
 const LEARNING_KEY="guinho-engineering-learning-v1";
 let ultimoProjetoEngenharia=null;
@@ -181,12 +186,63 @@ function mostrarArquivoEngenharia(nome){
   const codigo=String(ultimoProjetoEngenharia.files?.[nome]??"");
   engFileName.textContent=nome;engFileMeta.textContent=codigo.split("\\n").length+" linhas";engEditor.value=codigo;engEditor.dataset.dirty="false";
 }
+function atualizarRuntimeStatus(estado,mensagem,detalhes=""){
+  if(!engRuntime)return;
+  engRuntime.dataset.state=estado||"IDLE";
+  engRuntime.textContent=(estado||"IDLE")+(mensagem?": "+mensagem:"")+(detalhes?" • "+detalhes:"");
+}
+function executarProjetoNoSandbox(){
+  if(!ultimoProjetoEngenharia?.files?.["index.html"]){
+    atualizarRuntimeStatus("INDISPONÍVEL","index.html não encontrado");
+    return;
+  }
+  sincronizarEditorEngenharia();
+  if(!ultimoProjetoEngenharia.ok){
+    atualizarRuntimeStatus("BLOQUEADO","Valide o projeto antes da execução");
+    showToast("Execução bloqueada: projeto inválido");
+    return;
+  }
+  runtimeToken=criarTokenRuntime();
+  clearTimeout(runtimeTimer);
+  atualizarRuntimeStatus("EXECUTANDO","aguardando runtime");
+  engExecute.disabled=true;
+  engPreview.setAttribute("sandbox","allow-scripts");
+  engPreview.srcdoc=montarDocumentoSandbox(montarPreviewEngenharia(),runtimeToken);
+  runtimeTimer=setTimeout(()=>{
+    atualizarRuntimeStatus("TIMEOUT","o iframe não respondeu em 6s");
+    if(engExecute)engExecute.disabled=false;
+  },6000);
+}
+window.addEventListener("message",event=>{
+  if(!engPreview||!validarEventoRuntime(event,engPreview.contentWindow,runtimeToken))return;
+  const resultado=interpretarEventoRuntime(event.data);
+  if(!resultado)return;
+  clearTimeout(runtimeTimer);
+  atualizarRuntimeStatus(resultado.estado,resultado.mensagem,resultado.detalhes);
+  engExecute.disabled=false;
+  if(resultado.estado==="ERRO"){
+    const antes=ultimoProjetoEngenharia||{};
+    const falha={
+      etapa:"EXECUTAR",
+      status:"ERRO",
+      mensagem:resultado.mensagem,
+      detalhes:resultado.detalhes
+    };
+    ultimoProjetoEngenharia={...antes,historico:[...(antes.historico||[]),falha],runtime:resultado};
+    persistirWorkspaceEngenharia();
+  }else{
+    ultimoProjetoEngenharia={...ultimoProjetoEngenharia,runtime:resultado,historico:[...(ultimoProjetoEngenharia.historico||[]),{etapa:"EXECUTAR",status:"OK",detalhes:resultado.detalhes}]};
+    persistirWorkspaceEngenharia();
+  }
+});
+
 function atualizarPreviewEngenharia(){
   const pode=Boolean(ultimoProjetoEngenharia?.ok&&ultimoProjetoEngenharia?.files?.["index.html"]);
   engPreviewButton.disabled=!pode;
   document.querySelector("#eng-preview-note").textContent=pode?"sandbox • projeto atual":"preview indisponível";
-  if(pode)engPreview.srcdoc=montarPreviewEngenharia();
-  else engPreview.srcdoc="<body style='font-family:system-ui;padding:24px'>Execute VALIDAR/CORRIGIR até obter um projeto válido para visualizar.</body>";
+  if(pode){engPreview.setAttribute("sandbox","allow-scripts");engPreview.srcdoc=montarDocumentoSandbox(montarPreviewEngenharia(),runtimeToken||criarTokenRuntime());runtimeToken=runtimeToken||"disabled";}
+  else {engPreview.setAttribute("sandbox","allow-scripts");engPreview.srcdoc="<body style='font-family:system-ui;padding:24px'>Execute VALIDAR/CORRIGIR até obter um projeto válido para visualizar.</body>";}
+  if(engRuntime&&!pode)atualizarRuntimeStatus("INDISPONÍVEL","preview indisponível");
 }
 function montarPreviewEngenharia(){
   if(!ultimoProjetoEngenharia)return "";
@@ -997,6 +1053,7 @@ engCycle?.addEventListener("click",()=>executarAcaoWorkspace("ciclo"));
 engEditor?.addEventListener("input",()=>{engEditor.dataset.dirty="true";atualizarWorkspaceStatus("Alterações não salvas.","EDITANDO");});
 engClose?.addEventListener("click",fecharWorkspace);
 engRun?.addEventListener("click",executarNovoCicloWorkspace);
+engExecute?.addEventListener("click",executarProjetoNoSandbox);
 engPreviewButton?.addEventListener("click",()=>{if(ultimoProjetoEngenharia?.ok)engPreview.srcdoc=String(ultimoProjetoEngenharia.files["index.html"]||"");});
 
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js"));
