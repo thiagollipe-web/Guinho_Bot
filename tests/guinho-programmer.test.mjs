@@ -7,7 +7,8 @@ import {
   detectarTipoProjeto,
   construirPerfilProgramador,
   sugerirIdeiasProgramacao,
-  respostaElizaProgramacao
+  respostaElizaProgramacao,
+  ehConversaProgramacao
 } from "../guinho-programmer.js";
 
 test("reconhece linguagens populares e extensão de arquivo", () => {
@@ -60,4 +61,10 @@ test("Guinho mantém conversa orientada a programação", () => {
   const perfil=construirPerfilProgramador("como faço um projeto em Python");
   const resposta=respostaElizaProgramacao("como faço um projeto em Python",perfil);
   assert.match(resposta,/Python/i);
+});
+
+test("Guinho mantém o escopo de programação", () => {
+  assert.equal(ehConversaProgramacao("quanto é 2 + 2?"), false);
+  assert.equal(ehConversaProgramacao("tenho uma ideia para um jogo"), true);
+  assert.equal(ehConversaProgramacao("oi"), true);
 });
