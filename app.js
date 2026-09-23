@@ -715,6 +715,7 @@ function patchEngenhariaSeguro(patch,files){
 }
 
 function aplicarPatchIAEngenharia(patch,pedido){
+  criarPontoRestauracao("alteração da IA: "+String(patch?.summary||"patch").slice(0,140));
   const antes={...(workspaceEngenharia?.files||{})};
   if(!patchEngenhariaSeguro(patch,antes))return null;
   const files={...antes};
