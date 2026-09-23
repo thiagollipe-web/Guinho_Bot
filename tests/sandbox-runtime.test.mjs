@@ -7,7 +7,7 @@ test("sandbox adiciona CSP sem conectividade de rede",()=>{
   const html=montarDocumentoSandbox("<!doctype html><html><head><title>Guinho</title></head><body><script>console.log('ok')</script></body></html>",token);
   assert.match(html,/Content-Security-Policy/);
   assert.match(html,/connect-src 'none'/);
-  assert.match(html,new RegExp(token.replace(/[.*+?^{}()|[\]\\]/g,"\\$&")));
+  assert.ok(html.includes(token));
   assert.match(html,/guinho-sandbox-runtime-v1/);
 });
 
