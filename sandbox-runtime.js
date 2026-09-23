@@ -16,9 +16,18 @@ export function montarDocumentoSandbox(html,token){
   const csp='<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src \'none\'; form-action \'none\'; frame-src \'none\'; object-src \'none\'; base-uri \'none\';">';
   const bridge='<script>(function(){const CHANNEL='+JSON.stringify(CHANNEL)+',TOKEN='+escaparScript(token)+';const send=(type,data)=>{try{parent.postMessage({channel:CHANNEL,token:TOKEN,type,...data},\"*\")}catch{}};window.addEventListener("error",e=>send("error",{message:String(e.message||"Erro de runtime"),source:String(e.filename||""),line:Number(e.lineno)||0,column:Number(e.colno)||0}));window.addEventListener("unhandledrejection",e=>send("unhandledrejection",{message:String(e.reason?.message||e.reason||"Promise rejeitada")}));const originalError=console.error;console.error=(...args)=>{send("console-error",{message:args.map(x=>typeof x==="string"?x:JSON.stringify(x)).join(" ")});originalError.apply(console,args)};window.addEventListener("DOMContentLoaded",()=>send("ready",{title:document.title||"Projeto Guinho"}));})();</script>';
   const lower=seguro.toLowerCase();
-  if(lower.includes("<head")) return seguro.replace(/<head([^>]*)>/i,(_,attrs)=>"<head"+attrs+">"+csp).replace(/<\/body>/i,bridge+"</body>");
-  if(lower.includes("<body")) return seguro.replace(/<body([^>]*)>/i,(_,attrs)=>"<body"+attrs+">"+bridge);
-  return csp+bridge+seguro;
+  let documento=seguro;
+  if(lower.includes("<head")) documento=documento.replace(/<head([^>]*)>/i,(_,attrs)=>"<head"+attrs+">"+csp);
+  else documento=csp+documento;
+  if(documento.toLowerCase().includes("<body")){
+    documento=documento.replace(/<body([^>]*)>/i,(_,attrs)=>"<body"+attrs+">"+bridge);
+    if(!documento.toLowerCase().includes(bridge.toLowerCase()) && !documento.match(/<\/body>/i))documento+=bridge;
+  }else if(/<\/head>/i.test(documento)){
+    documento=documento.replace(/<\/head>/i,"</head>"+bridge);
+  }else{
+    documento+=bridge;
+  }
+  return documento;
 }
 
 export function validarEventoRuntime(event,sourceWindow,token){
