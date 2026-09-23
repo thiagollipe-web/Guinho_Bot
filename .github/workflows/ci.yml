@@ -32,5 +32,6 @@ jobs:
       # valida o núcleo conversacional especializado em programação
       - run: node --check api/chat.js
       - run: git diff --check
+      - run: node --test tests/guinho-programmer.test.mjs
       - run: npm test
       - run: npm run benchmark
