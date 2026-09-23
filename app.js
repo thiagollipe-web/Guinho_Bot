@@ -23,6 +23,7 @@ import { criarTokenRuntime, montarDocumentoSandbox, validarEventoRuntime, interp
 import { MAX_RUNTIME_AUTOFIX, deveAutocorrigirRuntime, proximaTentativaRuntime, construirPedidoAutocorrecao } from "./runtime-autofix.js";
 import { criarSnapshot, registrarSnapshot, desfazerWorkspace, removerUltimoSnapshot, salvarHistoricoWorkspace, carregarHistoricoWorkspace, resumoHistoricoWorkspace } from "./workspace-history.js";
 import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
+import { buildProjectIntelligence, validateProjectSnapshot } from "./project-intelligence.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -87,6 +88,8 @@ let ultimoProjetoEngenharia=null;
 let workspaceEngenharia=null;
 let historicoWorkspace=[];
 let arquivoEngenhariaAtual="index.html";
+let inteligenciaProjeto=null;
+let inteligenciaProjetoPendente=false;
 
 const pnl=new EstatisticaLinguistica();
 const recuperador=new RecuperadorSemantico(CONHECIMENTO);
@@ -188,6 +191,7 @@ async function importarArquivosProjeto(fileList){
   salvarWorkspace(workspaceEngenharia);
   abrirWorkspace(projeto);
   atualizarDependenciasUI(deps);
+  void atualizarInteligenciaProjeto("importação do projeto");
   atualizarWorkspaceStatus(
     "Importados "+Object.keys(resultado.files).length+" arquivo(s). "+(deps.ok?"Todas as dependências locais foram resolvidas.":"Há "+deps.problemas.length+" dependência(s) local(is) sem arquivo."),
     deps.ok?"IMPORTADO":"ATENÇÃO"
@@ -289,6 +293,42 @@ function atualizarPlanoUI(plano=null){
   if(engPlanApply){engPlanApply.textContent=patchEngenhariaPendente?"Aplicar alterações":"Gerar diff";engPlanApply.disabled=!plano.files?.length;}
 }
 function cancelarPlanoEngenharia(){planoEngenhariaPendente=null;patchEngenhariaPendente=null;impactoEngenhariaPendente=null;atualizarPlanoUI(null);atualizarWorkspaceStatus("Plano cancelado. Nenhuma alteração foi aplicada.","CANCELADO");}
+async function atualizarInteligenciaProjeto(requestText=""){
+  if(!workspaceEngenharia?.files||!Object.keys(workspaceEngenharia.files).length)return null;
+  const local=buildProjectIntelligence({
+    name:workspaceEngenharia.nome||"Projeto Guinho",
+    entry:workspaceEngenharia.entry,
+    request:requestText,
+    files:workspaceEngenharia.files
+  });
+  if(local.ok){
+    inteligenciaProjeto=local.intelligence;
+    inteligenciaProjetoPendente=false;
+    workspaceEngenharia.intelligence=local.intelligence;
+  }
+  try{
+    const response=await fetch("./api/project-intelligence.js",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        name:workspaceEngenharia.nome||"Projeto Guinho",
+        entry:workspaceEngenharia.entry,
+        request:requestText,
+        files:workspaceEngenharia.files
+      })
+    });
+    const data=await response.json().catch(()=>null);
+    if(response.ok&&data?.ok&&data.intelligence){
+      inteligenciaProjeto=data.intelligence;
+      inteligenciaProjetoPendente=false;
+      workspaceEngenharia.intelligence=data.intelligence;
+      salvarWorkspace(workspaceEngenharia);
+      return data.intelligence;
+    }
+  }catch{}
+  return inteligenciaProjeto;
+}
+
 function atualizarDependenciasUI(deps){
   if(!engDeps)return;
   if(!deps){engDeps.textContent="Dependências: não analisadas";engDeps.dataset.state="IDLE";return;}
