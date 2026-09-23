@@ -12,6 +12,7 @@ import { sugerirMelhorias, aplicarMelhoriasSeguras, relatorioMelhorias } from ".
 import { validarProjeto, relatorioValidacao } from "./validator.js";
 import { executarCicloEngenharia, relatorioEngenharia } from "./engine.js";
 import { hidratarModeloAprendizado, serializarModeloAprendizado } from "./engineering-learning.js";
+import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -62,6 +63,7 @@ const memoria=new MemoriaSessao();
 const gerador=new GeradorEstatistico();
 const contexto=new ContextoConversacional();
 let modoAtual="standard";
+let ultimaOrigemResposta="local";
 
 function carregarAprendizadoEngenharia(){
   try{
@@ -438,7 +440,54 @@ function intencaoEspecial(analise,texto){
   return null;
 }
 
+function ehComandoLocal(texto){
+  return /^\s*\/(pnl|diagnostico|analisar|corrigir|melhorar|validar|ajuda|moeda|noticias|tempo)\b/i.test(String(texto||""));
+}
+
+function ehPerguntaGeralParaIA(texto,analise){
+  if(ehComandoLocal(texto))return false;
+  if(pedidoDeCodigo(texto))return false;
+  const dominiosLocais=new Set(["moeda","noticias","tempo","cep","matematica","memoria","jogos"]);
+  if(dominiosLocais.has(analise?.intent))return false;
+  if(["criar","corrigir","analisar","diagnosticar","melhorar","validar"].includes(analise?.objetivo)
+    &&["jogos","programacao"].includes(analise?.intent))return false;
+  return true;
+}
+
+function historicoParaIA(){
+  return memoria.historico()
+    .slice(-12)
+    .filter(item=>item?.role==="user"||item?.role==="assistant")
+    .map(item=>({role:item.role,content:String(item.content||"").slice(0,12000)}));
+}
+
+async function consultarIAOnline(texto){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),AI_CHAT_TIMEOUT_MS);
+  try{
+    const mensagens=historicoParaIA();
+    if(!mensagens.length||mensagens.at(-1)?.content!==texto){
+      mensagens.push({role:"user",content:texto});
+    }
+    const response=await fetch(AI_CHAT_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({messages:mensagens.slice(-12)}),
+      signal:controller.signal
+    });
+    const data=await response.json().catch(()=>null);
+    const content=typeof data?.content==="string"?data.content.trim():"";
+    if(!response.ok||data?.ok!==true||!content)return null;
+    return {content,provider:data.provider||"openai",model:data.model||""};
+  }catch{
+    return null;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 async function responder(texto){
+  ultimaOrigemResposta="local";
   extrairMemoria(texto);
   const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar|corrigir|melhorar|validar)\b/i,"$1").trim();
   if(/^validar\b|^valide\b|^validacao\b|^validação\b/i.test(limpo)){
@@ -494,6 +543,15 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
   }
   const textoContextual=contexto.referencia(limpo,pnl);
   const analise=pnl.detectar(textoContextual,contexto.resumo());
+  if(ehPerguntaGeralParaIA(limpo,analise)){
+    const online=await consultarIAOnline(limpo);
+    if(online){
+      ultimaOrigemResposta="openai";
+      contexto.atualizar({texto:limpo,resposta:online.content,analise,estrategia:"ia-online",assunto:memoria.estado.assuntoAtual});
+      return online.content;
+    }
+    ultimaOrigemResposta="local-fallback";
+  }
   if(analise.confident&&analise.intent==="moeda"){const r=await api.moeda();contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"conversa"});return r;}
   if(analise.confident&&analise.intent==="noticias"){const r=await api.noticias();contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
   if(analise.confident&&analise.intent==="tempo"){const r=await api.tempo(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
@@ -520,6 +578,7 @@ ${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(
   }
   
   function respostaNaturalFallback(texto,analise){
+  ultimaOrigemResposta=ultimaOrigemResposta==="local-fallback"?"local-fallback":"local";
   const resultado=geradorResposta.gerar(texto,analise);
   if(!resultado)return null;
   contexto.atualizar({texto,resposta:resultado.texto,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:resultado.assunto});
@@ -538,6 +597,7 @@ const especial=analise.confident?intencaoEspecial(analise,limpo):null;
 }
 
 function adaptarModo(resposta){
+  if(ultimaOrigemResposta==="openai")return resposta;
   if(modoAtual==="standard")return resposta;
   if(modoAtual==="resumido"){
     const partes=resposta.split(/\n\n+/).filter(Boolean);
@@ -625,7 +685,8 @@ function renderTextoMensagem(box,text){
 
 function add(role,text){
   const el=document.createElement("div");el.className="line "+(role==="user"?"user":"bot");
-  const meta=document.createElement("div");meta.className="meta";meta.textContent=role==="user"?"VOCÊ >":"GUINHO >";
+  const meta=document.createElement("div");meta.className="meta";
+  meta.textContent=role==="user"?"VOCÊ >":ultimaOrigemResposta==="openai"?"GUINHO • IA ONLINE >":"GUINHO • MOTOR LOCAL >";
   const box=document.createElement("div");box.className="bubble";
   const fonteIndex=text.indexOf("\n\nBase local:");
   if(role==="bot"&&fonteIndex>=0){
@@ -647,9 +708,21 @@ form.addEventListener("submit",async e=>{
   if(!texto)return;
   add("user",texto);memoria.adicionar("user",texto);input.value="";
   buttons.forEach(b=>b.disabled=true);statusText.textContent="ANALISANDO";
-  try{const respostaBruta=await responder(texto);const resposta=adaptarModo(respostaBruta);add("bot",resposta);memoria.adicionar("assistant",resposta);}
-  catch(err){add("bot","Não consegui consultar uma fonte externa: "+err.message);}
-  finally{buttons.forEach(b=>b.disabled=false);statusText.textContent="LOCAL READY";input.focus();}
+  try{
+    const respostaBruta=await responder(texto);
+    const resposta=adaptarModo(respostaBruta);
+    add("bot",resposta);
+    memoria.adicionar("assistant",resposta);
+    statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE":"MODO LOCAL";
+    if(ultimaOrigemResposta==="local-fallback")showToast("IA online indisponível — usando o motor local.");
+  }catch(err){
+    ultimaOrigemResposta="local-fallback";
+    add("bot","O serviço online não respondeu. O motor local permanece disponível, mas ocorreu um erro ao gerar a resposta local: "+(err?.message||"erro desconhecido"));
+  }finally{
+    buttons.forEach(b=>b.disabled=false);
+    setTimeout(()=>{statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE":"LOCAL READY";},1800);
+    input.focus();
+  }
 });
 buttons.forEach(b=>b.addEventListener("click",()=>runCommand(b.dataset.cmd)));
 
