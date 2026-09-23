@@ -186,6 +186,17 @@ export function sugerirIdeiasProgramacao(perfil){
   return pool.slice(0,3);
 }
 
+export function ehConversaProgramacao(texto,perfil={}){
+  const q=normalizar(texto);
+  const primeiro=q.split(" ")[0]||"";
+  const saudacoes=["oi","ola","bom","boa","eai","ajuda"];
+  const marcadores=["codigo","programacao","software","projeto","programa","aplicativo","app","site","jogo","game","api","script","algoritmo","bot","chatbot","bug","erro","classe","funcao","variavel","database","banco de dados","github","git","docker","linux","terminal","ide","ideia","ideias"];
+  if(saudacoes.includes(primeiro))return true;
+  if(perfil.linguagem||perfil.tecnologia||perfil.tipoProjeto)return true;
+  if(marcadores.some(p=>contem(q,p)))return true;
+  return String(texto||"").includes("```");
+}
+
 export function respostaElizaProgramacao(texto,perfil){
   const original=limiteTexto(texto,220);
   const q=normalizar(original);
