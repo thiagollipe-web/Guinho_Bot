@@ -25,7 +25,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         NativeLlama.init()
-        nativeAI = GuinhoNativeAI(this, filesDir) { modelId ->
+        nativeAI = GuinhoNativeAI(this, filesDir) { modelId -> selectedModel = modelId; openModel.launch(arrayOf("application/octet-stream", "application/x-gguf", "*/*")) } { modelId ->
             pendingModelId = modelId
             openModel.launch(arrayOf("application/octet-stream", "application/x-gguf", "*/*"))
         }
