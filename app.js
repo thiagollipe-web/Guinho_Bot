@@ -25,6 +25,8 @@ import { criarSnapshot, registrarSnapshot, desfazerWorkspace, removerUltimoSnaps
 import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
 import { buildProjectIntelligence } from "./project-intelligence.js";
 import { pedidoDeCodigo } from "./request-classifier.js";
+import { resolverModelo } from "./model-router.js";
+import { gerarRespostaLocal, runtimeNativoDisponivel } from "./local-model-runtime.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -792,6 +794,21 @@ function historicoParaIA(){
     .map(item=>({role:item.role,content:String(item.content||"").slice(0,12000)}));
 }
 
+async function consultarIALocal(texto){
+  const selection=resolverModelo(texto,{programacao:pedidoDeCodigo(texto)});
+  if(!runtimeNativoDisponivel())return {available:false,selection};
+  try{
+    const result=await gerarRespostaLocal({
+      model:selection.model,
+      prompt:selection.prompt,
+      history:historicoParaIA()
+    });
+    return {available:true,content:result.content,selection};
+  }catch(error){
+    return {available:true,error:error?.message||"Falha no runtime local.",selection};
+  }
+}
+
 async function consultarIAOnline(texto){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),AI_CHAT_TIMEOUT_MS);
@@ -1010,6 +1027,18 @@ function aplicarPatchIAEngenharia(patch,pedido){
 
 async function responder(texto){
   ultimaOrigemResposta="local";
+  const selecaoLocal=resolverModelo(texto,{programacao:pedidoDeCodigo(texto)});
+  const comandoLocal=/^\/(fast|qwen|nano|auto)\b/i.test(String(texto||"").trim());
+  const local=await consultarIALocal(texto);
+  if(local.available&&local.content){
+    ultimaOrigemResposta="local-model";
+    contexto.atualizar({texto:local.selection.prompt,resposta:local.content,analise:pnl.detectar(local.selection.prompt),estrategia:"ia-local-"+local.selection.key,assunto:memoria.estado.assuntoAtual});
+    return local.content;
+  }
+  if(comandoLocal&&!local.available){
+    ultimaOrigemResposta="local-fallback";
+    return `Modelo local selecionado: ${selecaoLocal.model.name}. O runtime nativo do APK ainda não está disponível neste navegador. O mesmo comando funcionará no APK quando o llama.cpp estiver conectado.\n\nComando: ${selecaoLocal.model.command}\nFunção: ${selecaoLocal.model.description}`;
+  }
   extrairMemoria(texto);
   const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar|corrigir|melhorar|validar)\b/i,"$1").trim();
   if(/^validar\b|^valide\b|^validacao\b|^validação\b/i.test(limpo)){
@@ -1270,7 +1299,7 @@ function renderTextoMensagem(box,text){
 function add(role,text){
   const el=document.createElement("div");el.className="line "+(role==="user"?"user":"bot");
   const meta=document.createElement("div");meta.className="meta";
-  meta.textContent=role==="user"?"VOCÊ >":ultimaOrigemResposta==="openai"?"GUINHO • IA ONLINE >":"GUINHO • MOTOR LOCAL >";
+  meta.textContent=role==="user"?"VOCÊ >":ultimaOrigemResposta==="openai"?"GUINHO • IA ONLINE >":ultimaOrigemResposta==="local-model"?"GUINHO • IA LOCAL >":"GUINHO • MOTOR LOCAL >";
   const box=document.createElement("div");box.className="bubble";
   const fonteIndex=text.indexOf("\n\nBase local:");
   if(role==="bot"&&fonteIndex>=0){
@@ -1297,14 +1326,14 @@ form.addEventListener("submit",async e=>{
     const resposta=adaptarModo(respostaBruta);
     add("bot",resposta);
     memoria.adicionar("assistant",resposta);
-    statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE":"MODO LOCAL";
+    statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE":ultimaOrigemResposta==="local-model"?"LOCAL • "+(resolverModelo(texto).model?.name||"MODELO"):"MODO LOCAL";
     if(ultimaOrigemResposta==="local-fallback")showToast("IA online indisponível — usando o motor local.");
   }catch(err){
     ultimaOrigemResposta="local-fallback";
     add("bot","O serviço online não respondeu. O motor local permanece disponível, mas ocorreu um erro ao gerar a resposta local: "+(err?.message||"erro desconhecido"));
   }finally{
     buttons.forEach(b=>b.disabled=false);
-    setTimeout(()=>{statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE":"LOCAL READY";},1800);
+    setTimeout(()=>{statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE":ultimaOrigemResposta==="local-model"?"LOCAL • "+(resolverModelo(texto).model?.name||"MODELO"):"LOCAL READY";},1800);
     input.focus();
   }
 });

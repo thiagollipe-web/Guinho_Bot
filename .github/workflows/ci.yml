@@ -40,12 +40,15 @@ jobs:
       - run: node --check project-impact.js
       - run: node --check project-intelligence.js
       - run: node --check request-classifier.js
+      - run: node --check model-router.js
+      - run: node --check local-model-runtime.js
       - run: node --check api/project-intelligence.js
-            # valida o núcleo conversacional especializado em programação
       - run: node --check api/chat.js
       - run: git diff --check
       - run: node --test tests/guinho-programmer.test.mjs
       - run: node --test tests/project-tree-impact.test.mjs
       - run: node --test tests/project-intelligence.test.mjs
+      - run: node --test tests/model-router.test.mjs
+      - run: node --test tests/local-model-runtime.test.mjs
       - run: npm test
       - run: npm run benchmark

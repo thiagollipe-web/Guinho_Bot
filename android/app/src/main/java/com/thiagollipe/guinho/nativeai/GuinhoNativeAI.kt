@@ -1,0 +1,110 @@
+package com.thiagollipe.guinho.nativeai
+
+import android.content.Context
+import android.webkit.JavascriptInterface
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+
+class GuinhoNativeAI(private val context: Context, private val filesDir: File, private val openPicker: (String) -> Unit) {
+    companion object {
+        private val MODEL_IDS = listOf("qwen-0.5b", "qwen-1.5b", "nemotron-4b")
+        private val MODEL_NAMES = mapOf(
+            "qwen-0.5b" to "Qwen2.5-Coder 0.5B",
+            "qwen-1.5b" to "Qwen2.5-Coder 1.5B",
+            "nemotron-4b" to "NVIDIA Nemotron 3 Nano 4B"
+        )
+    }
+
+    private val modelsDir = File(filesDir, "models").apply { mkdirs() }
+
+    @JavascriptInterface
+    fun openGgufPicker(modelId: String): String = runCatching {
+        require(modelId in MODEL_IDS) { "Modelo inválido." }
+        openPicker(modelId)
+        JSONObject().put("ok", true).put("model", modelId).toString()
+    }.getOrElse {
+        JSONObject().put("ok", false).put("error", it.message ?: "Modelo inválido.").toString()
+    }
+
+    @JavascriptInterface
+    fun generate(requestJson: String): String = synchronized(this) {
+        runCatching {
+            val request = JSONObject(requestJson)
+            val modelId = request.optString("modelId")
+            val prompt = request.optString("prompt")
+            val history = request.optJSONArray("history") ?: JSONArray()
+            val maxTokens = request.optInt("maxTokens", 512).coerceIn(16, 2048)
+            val threads = request.optInt("threads", 0).coerceIn(0, 16)
+            require(modelId in MODEL_IDS) { "Modelo local inválido." }
+            require(prompt.isNotBlank()) { "Prompt vazio." }
+            val model = resolveModel(modelId)
+            require(model.isFile && model.length() > 0) { "GGUF não encontrado para $modelId. Use Adicionar GGUF." }
+            require(NativeLlama.loadModel(model.absolutePath)) { "llama.cpp não conseguiu carregar o GGUF." }
+            val answer = NativeLlama.generate(buildPrompt(history, prompt), maxTokens, threads)
+            NativeLlama.unload()
+            JSONObject().put("content", answer).put("model", modelId).toString()
+        }.getOrElse { error ->
+            NativeLlama.unload()
+            JSONObject().put("error", error.message ?: "Falha no runtime nativo.").toString()
+        }
+    }
+
+    @JavascriptInterface
+    fun listModels(): String {
+        val result = JSONArray()
+        MODEL_IDS.forEach { id ->
+            val file = resolveModel(id)
+            result.put(JSONObject().put("id", id).put("name", MODEL_NAMES[id]).put("installed", file.isFile && file.length() > 0).put("size", if (file.isFile) file.length() else 0))
+        }
+        return result.toString()
+    }
+
+    @JavascriptInterface
+    fun deleteModel(modelId: String): String = runCatching {
+        require(modelId in MODEL_IDS) { "Modelo local inválido." }
+        val file = File(modelsDir, "$modelId.gguf")
+        val deleted = !file.exists() || file.delete()
+        require(deleted) { "Não foi possível remover o GGUF." }
+        JSONObject().put("ok", true).put("model", modelId).toString()
+    }.getOrElse {
+        JSONObject().put("ok", false).put("error", it.message ?: "Falha ao remover GGUF.").toString()
+    }
+
+    @JavascriptInterface
+    fun runtimeInfo(): String = JSONObject()
+        .put("engine", "llama.cpp")
+        .put("version", "d2e54583c7452353eb35d40431281f6ee984332f")
+        .put("abi", "arm64-v8a")
+        .put("modelsDir", modelsDir.absolutePath)
+        .put("modelDescription", NativeLlama.modelDescription())
+        .put("modelSizeBytes", NativeLlama.modelSizeBytes())
+        .toString()
+
+    fun shutdown() { NativeLlama.shutdown() }
+
+    private fun buildPrompt(history: JSONArray, prompt: String): String {
+        val builder = StringBuilder()
+        for (index in 0 until history.length()) {
+            val item = history.optJSONObject(index) ?: continue
+            val role = item.optString("role", "user")
+            val content = item.optString("content").trim()
+            if (content.isNotEmpty()) builder.append(role.uppercase()).append(": ").append(content).append("\n\n")
+        }
+        builder.append("USER: ").append(prompt.trim()).append("\nASSISTANT:")
+        return builder.toString()
+    }
+
+    private fun resolveModel(modelId: String): File {
+        val exact = File(modelsDir, "$modelId.gguf")
+        if (exact.isFile) return exact
+        val aliases = when (modelId) {
+            "qwen-0.5b" -> listOf("qwen", "0.5b")
+            "qwen-1.5b" -> listOf("qwen", "1.5b")
+            "nemotron-4b" -> listOf("nemotron", "nano", "4b")
+            else -> emptyList()
+        }
+        return modelsDir.listFiles { file -> file.isFile && file.extension.equals("gguf", true) }
+            ?.firstOrNull { file -> val name = file.name.lowercase(); aliases.all(name::contains) } ?: exact
+    }
+}
