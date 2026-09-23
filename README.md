@@ -147,3 +147,89 @@ Com Vercel local, use a CLI da Vercel e configure as variáveis no ambiente loca
 ## Status da integração
 
 A branch `ai-integration` prepara o backend, frontend, testes e configuração de Vercel. O deploy real e uma chamada real à OpenAI somente podem ser declarados como produção depois que as variáveis forem cadastradas na Vercel e a rota `/api/chat` for testada no navegador.
+
+
+## Kaggle MCP
+
+O Guinho consulta a Kaggle pelo servidor MCP oficial em `https://www.kaggle.com/mcp`. A resposta atual do servidor usa `text/event-stream`, por isso o Gateway interpreta tanto JSON direto quanto eventos SSE. A Kaggle disponibiliza esse servidor MCP como interface remota para datasets, competições, modelos, notebooks e outros recursos.
+
+O token permanece exclusivamente no servidor. Para o cenário Android, o Gateway pode rodar no Termux; GitHub Pages continua apenas como frontend estático.
+
+### Configuração no Termux
+
+Defina o token no ambiente do processo do Gateway:
+
+```bash
+export KAGGLE_API_TOKEN="KGAT_..."
+export CORS_ORIGIN="https://thiagollipe-web.github.io"
+node termux-server.mjs
+```
+
+Não coloque o token em `app.js`, `kaggle-client.js`, HTML, GitHub Pages ou no repositório.
+
+O endpoint local fica:
+
+```text
+http://127.0.0.1:8787/api/kaggle
+```
+
+Teste a saúde do Gateway:
+
+```bash
+curl http://127.0.0.1:8787/health
+```
+
+Teste o catálogo real da Kaggle:
+
+```bash
+curl -X POST \
+  http://127.0.0.1:8787/api/kaggle \
+  -H "Content-Type: application/json" \
+  --data '{"action":"tools"}'
+```
+
+A integração também aceita argumentos no formato simples do cliente e os converte automaticamente para o envelope MCP exigido pela Kaggle:
+
+```json
+{
+  "request": {
+    "search": "python"
+  }
+}
+```
+
+### Segurança das ferramentas
+
+O Gateway consulta o catálogo real com `tools/list` e mantém um cache temporário para evitar chamadas desnecessárias.
+
+Por padrão, somente ferramentas de leitura/consulta são executáveis. Ferramentas com efeitos externos, como criação, atualização, execução, cancelamento, upload ou submissão, ficam bloqueadas.
+
+Para habilitá-las conscientemente no servidor:
+
+```bash
+export KAGGLE_ALLOW_WRITE_TOOLS=true
+```
+
+Essa variável nunca deve ser enviada pelo frontend.
+
+Exemplos de pedidos reconhecidos:
+
+- `procure datasets de imagens de gatos na Kaggle`
+- `quais competições de Python existem na Kaggle?`
+- `procure notebooks sobre classificação de texto na Kaggle`
+
+A integração não depende mais de uma lista pequena e fixa de ferramentas: o Gateway descobre os nomes e schemas atuais retornados pelo MCP e usa o catálogo real para autorizar chamadas.
+
+### Fluxo Android atual
+
+```text
+GitHub Pages
+     ↓
+Gateway Android / Termux
+     ↓
+https://www.kaggle.com/mcp
+     ↓
+datasets / competições / notebooks / modelos
+```
+
+O próximo estágio é expor o Gateway Android por HTTPS de forma segura e, depois, incorporar `/api/chat` e as operações de Workspace ao mesmo processo, eliminando a dependência operacional da Vercel.
