@@ -68,7 +68,7 @@ CORS_ORIGIN=https://thiagollipe-web.github.io
 
 `OPENAI_MODEL` não possui um valor padrão propositalmente. Preencha com um ID de modelo que esteja disponível e habilitado no seu projeto OpenAI. Não coloque a chave no Git, HTML, JavaScript público ou README.
 
-Na Vercel, cadastre a chave diretamente em **Settings → Environment Variables**, de preferência como variável sensível de Production. Depois faça um novo deploy para que a alteração tenha efeito. citeturn5search0turn5search5
+Na Vercel, cadastre a chave diretamente em **Settings → Environment Variables**, de preferência como variável sensível de Production. Depois faça um novo deploy para que a alteração tenha efeito.
 
 ## Vercel
 
@@ -92,7 +92,7 @@ Se o frontend continuar no GitHub Pages, `ai-config.js` contém o único ponto p
 
 Observação de segurança: CORS limita chamadas feitas por navegadores de outras origens, mas não é autenticação para clientes arbitrários. Para uma API pública com uso relevante, adicione autenticação/rate limiting no backend.
 
-A Vercel suporta funções Node.js no diretório `api/` e também permite configurar cancelamento de requisições e duração por função. citeturn3search2turn3search1
+A Vercel suporta funções Node.js no diretório `api/` e também permite configurar cancelamento de requisições e duração por função.
 
 ## Fallback
 
