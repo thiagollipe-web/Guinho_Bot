@@ -10,6 +10,7 @@ function nativeReady(){return !!(window.GuinhoNativeAI&&typeof window.GuinhoNati
 document.querySelector('#pick').onclick=()=>{if(!nativeReady())return out.textContent='Bridge Android não encontrado.';window.GuinhoNativeAI.openGgufPicker(model.value);};
 document.querySelector('#models').onclick=()=>{if(!nativeReady())return out.textContent='Bridge Android não encontrado.';out.textContent=window.GuinhoNativeAI.listModels();};
 window.onGgufImportProgress=(progress)=>{out.textContent='Importando GGUF... '+progress+'%';};
+window.onGgufImportProgress=(progress)=>{out.textContent='Importando GGUF... '+progress+'%';};
 window.onGgufImported=(id,size)=>{out.textContent='GGUF importado: '+id+' ('+Math.round(size/1048576)+' MB).';};
 
 window.onGgufImportError=(message)=>{out.textContent='Erro ao importar: '+message;};
