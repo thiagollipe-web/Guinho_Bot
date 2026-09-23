@@ -1,5 +1,9 @@
 const CHAVE="guinho-project-workspace-v1";
 
+const PRIORIDADE_LINGUAGEM={
+  "JavaScript":10,"TypeScript":10,"Python":10,"Java":10,"C#":10,"C++":10,"C":10,"Rust":10,"Go":10,"PHP":10,"Ruby":10,"Kotlin":10,"Swift":10,"Dart":10,"Lua":10,"Shell":10,"SQL":9,"CSS":6,"HTML":2,"JSON":1
+};
+
 const EXTENSOES={
   ".js":"JavaScript",".mjs":"JavaScript",".cjs":"JavaScript",".ts":"TypeScript",".tsx":"TypeScript",
   ".py":"Python",".java":"Java",".cs":"C#",".cpp":"C++",".c":"C",".rs":"Rust",".go":"Go",
@@ -16,7 +20,8 @@ function linguagemDosArquivos(files={}){
     const linguagem=EXTENSOES[m[0]];
     if(linguagem)contagem[linguagem]=(contagem[linguagem]||0)+1;
   }
-  return Object.entries(contagem).sort((a,b)=>b[1]-a[1])[0]?.[0]||"JavaScript";
+  return Object.entries(contagem)
+    .sort((a,b)=>(b[1]-a[1])||(PRIORIDADE_LINGUAGEM[b[0]]||0)-(PRIORIDADE_LINGUAGEM[a[0]]||0))[0]?.[0]||"JavaScript";
 }
 function nomeProjeto(plano={},files={}){
   if(texto(plano.nome))return texto(plano.nome);
