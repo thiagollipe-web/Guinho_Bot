@@ -8,7 +8,11 @@ function normalizarCaminho(path=""){
   const partes=[];
   for(const parte of bruto.split("/")){
     if(!parte||parte===".")continue;
-    if(parte==="..")return null;
+    if(parte===".."){
+      if(!partes.length)return null;
+      partes.pop();
+      continue;
+    }
     partes.push(parte);
   }
   return partes.join("/");
