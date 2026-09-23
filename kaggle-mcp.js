@@ -46,7 +46,7 @@ function toolAllowedByPolicy(name) {
   return isReadOnlyTool(name) && !isWriteLikeTool(name);
 }
 
-function normalizeToolArguments(args) {
+export function normalizeToolArguments(args) {
   if (!args || typeof args !== "object" || Array.isArray(args)) {
     return null;
   }
