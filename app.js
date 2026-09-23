@@ -263,7 +263,7 @@ function atualizarPlanoUI(plano=null){
   atualizarImpactoUI(calcularImpactoProjeto(plano,deps,workspaceEngenharia?.files||{}));
   if(engPlanApply){engPlanApply.textContent=patchEngenhariaPendente?"Aplicar alterações":"Gerar diff";engPlanApply.disabled=!plano.files?.length;}
 }
-function cancelarPlanoEngenharia(){planoEngenhariaPendente=null;atualizarPlanoUI(null);atualizarWorkspaceStatus("Plano cancelado. Nenhuma alteração foi aplicada.","CANCELADO");}
+function cancelarPlanoEngenharia(){planoEngenhariaPendente=null;patchEngenhariaPendente=null;impactoEngenhariaPendente=null;atualizarPlanoUI(null);atualizarWorkspaceStatus("Plano cancelado. Nenhuma alteração foi aplicada.","CANCELADO");}
 function atualizarDependenciasUI(deps){
   if(!engDeps)return;
   if(!deps){engDeps.textContent="Dependências: não analisadas";engDeps.dataset.state="IDLE";return;}
@@ -796,6 +796,7 @@ async function prepararAlteracaoIA(texto){
   if(!plano)return null;
   plano={...plano,files:arquivosImpactadosDoPlano(plano,workspaceEngenharia?.files||{})};
   if(!plano.files.length&&Object.keys(workspaceEngenharia?.files||{}).length)plano=gerarPlanoAlteracao(texto,workspaceEngenharia,deps);
+  patchEngenhariaPendente=null;
   planoEngenhariaPendente={pedido:texto,plano};
   atualizarPlanoUI(plano);
   atualizarWorkspaceStatus("Plano de alteração pronto. Revise os arquivos impactados antes de aplicar.","PLANO");
