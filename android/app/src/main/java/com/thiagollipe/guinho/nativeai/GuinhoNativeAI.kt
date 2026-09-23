@@ -15,17 +15,21 @@ class GuinhoNativeAI(private val context: Context, private val filesDir: File) {
             val request = JSONObject(requestJson)
             val modelId = request.optString("modelId")
             val prompt = request.optString("prompt")
+            val history = request.optJSONArray("history") ?: JSONArray()
             val maxTokens = request.optInt("maxTokens", 512).coerceIn(16, 2048)
             val threads = request.optInt("threads", 0).coerceIn(0, 16)
             require(prompt.isNotBlank()) { "Prompt vazio." }
+
             val model = resolveModel(modelId)
             require(model.exists()) { "GGUF não encontrado para $modelId. Coloque o arquivo em ${model.absolutePath}." }
-
             require(NativeLlama.loadModel(model.absolutePath)) {
                 "llama.cpp não conseguiu carregar o GGUF: ${model.absolutePath}"
             }
-            val answer = NativeLlama.generate(prompt, maxTokens, threads)
+
+            val finalPrompt = buildPrompt(history, prompt)
+            val answer = NativeLlama.generate(finalPrompt, maxTokens, threads)
             NativeLlama.unload()
+
             JSONObject().put("content", answer).put("model", modelId).put("path", model.absolutePath).toString()
         }.getOrElse { error ->
             NativeLlama.unload()
@@ -64,6 +68,18 @@ class GuinhoNativeAI(private val context: Context, private val filesDir: File) {
         .toString()
 
     fun shutdown() { NativeLlama.shutdown() }
+
+    private fun buildPrompt(history: JSONArray, prompt: String): String {
+        val builder = StringBuilder()
+        for (index in 0 until history.length()) {
+            val item = history.optJSONObject(index) ?: continue
+            val role = item.optString("role", "user")
+            val content = item.optString("content").trim()
+            if (content.isNotEmpty()) builder.append(role.uppercase()).append(": ").append(content).append("\n\n")
+        }
+        builder.append("USER: ").append(prompt.trim()).append("\nASSISTANT:")
+        return builder.toString()
+    }
 
     private fun resolveModel(modelId: String): File {
         val exact = File(modelsDir, "$modelId.gguf")
