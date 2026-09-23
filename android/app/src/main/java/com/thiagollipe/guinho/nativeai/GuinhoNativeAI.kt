@@ -6,7 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
-class GuinhoNativeAI(private val context: Context, private val filesDir: File) {
+class GuinhoNativeAI(private val context: Context, private val filesDir: File, private val openPicker: (String) -> Unit) {
     private val modelsDir = File(filesDir, "models").apply { mkdirs() }
 
     @JavascriptInterface
@@ -38,23 +38,21 @@ class GuinhoNativeAI(private val context: Context, private val filesDir: File) {
     }
 
     @JavascriptInterface
+    fun openGgufPicker(modelId: String): String = runCatching {
+        require(modelId in setOf("qwen-0.5b", "qwen-1.5b", "nemotron-4b")) { "Modelo inválido." }
+        openPicker(modelId)
+        JSONObject().put("ok", true).toString()
+    }.getOrElse {
+        JSONObject().put("ok", false).put("error", it.message ?: "Modelo inválido.").toString()
+    }
+
+    @JavascriptInterface
     fun listModels(): String {
         val result = JSONArray()
         modelsDir.listFiles { file -> file.isFile && file.extension.equals("gguf", true) }
             ?.sortedBy { it.name.lowercase() }
             ?.forEach { result.put(JSONObject().put("name", it.name).put("path", it.absolutePath).put("size", it.length())) }
         return result.toString()
-    }
-
-    @JavascriptInterface
-    fun setModelFile(modelId: String, absolutePath: String): String = runCatching {
-        val source = File(absolutePath)
-        require(source.isFile && source.extension.equals("gguf", true)) { "Arquivo GGUF inválido." }
-        val target = File(modelsDir, "$modelId.gguf")
-        source.copyTo(target, overwrite = true)
-        JSONObject().put("ok", true).put("path", target.absolutePath).toString()
-    }.getOrElse {
-        JSONObject().put("ok", false).put("error", it.message ?: "Falha ao copiar GGUF.").toString()
     }
 
     @JavascriptInterface
