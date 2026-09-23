@@ -47,6 +47,7 @@ export function criarWorkspace(resultado={}){
     lastDiff:resultado.lastDiff||"",
     diffResumo:resultado.diffResumo||null,
     runtime:resultado.runtime||null,
+    treeState:resultado.treeState&&typeof resultado.treeState==="object"?resultado.treeState:{},
     proximasTarefas:gerarProximasTarefas({files,...resultado}),
     atualizadoEm:Date.now()
   };
@@ -69,6 +70,7 @@ export function atualizarWorkspace(workspace={},patch={}){
   atual.lastDiff=patch.lastDiff??atual.lastDiff??"";
   atual.diffResumo=patch.diffResumo??atual.diffResumo??null;
   atual.runtime=patch.runtime??atual.runtime??null;
+  atual.treeState=patch.treeState&&typeof patch.treeState==="object"?patch.treeState:(atual.treeState||{});
   atual.proximasTarefas=gerarProximasTarefas(atual);
   atual.atualizadoEm=Date.now();
   return atual;

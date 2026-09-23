@@ -372,3 +372,13 @@ body{
 #eng-diff-preview{margin:0;overflow:auto;padding:12px;color:#b6c8dd;font:10px/1.55 "SFMono-Regular",Consolas,monospace;white-space:pre}
 @media(max-width:900px){.eng-project-tree{max-height:25vh}.eng-diff-preview-panel{max-height:30vh}}
 @media(max-width:560px){.eng-project-tree{max-height:22vh}.eng-tree-node{font-size:9px}.eng-diff-preview-panel{max-height:27vh}#eng-diff-preview{font-size:8px}}
+
+.eng-tree-node{width:100%;display:flex;align-items:center;gap:5px;border:0;background:transparent;text-align:left;cursor:pointer;font:inherit;color:inherit}
+.eng-tree-node.folder{font-weight:700}
+.eng-tree-caret{width:10px;flex:0 0 10px}
+.eng-tree-icon{width:12px;flex:0 0 12px}
+.eng-tree-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.eng-tree-badge{margin-left:auto;min-width:15px;text-align:center;font-size:7px;padding:2px 4px;border-radius:999px;opacity:.85}
+.eng-tree-node.file[data-impact="direct"] .eng-tree-badge{background:#315b8a;color:#d8ebff}
+.eng-tree-node.file[data-impact="related"] .eng-tree-badge{background:#29465f;color:#bfd5e8}
+.eng-tree-children{display:block}
