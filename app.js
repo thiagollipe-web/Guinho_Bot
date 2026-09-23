@@ -1028,7 +1028,7 @@ function aplicarPatchIAEngenharia(patch,pedido){
 async function responder(texto){
   ultimaOrigemResposta="local";
   const selecaoLocal=resolverModelo(texto,{programacao:pedidoDeCodigo(texto)});
-  const comandoLocal=/^\\/(fast|qwen|nano|auto)\\b/i.test(String(texto||"").trim());
+  const comandoLocal=/^\/(fast|qwen|nano|auto)\b/i.test(String(texto||"").trim());
   const local=await consultarIALocal(texto);
   if(local.available&&local.content){
     ultimaOrigemResposta="local-model";
