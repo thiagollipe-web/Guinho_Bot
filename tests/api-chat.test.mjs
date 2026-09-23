@@ -206,6 +206,7 @@ test("workspace e patch rejeitam caminhos e arquivos protegidos", () => {
   assert.equal(validateWorkspace({ files: { "../segredo.js": "x" } }).ok, false);
   assert.equal(validateWorkspace({ files: { ".env": "x" } }).ok, false);
   assert.equal(validateWorkspace({ files: { "node_modules/x.js": "x" } }).ok, false);
+  assert.equal(validateWorkspace({ files: { "src/main.js": "console.log(1);" } }).ok, true);
 
   const patch = validateWorkspacePatch({
     summary: "x",
