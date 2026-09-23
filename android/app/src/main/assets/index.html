@@ -1,50 +1,15 @@
 <!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Guinho • IA Local</title>
-<style>
-body{margin:0;background:#0b0d10;color:#e8eaed;font:15px system-ui,sans-serif}
-main{max-width:760px;margin:auto;padding:18px}
-h1{font-size:22px}.muted{color:#8d949e}.row{display:flex;gap:8px;flex-wrap:wrap}
-select,input,button{background:#15191f;color:#fff;border:1px solid #303741;border-radius:8px;padding:10px}
-textarea{width:100%;min-height:130px;box-sizing:border-box;background:#101419;color:#fff;border:1px solid #303741;border-radius:8px;padding:12px;margin-top:10px}
-button{cursor:pointer}.answer{white-space:pre-wrap;background:#101419;border:1px solid #252b33;border-radius:8px;padding:12px;margin-top:12px;min-height:80px}
-</style>
-</head>
-<body><main>
-<h1>Guinho • GGUF local</h1>
-<p class="muted">llama.cpp nativo • sem servidor • modelo carregado do armazenamento privado do APK.</p>
-<div class="row">
-<select id="model"><option value="qwen-0.5b">Qwen 0.5B</option><option value="qwen-1.5b">Qwen 1.5B</option><option value="nemotron-4b">Nemotron 4B</option></select>
-<input id="tokens" type="number" min="16" max="2048" value="512">
-<button id="models">Ver GGUF</button>
-</div>
-<textarea id="prompt" placeholder="Digite uma pergunta..."></textarea>
-<button id="send">Gerar resposta</button>
-<div id="answer" class="answer">Pronto.</div>
-</main>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Guinho • IA Local</title>
+<style>body{margin:0;background:#0b0d10;color:#e8eaed;font:15px system-ui,sans-serif}main{max-width:760px;margin:auto;padding:18px}h1{font-size:22px}.muted{color:#8d949e}.row{display:flex;gap:8px;flex-wrap:wrap}select,input,button{background:#15191f;color:#fff;border:1px solid #303741;border-radius:8px;padding:10px}textarea{width:100%;min-height:130px;box-sizing:border-box;background:#101419;color:#fff;border:1px solid #303741;border-radius:8px;padding:12px;margin-top:10px}button{cursor:pointer}.answer{white-space:pre-wrap;background:#101419;border:1px solid #252b33;border-radius:8px;padding:12px;margin-top:12px;min-height:80px}</style>
+</head><body><main><h1>Guinho • GGUF local</h1><p class="muted">llama.cpp nativo • sem servidor • modelos no armazenamento privado do APK.</p>
+<div class="row"><select id="model"><option value="qwen-0.5b">Qwen 0.5B</option><option value="qwen-1.5b">Qwen 1.5B</option><option value="nemotron-4b">Nemotron 4B</option></select><input id="tokens" type="number" min="16" max="2048" value="512"><button id="pick">Adicionar GGUF</button><button id="models">Ver GGUF</button></div>
+<textarea id="prompt" placeholder="Digite uma pergunta..."></textarea><button id="send">Gerar resposta</button><div id="answer" class="answer">Pronto.</div></main>
 <script>
-const out=document.querySelector("#answer");
-const model=document.querySelector("#model");
-const prompt=document.querySelector("#prompt");
-const tokens=document.querySelector("#tokens");
-function nativeReady(){return !!(window.GuinhoNativeAI&&typeof window.GuinhoNativeAI.generate==="function");}
-document.querySelector("#models").onclick=()=>{
-  if(!nativeReady()) return out.textContent="Bridge Android não encontrado.";
-  out.textContent=window.GuinhoNativeAI.listModels();
-};
-document.querySelector("#send").onclick=()=>{
-  if(!nativeReady()) return out.textContent="Bridge Android não encontrado.";
-  if(!prompt.value.trim()) return;
-  out.textContent="Carregando GGUF e gerando...";
-  try{
-    const raw=window.GuinhoNativeAI.generate(JSON.stringify({modelId:model.value,prompt:prompt.value,maxTokens:Number(tokens.value)}));
-    const result=JSON.parse(raw);
-    out.textContent=result.error||result.content||"Resposta vazia.";
-  }catch(error){out.textContent="Erro: "+error.message;}
-};
-</script>
-</body>
-</html>
+const out=document.querySelector('#answer'),model=document.querySelector('#model'),prompt=document.querySelector('#prompt'),tokens=document.querySelector('#tokens');
+function nativeReady(){return !!(window.GuinhoNativeAI&&typeof window.GuinhoNativeAI.generate==='function');}
+document.querySelector('#pick').onclick=()=>{if(!nativeReady())return out.textContent='Bridge Android não encontrado.';window.GuinhoNativeAI.openGgufPicker(model.value);};
+document.querySelector('#models').onclick=()=>{if(!nativeReady())return out.textContent='Bridge Android não encontrado.';out.textContent=window.GuinhoNativeAI.listModels();};
+window.onGgufImported=(id,size)=>{out.textContent='GGUF importado: '+id+' ('+Math.round(size/1048576)+' MB).';};
+window.onGgufImportError=(message)=>{out.textContent='Erro ao importar: '+message;};
+document.querySelector('#send').onclick=()=>{if(!nativeReady())return out.textContent='Bridge Android não encontrado.';if(!prompt.value.trim())return;out.textContent='Carregando GGUF e gerando...';try{const raw=window.GuinhoNativeAI.generate(JSON.stringify({modelId:model.value,prompt:prompt.value,maxTokens:Number(tokens.value)}));const result=JSON.parse(raw);out.textContent=result.error||result.content||'Resposta vazia.';}catch(error){out.textContent='Erro: '+error.message;}};
+</script></body></html>
