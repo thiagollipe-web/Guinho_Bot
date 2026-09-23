@@ -18,21 +18,23 @@ function json(data, status, headers = {}) {
 function corsHeaders(request) {
   const configured = String(process.env.CORS_ORIGIN || "").trim();
   const origin = request.headers.get("origin");
+  const vercelOrigin = process.env.VERCEL_URL
+    ? `https://${String(process.env.VERCEL_URL).trim()}`
+    : "";
+  const allowed = new Set([configured, vercelOrigin].filter(Boolean));
 
-  if (!configured) {
-    return origin ? {} : {};
+  if (origin && allowed.size && !allowed.has(origin)) return null;
+
+  if (origin && allowed.has(origin)) {
+    return {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Vary": "Origin"
+    };
   }
 
-  if (origin && origin !== configured) return null;
-
-  return origin === configured
-    ? {
-        "Access-Control-Allow-Origin": configured,
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Vary": "Origin"
-      }
-    : {};
+  return {};
 }
 
 function safeError(message, status, retryable = true, headers = {}) {
