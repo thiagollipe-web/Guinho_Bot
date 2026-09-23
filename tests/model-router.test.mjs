@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {detectarComando,listarModelos,removerComando,resolverModelo,selecionarAutomaticamente} from "../model-router.js";
+test("lista três modelos locais",()=>assert.deepEqual(listarModelos().map(x=>x.id),["qwen-0.5b","qwen-1.5b","nemotron-4b"]));
+test("reconhece comandos",()=>{assert.equal(detectarComando("/fast"),"fast");assert.equal(detectarComando("/qwen corrija código"),"qwen");assert.equal(detectarComando("/nano analise projeto"),"nano");assert.equal(detectarComando("/auto"),"auto");assert.equal(detectarComando("olá"),null);});
+test("remove comando",()=>assert.equal(removerComando("/qwen  corrija meu JavaScript"),"corrija meu JavaScript"));
+test("auto escolhe qwen para programação",()=>assert.equal(selecionarAutomaticamente("Crie uma função Python para ler CSV"),"qwen"));
+test("auto escolhe nano para análise pesada",()=>assert.equal(selecionarAutomaticamente("Faça uma auditoria da arquitetura do projeto"),"nano"));
+test("auto escolhe fast para conversa simples",()=>assert.equal(selecionarAutomaticamente("Explique uma variável"),"fast"));
+test("auto respeita /auto",()=>{const result=resolverModelo("/auto crie uma função Python");assert.equal(result.key,"qwen");assert.equal(result.source,"auto-command");assert.equal(result.prompt,"crie uma função Python");});

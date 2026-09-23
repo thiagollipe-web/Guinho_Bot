@@ -23,6 +23,7 @@ import { criarTokenRuntime, montarDocumentoSandbox, validarEventoRuntime, interp
 import { MAX_RUNTIME_AUTOFIX, deveAutocorrigirRuntime, proximaTentativaRuntime, construirPedidoAutocorrecao } from "./runtime-autofix.js";
 import { criarSnapshot, registrarSnapshot, desfazerWorkspace, removerUltimoSnapshot, salvarHistoricoWorkspace, carregarHistoricoWorkspace, resumoHistoricoWorkspace } from "./workspace-history.js";
 import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
+import { resolverModelo } from "./model-router.js";
 import { buildProjectIntelligence } from "./project-intelligence.js";
 import { pedidoDeCodigo } from "./request-classifier.js";
 
@@ -97,6 +98,7 @@ const memoria=new MemoriaSessao();
 const gerador=new GeradorEstatistico();
 const contexto=new ContextoConversacional();
 let modoAtual="standard";
+let modeloAtual=null;
 let ultimaOrigemResposta="local";
 
 function carregarAprendizadoEngenharia(){
@@ -793,6 +795,8 @@ function historicoParaIA(){
 }
 
 async function consultarIAOnline(texto){
+  const selecao=resolverModelo(texto,{programacao:true});
+  modeloAtual=selecao.model;
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),AI_CHAT_TIMEOUT_MS);
   try{
@@ -803,7 +807,7 @@ async function consultarIAOnline(texto){
     const response=await fetch(AI_CHAT_URL,{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({messages:mensagens.slice(-12)}),
+      body:JSON.stringify({messages:mensagens.slice(-12),local_model:selecao.model?.id||"",local_model_command:selecao.source}),
       signal:controller.signal
     });
     const data=await response.json().catch(()=>null);
@@ -1290,6 +1294,8 @@ form.addEventListener("submit",async e=>{
   e.preventDefault();
   const texto=input.value.trim();
   if(!texto)return;
+  const selecao=resolverModelo(texto,{programacao:true});
+  modeloAtual=selecao.model;
   add("user",texto);memoria.adicionar("user",texto);input.value="";
   buttons.forEach(b=>b.disabled=true);statusText.textContent="ANALISANDO";
   try{
@@ -1297,14 +1303,14 @@ form.addEventListener("submit",async e=>{
     const resposta=adaptarModo(respostaBruta);
     add("bot",resposta);
     memoria.adicionar("assistant",resposta);
-    statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE":"MODO LOCAL";
+    statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE • "+(modeloAtual?.name||""): "LOCAL • "+(modeloAtual?.name||"");
     if(ultimaOrigemResposta==="local-fallback")showToast("IA online indisponível — usando o motor local.");
   }catch(err){
     ultimaOrigemResposta="local-fallback";
     add("bot","O serviço online não respondeu. O motor local permanece disponível, mas ocorreu um erro ao gerar a resposta local: "+(err?.message||"erro desconhecido"));
   }finally{
     buttons.forEach(b=>b.disabled=false);
-    setTimeout(()=>{statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE":"LOCAL READY";},1800);
+    setTimeout(()=>{statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE • "+(modeloAtual?.name||""):"LOCAL READY • "+(modeloAtual?.name||"");},1800);
     input.focus();
   }
 });
