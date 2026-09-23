@@ -151,41 +151,85 @@ A branch `ai-integration` prepara o backend, frontend, testes e configuração d
 
 ## Kaggle MCP
 
-O Guinho pode consultar a Kaggle por meio do servidor MCP oficial, sem expor o token no navegador. A Kaggle disponibiliza o endpoint remoto `https://www.kaggle.com/mcp`, com ferramentas para datasets, competições, modelos e notebooks.
+O Guinho consulta a Kaggle pelo servidor MCP oficial em `https://www.kaggle.com/mcp`. A resposta atual do servidor usa `text/event-stream`, por isso o Gateway interpreta tanto JSON direto quanto eventos SSE. A Kaggle documenta o MCP oficial como a interface remota para datasets, competições, modelos, notebooks e outros recursos. citeturn408834search0
 
-### Configuração
+O token permanece exclusivamente no servidor. Para o cenário Android, o Gateway pode rodar no Termux; GitHub Pages continua apenas como frontend estático.
 
-Na Vercel, adicione uma variável de ambiente de Production:
+### Configuração no Termux
 
-```env
-KAGGLE_API_TOKEN=KGAT_...
+Defina o token no ambiente do processo do Gateway:
+
+```bash
+export KAGGLE_API_TOKEN="KGAT_..."
+export CORS_ORIGIN="https://thiagollipe-web.github.io"
+node termux-server.mjs
 ```
 
-Gere o token em **Kaggle → Settings → Generate New Token**. Nunca coloque esse token em `app.js`, `kaggle-client.js`, HTML, GitHub ou GitHub Pages.
+Não coloque o token em `app.js`, `kaggle-client.js`, HTML, GitHub Pages ou no repositório.
 
-O fluxo fica:
+O endpoint local fica:
 
-```
-Usuário
-  ↓
-Guinho
-  ├── tarefa de engenharia → pipeline local
-  ├── pergunta geral → OpenAI → fallback local
-  └── pedido sobre Kaggle → /api/kaggle → Kaggle MCP
-                                      ↓
-                         datasets / competições / modelos
+```text
+http://127.0.0.1:8787/api/kaggle
 ```
 
-O endpoint do Guinho usa uma lista de ferramentas permitidas para evitar que o navegador consiga solicitar arbitrariamente qualquer operação MCP. O token permanece exclusivamente no servidor.
+Teste a saúde do Gateway:
+
+```bash
+curl http://127.0.0.1:8787/health
+```
+
+Teste o catálogo real da Kaggle:
+
+```bash
+curl -X POST \
+  http://127.0.0.1:8787/api/kaggle \
+  -H "Content-Type: application/json" \
+  --data '{"action":"tools"}'
+```
+
+A integração também aceita argumentos no formato simples do cliente e os converte automaticamente para o envelope MCP exigido pela Kaggle:
+
+```json
+{
+  "request": {
+    "search": "python"
+  }
+}
+```
+
+### Segurança das ferramentas
+
+O Gateway consulta o catálogo real com `tools/list` e mantém um cache temporário para evitar chamadas desnecessárias.
+
+Por padrão, somente ferramentas de leitura/consulta são executáveis. Ferramentas com efeitos externos, como criação, atualização, execução, cancelamento, upload ou submissão, ficam bloqueadas.
+
+Para habilitá-las conscientemente no servidor:
+
+```bash
+export KAGGLE_ALLOW_WRITE_TOOLS=true
+```
+
+Essa variável nunca deve ser enviada pelo frontend.
 
 Exemplos de pedidos reconhecidos:
 
 - `procure datasets de imagens de gatos na Kaggle`
 - `quais competições de Python existem na Kaggle?`
-- `procure modelos de classificação de texto na Kaggle`
+- `procure notebooks sobre classificação de texto na Kaggle`
 
-A integração inicial é de descoberta/pesquisa. Operações destrutivas ou publicação/submissão não são expostas ao frontend nesta etapa.
+A integração não depende mais de uma lista pequena e fixa de ferramentas: o Gateway descobre os nomes e schemas atuais retornados pelo MCP e usa o catálogo real para autorizar chamadas.
 
-### Próxima etapa
+### Fluxo Android atual
 
-Depois de validar a autenticação, a evolução natural é permitir que o Guinho crie e execute Notebooks Kaggle para experimentos, acompanhe a execução, recupere outputs e entregue os artefatos ao Workspace de Engenharia. Isso deve ser habilitado gradualmente porque execução remota e submissão de competições são ações com efeitos externos.
+```text
+GitHub Pages
+     ↓
+Gateway Android / Termux
+     ↓
+https://www.kaggle.com/mcp
+     ↓
+datasets / competições / notebooks / modelos
+```
+
+O próximo estágio é expor o Gateway Android por HTTPS de forma segura e, depois, incorporar `/api/chat` e as operações de Workspace ao mesmo processo, eliminando a dependência operacional da Vercel.
