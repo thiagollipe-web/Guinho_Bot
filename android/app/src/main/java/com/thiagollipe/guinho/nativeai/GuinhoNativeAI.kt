@@ -10,6 +10,14 @@ class GuinhoNativeAI(private val context: Context, private val filesDir: File, p
     private val modelsDir = File(filesDir, "models").apply { mkdirs() }
 
     @JavascriptInterface
+    fun openGgufPicker(modelId: String): String {
+        val normalized = modelId.trim()
+        require(normalized in setOf("qwen-0.5b", "qwen-1.5b", "nemotron-4b")) { "Modelo inválido." }
+        openPicker(normalized)
+        return JSONObject().put("ok", true).put("model", normalized).toString()
+    }
+
+    @JavascriptInterface
     fun generate(requestJson: String): String = synchronized(this) {
         runCatching {
             val request = JSONObject(requestJson)
