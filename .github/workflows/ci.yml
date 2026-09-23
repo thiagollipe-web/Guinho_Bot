@@ -32,6 +32,18 @@ jobs:
       # valida o núcleo conversacional especializado em programação
       - run: node --check api/chat.js
       - run: git diff --check
-      - run: node --test tests/guinho-programmer.test.mjs
+      - name: Test Guinho programmer core
+        run: |
+          set +e
+          node --test tests/guinho-programmer.test.mjs > guinho-programmer-test.log 2>&1
+          status=$?
+          cat guinho-programmer-test.log
+          exit $status
+      - name: Upload Guinho programmer test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guinho-programmer-test-log
+          path: guinho-programmer-test.log
       - run: npm test
       - run: npm run benchmark
