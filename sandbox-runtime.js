@@ -8,7 +8,7 @@ export function criarTokenRuntime(seed=Math.random()){
 }
 
 function escaparScript(valor){
-  return JSON.stringify(String(valor)).replace(/<\\/script/gi,"<\\\\/script");
+  return JSON.stringify(String(valor)).replace(/<\/script/gi,"<\\/script");
 }
 
 export function montarDocumentoSandbox(html,token){
