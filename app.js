@@ -23,7 +23,7 @@ import { criarTokenRuntime, montarDocumentoSandbox, validarEventoRuntime, interp
 import { MAX_RUNTIME_AUTOFIX, deveAutocorrigirRuntime, proximaTentativaRuntime, construirPedidoAutocorrecao } from "./runtime-autofix.js";
 import { criarSnapshot, registrarSnapshot, desfazerWorkspace, removerUltimoSnapshot, salvarHistoricoWorkspace, carregarHistoricoWorkspace, resumoHistoricoWorkspace } from "./workspace-history.js";
 import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
-import { buildProjectIntelligence, validateProjectSnapshot } from "./project-intelligence.js";
+import { buildProjectIntelligence } from "./project-intelligence.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -89,7 +89,6 @@ let workspaceEngenharia=null;
 let historicoWorkspace=[];
 let arquivoEngenhariaAtual="index.html";
 let inteligenciaProjeto=null;
-let inteligenciaProjetoPendente=false;
 
 const pnl=new EstatisticaLinguistica();
 const recuperador=new RecuperadorSemantico(CONHECIMENTO);
@@ -301,34 +300,12 @@ async function atualizarInteligenciaProjeto(requestText=""){
     request:requestText,
     files:workspaceEngenharia.files
   });
-  if(local.ok){
-    inteligenciaProjeto=local.intelligence;
-    inteligenciaProjetoPendente=false;
-    workspaceEngenharia.intelligence=local.intelligence;
-  }
-  try{
-    const response=await fetch("./api/project-intelligence.js",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        name:workspaceEngenharia.nome||"Projeto Guinho",
-        entry:workspaceEngenharia.entry,
-        request:requestText,
-        files:workspaceEngenharia.files
-      })
-    });
-    const data=await response.json().catch(()=>null);
-    if(response.ok&&data?.ok&&data.intelligence){
-      inteligenciaProjeto=data.intelligence;
-      inteligenciaProjetoPendente=false;
-      workspaceEngenharia.intelligence=data.intelligence;
-      salvarWorkspace(workspaceEngenharia);
-      return data.intelligence;
-    }
-  }catch{}
-  return inteligenciaProjeto;
+  if(!local.ok)return inteligenciaProjeto;
+  inteligenciaProjeto=local.intelligence;
+  workspaceEngenharia.intelligence=local.intelligence;
+  salvarWorkspace(workspaceEngenharia);
+  return local.intelligence;
 }
-
 function atualizarDependenciasUI(deps){
   if(!engDeps)return;
   if(!deps){engDeps.textContent="Dependências: não analisadas";engDeps.dataset.state="IDLE";return;}
