@@ -1039,7 +1039,6 @@ async function responder(texto){
     ultimaOrigemResposta="local-fallback";
     return `Modelo local selecionado: ${selecaoLocal.model.name}. O runtime nativo do APK ainda não está disponível neste navegador. O mesmo comando funcionará no APK quando o llama.cpp estiver conectado.\n\nComando: ${selecaoLocal.model.command}\nFunção: ${selecaoLocal.model.description}`;
   }
-  const limpo=texto.replace(/^\\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar|corrigir|melhorar|validar)\\b/i,"$1").trim();
   extrairMemoria(texto);
   const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar|corrigir|melhorar|validar)\b/i,"$1").trim();
   if(/^validar\b|^valide\b|^validacao\b|^validação\b/i.test(limpo)){
@@ -1300,7 +1299,7 @@ function renderTextoMensagem(box,text){
 function add(role,text){
   const el=document.createElement("div");el.className="line "+(role==="user"?"user":"bot");
   const meta=document.createElement("div");meta.className="meta";
-  meta.textContent=role==="user"?"VOCÊ >":ultimaOrigemResposta==="openai"?"GUINHO • IA ONLINE >":ultimaOrigemResposta==="local-model"?"GUINHO • "+(resolverModelo(text).model?.name||"IA LOCAL")+" >":"GUINHO • MOTOR LOCAL >";
+  meta.textContent=role==="user"?"VOCÊ >":ultimaOrigemResposta==="openai"?"GUINHO • IA ONLINE >":ultimaOrigemResposta==="local-model"?"GUINHO • IA LOCAL >":"GUINHO • MOTOR LOCAL >";
   const box=document.createElement("div");box.className="bubble";
   const fonteIndex=text.indexOf("\n\nBase local:");
   if(role==="bot"&&fonteIndex>=0){
