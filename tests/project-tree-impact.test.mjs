@@ -21,3 +21,9 @@ test("impacto separa arquivos diretos e relacionados", () => {
   assert.deepEqual(new Set(impacto.relacionados), new Set(["utils.js", "index.html"]));
   assert.match(resumoImpacto(impacto), /Diretos: 1/);
 });
+
+test("árvore preserva estado de pastas sem depender do DOM", () => {
+  const tree = gerarArvoreProjeto({"src/a.js":"x","src/sub/b.js":"x"});
+  const flat = achatarArvore(tree);
+  assert.deepEqual(flat.filter(x => x.type === "folder").map(x => x.path), ["src","src/sub"]);
+});
