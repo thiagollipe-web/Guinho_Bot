@@ -11,7 +11,7 @@
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./icon.svg">
 <link rel="stylesheet" href="./styles.css">
-<title>Guinho-Bot — Assistente Local</title>
+<title>Guinho-Bot — Companheiro de Programação</title>
 </head>
 <body>
 <div class="app-bg"></div>
@@ -28,9 +28,9 @@
 ╰─┬─┬─╯</pre>
         </div>
         <div>
-          <div class="eyebrow">ASSISTENTE HÍBRIDO</div>
+          <div class="eyebrow">COMPANHEIRO DE PROGRAMAÇÃO</div>
           <h1>Guinho-Bot</h1>
-          <div class="online"><span></span> IA ONLINE + LOCAL</div>
+          <div class="online"><span></span> PROGRAMADOR ONLINE + LOCAL</div>
         </div>
       </div>
 
@@ -47,16 +47,19 @@
     </div>
 
     <div class="sidebar-section knowledge-nav">
-      <div class="section-title">BASE DE CONHECIMENTO</div>
-      <button type="button" data-topic="Programação">Programação</button>
-      <button type="button" data-topic="Matemática">Matemática</button>
-      <button type="button" data-topic="Física">Física</button>
-      <button type="button" data-topic="Química">Química</button>
-      <button type="button" data-topic="Biologia">Biologia</button>
-      <button type="button" data-topic="Astronomia">Astronomia</button>
-      <button type="button" data-topic="Web">Web</button>
-      <button type="button" data-topic="Desenvolvimento de Jogos">Game Dev</button>
-      <button type="button" data-topic="PLN">PLN</button>
+      <div class="section-title">LINGUAGENS E STACKS</div>
+      <button type="button" data-topic="JavaScript">JavaScript</button>
+      <button type="button" data-topic="TypeScript">TypeScript</button>
+      <button type="button" data-topic="Python">Python</button>
+      <button type="button" data-topic="C# e .NET">C# / .NET</button>
+      <button type="button" data-topic="C++">C++</button>
+      <button type="button" data-topic="Java">Java</button>
+      <button type="button" data-topic="Rust">Rust</button>
+      <button type="button" data-topic="Go">Go</button>
+      <button type="button" data-topic="HTML CSS e Canvas">HTML / CSS / Canvas</button>
+      <button type="button" data-topic="SQL e bancos de dados">SQL / Bancos</button>
+      <button type="button" data-topic="Git e GitHub">Git / GitHub</button>
+      <button type="button" data-topic="Docker e Linux">Docker / Linux</button>
     </div>
 
     <details class="game-library">
@@ -113,8 +116,8 @@
       <div class="welcome-strip">
         <div>
           <div class="eyebrow">MOTOR DE RESPOSTA</div>
-          <h2>Converse. Pergunte. Explore.</h2>
-          <p>IA generativa online + PLN local + recuperação semântica + memória de sessão.</p>
+          <h2>Converse. Construa. Evolua.</h2>
+          <p>Um companheiro de programação: conversa, entende seu projeto, cria código, corrige bugs e sugere próximos passos.</p>
         </div>
         <div class="engine-status">
           <span class="pulse"></span>
@@ -125,15 +128,15 @@
       <section id="chat" class="chat" aria-live="polite" aria-label="Conversa"></section>
 
       <div class="suggestion-row" aria-label="Sugestões rápidas">
-        <button type="button" data-cmd="o que é JavaScript?">O que é JavaScript?</button>
-        <button type="button" data-cmd="por que existe o dia e a noite?">Por que existe o dia e a noite?</button>
-        <button type="button" data-cmd="como funciona um service worker?">Como funciona um service worker?</button>
+        <button type="button" data-cmd="quero criar um jogo em JavaScript">Quero criar um jogo</button>
+        <button type="button" data-cmd="quero aprender Python">Quero aprender Python</button>
+        <button type="button" data-cmd="tenho uma ideia para meu projeto">Tenho uma ideia</button>
       </div>
 
       <form id="composer" class="composer" autocomplete="off">
         <button type="button" class="composer-tool" id="attach-placeholder" aria-label="Anexar arquivo" title="Anexar arquivo">＋</button>
         <label class="sr-only" for="message">Mensagem</label>
-        <textarea id="message" name="message" rows="1" maxlength="12000" inputmode="text" enterkeyhint="send" placeholder="Pergunte qualquer coisa sobre a base do Guinho-Bot..." required></textarea>
+        <textarea id="message" name="message" rows="1" maxlength="12000" inputmode="text" enterkeyhint="send" placeholder="Conte ao Guinho o que você quer construir, corrigir ou entender..." required></textarea>
         <div class="composer-actions">
           <button type="button" class="composer-tool subtle" id="voice-placeholder" title="Entrada de voz">◉</button>
           <button type="submit" class="send-btn" aria-label="Enviar mensagem" title="Enviar mensagem">↑</button>
@@ -167,11 +170,11 @@
     </div>
 
     <div class="sidebar-section">
-      <div class="section-title">RECURSOS ATIVOS</div>
-      <div class="resource-card"><span>◈</span><div><strong>Conhecimento local</strong><small>116 entradas + fallback</small></div></div>
-      <div class="resource-card"><span>⌕</span><div><strong>Busca semântica</strong><small>TF-IDF + similaridade</small></div></div>
-      <div class="resource-card"><span>∿</span><div><strong>Motor probabilístico</strong><small>Intenções + fuzzy match</small></div></div>
-      <div class="resource-card"><span>↺</span><div><strong>Memória de sessão</strong><small>LocalStorage do navegador</small></div></div>
+      <div class="section-title">CAPACIDADES DO GUINHO</div>
+      <div class="resource-card"><span>◇</span><div><strong>Linguagens</strong><small>JavaScript, Python, C#, C++, Java, Rust e mais</small></div></div>
+      <div class="resource-card"><span>⌕</span><div><strong>Contexto</strong><small>Memória de sessão e projeto</small></div></div>
+      <div class="resource-card"><span>∿</span><div><strong>Engenharia</strong><small>Cria, analisa, corrige e valida</small></div></div>
+      <div class="resource-card"><span>✦</span><div><strong>Sugestões</strong><small>Ideias e próximos passos do projeto</small></div></div>
     </div>
 
     <div class="sidebar-section">
