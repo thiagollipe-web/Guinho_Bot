@@ -68,7 +68,7 @@ CORS_ORIGIN=https://thiagollipe-web.github.io
 
 `OPENAI_MODEL` não possui um valor padrão propositalmente. Preencha com um ID de modelo que esteja disponível e habilitado no seu projeto OpenAI. Não coloque a chave no Git, HTML, JavaScript público ou README.
 
-Na Vercel, cadastre a chave diretamente em **Settings → Environment Variables**, de preferência como variável sensível de Production. Depois faça um novo deploy para que a alteração tenha efeito.
+Na Vercel, cadastre a chave diretamente em **Settings → Environment Variables**, de preferência como variável sensível de Production. Depois faça um novo deploy para que a alteração tenha efeito. Não cole a chave no chat nem em arquivos públicos.
 
 ## Vercel
 
