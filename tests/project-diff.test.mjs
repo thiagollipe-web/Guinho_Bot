@@ -20,6 +20,13 @@ test("diff detecta criação, alteração e remoção por arquivo",()=>{
   assert.match(diff,/\+\+\+ b\/style\.css/);
 });
 
+test("diff preserva linhas iguais e marca exclusões/inclusões",()=>{
+  const diff=gerarDiffProjeto({"app.js":"const a=1;\nconst b=2;"},{"app.js":"const a=1;\nconst b=3;"});
+  assert.match(diff,/ const a=1;/);
+  assert.match(diff,/-const b=2;/);
+  assert.match(diff,/\+const b=3;/);
+});
+
 test("diff vazio quando projeto não mudou",()=>{
   assert.equal(gerarDiffProjeto({"app.js":"ok"},{"app.js":"ok"}),"");
   assert.deepEqual(resumoDiff({"app.js":"ok"},{"app.js":"ok"}),{criados:[],removidos:[],alterados:[],total:0});
