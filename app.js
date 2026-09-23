@@ -24,6 +24,7 @@ import { MAX_RUNTIME_AUTOFIX, deveAutocorrigirRuntime, proximaTentativaRuntime, 
 import { criarSnapshot, registrarSnapshot, desfazerWorkspace, removerUltimoSnapshot, salvarHistoricoWorkspace, carregarHistoricoWorkspace, resumoHistoricoWorkspace } from "./workspace-history.js";
 import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
 import { buildProjectIntelligence } from "./project-intelligence.js";
+import { pedidoDeCodigo } from "./request-classifier.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
