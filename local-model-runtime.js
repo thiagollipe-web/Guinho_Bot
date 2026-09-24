@@ -33,6 +33,6 @@ export function especificacaoRuntime(){
     bridge:BRIDGE_NAME,
     protocol:"generate(JSON.stringify({modelId,prompt,history,maxTokens})) -> JSON {content}",
     transport:"Android WebView JavaScript bridge",
-    models:["qwen-0.5b","qwen-1.5b","nemotron-4b"]
+    models:["gemma-270m","qwen-0.5b","qwen-1.5b","nemotron-4b"]
   };
 }
