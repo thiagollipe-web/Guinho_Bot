@@ -21,6 +21,7 @@ import { MAX_RUNTIME_AUTOFIX, deveAutocorrigirRuntime, proximaTentativaRuntime, 
 import { criarSnapshot, registrarSnapshot, desfazerWorkspace, removerUltimoSnapshot, salvarHistoricoWorkspace, carregarHistoricoWorkspace, resumoHistoricoWorkspace } from "./workspace-history.js";
 import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
 import { pesquisarKaggle } from "./kaggle-client.js";
+import { gerarWebGPU, statusWebGPU } from "./webgpu-engine.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -840,6 +841,38 @@ function aplicarPatchIAEngenharia(patch,pedido){
 }
 
 async function responder(texto){
+  // Motor exclusivo: toda resposta generativa passa pelo WebGPU do navegador.
+  // Não usamos Groq, OpenAI, Ollama ou servidor Node para gerar a resposta.
+  ultimaOrigemResposta="webgpu";
+  try{
+    const historico=memoria.historico().slice(-8);
+    const respostaWebGPU=await gerarWebGPU({
+      message:texto,
+      history:historico,
+      mode:modoAtual,
+      onProgress:info=>{
+        if(info?.status==="progress" && statusText){
+          const pct=Number(info.progress||0).toFixed(0);
+          statusText.textContent="CARREGANDO WEBGPU "+pct+"%";
+        }
+      }
+    });
+    contexto.atualizar({
+      texto,
+      resposta:respostaWebGPU,
+      analise:pnl.detectar(texto),
+      estrategia:"webgpu",
+      assunto:memoria.estado.assuntoAtual
+    });
+    return respostaWebGPU;
+  }catch(error){
+    ultimaOrigemResposta="webgpu";
+    console.error("[GUINHO] WebGPU:",error);
+    return "O motor WebGPU não conseguiu gerar a resposta.\n\nMotivo: "+(error?.message||"erro desconhecido")+"\n\nVerifique se o navegador oferece WebGPU e tente recarregar a página.";
+  }
+}
+
+
   const kaggle=await consultarKaggleOnline(texto);
   if(kaggle?.content){
     ultimaOrigemResposta="kaggle";
@@ -1137,7 +1170,7 @@ form.addEventListener("submit",async e=>{
     const resposta=adaptarModo(respostaBruta);
     add("bot",resposta);
     memoria.adicionar("assistant",resposta);
-    statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE":ultimaOrigemResposta==="kaggle"?"KAGGLE MCP":"MODO LOCAL";
+    statusText.textContent=ultimaOrigemResposta==="webgpu"?"WEBGPU":"MODO LOCAL";
     if(ultimaOrigemResposta==="local-fallback")showToast("IA online indisponível — usando o motor local.");
   }catch(err){
     ultimaOrigemResposta="local-fallback";
