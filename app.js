@@ -85,7 +85,12 @@ const memoria=new MemoriaSessao();
 const gerador=new GeradorEstatistico();
 const contexto=new ContextoConversacional();
 let modoAtual="standard";
-let ultimaOrigemResposta="local";
+let ultimaOrigemResposta="webgpu";
+
+const webgpuStatusInicial=statusWebGPU();
+if(statusText){
+  statusText.textContent=webgpuStatusInicial.supported?"WEBGPU READY":"WEBGPU INDISPONÍVEL";
+}
 
 function carregarAprendizadoEngenharia(){
   try{
