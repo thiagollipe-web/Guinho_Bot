@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title>Guinho-Bot</title><desc>Gato robótico pixelado em verde neon com olhos amarelos.</desc>
+<defs>
+ <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <filter id="soft" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="18" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="512" height="512" rx="58" fill="#000"/>
+<rect x="25" y="25" width="462" height="462" rx="52" fill="#010501" stroke="#16ff62" stroke-width="13" filter="url(#soft)"/>
+<g fill="none" stroke="#16ff62" stroke-width="15" stroke-linecap="square" stroke-linejoin="miter" filter="url(#glow)">
+ <path d="M72 176 L103 83 L155 119 L184 149 L215 163 H297 L328 149 L357 119 L409 83 L440 176"/>
+ <path d="M76 176 L57 233 L75 282"/>
+ <path d="M436 176 L455 233 L437 282"/>
+ <path d="M77 299 L55 332 L80 354"/>
+ <path d="M435 299 L457 332 L432 354"/>
+ <path d="M98 374 L78 407 L105 398"/>
+ <path d="M414 374 L434 407 L407 398"/>
+ <path d="M105 418 L142 405 L182 413 H330 L370 405 L407 418"/>
+ <path d="M114 435 L151 425 L185 432"/>
+ <path d="M398 435 L361 425 L327 432"/>
+ <path d="M169 208 Q204 184 235 208"/>
+ <path d="M277 208 Q308 184 343 208"/>
+ <path d="M172 224 Q151 243 163 269 Q180 286 201 275 Q212 260 208 238 Q196 220 172 224Z"/>
+ <path d="M340 224 Q361 243 349 269 Q332 286 311 275 Q300 260 304 238 Q316 220 340 224Z"/>
+ <path d="M256 282 V314"/>
+ <path d="M226 325 Q256 347 286 325"/>
+ <path d="M199 362 H313"/>
+ <path d="M184 391 H328"/>
+</g>
+<g fill="#ffd62e" stroke="#ffd62e" filter="url(#glow)">
+ <path d="M126 116 L126 168 L145 168 L145 133 L161 151 L175 139 L145 107 L145 116Z"/>
+ <path d="M386 116 L386 168 L367 168 L367 133 L351 151 L337 139 L367 107 L367 116Z"/>
+ <rect x="245" y="318" width="22" height="32" rx="4"/>
+ <path d="M239 350 H273 L286 367 L275 384 H237 L226 367Z"/>
+</g>
+<g fill="#16ff62" filter="url(#glow)">
+ <rect x="214" y="238" width="22" height="56" rx="3"/>
+ <rect x="276" y="238" width="22" height="56" rx="3"/>
+ <circle cx="201" cy="310" r="5"/><circle cx="311" cy="310" r="5"/>
+</g>
+</svg>
