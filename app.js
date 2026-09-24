@@ -89,8 +89,16 @@ let ultimaOrigemResposta="webgpu";
 
 const webgpuStatusInicial=statusWebGPU();
 if(statusText){
-  statusText.textContent=webgpuStatusInicial.supported?"WEBGPU READY":"WEBGPU INDISPONÍVEL";
+  statusText.textContent=webgpuStatusInicial.supported?"WEBGPU DISPONÍVEL":"WEBGPU INDISPONÍVEL";
 }
+window.addEventListener("guinho:webgpu-ready",event=>{
+  ultimaOrigemResposta="webgpu";
+  if(statusText)statusText.textContent="GEMMA • WEBGPU READY";
+});
+window.addEventListener("guinho:webgpu-progress",event=>{
+  const pct=Number(event.detail?.percent||0).toFixed(0);
+  if(statusText)statusText.textContent="CARREGANDO "+pct+"%";
+});
 
 function carregarAprendizadoEngenharia(){
   try{
@@ -879,7 +887,7 @@ async function responder(texto){
 
 
 function adaptarModo(resposta){
-  if(ultimaOrigemResposta==="openai")return resposta;
+  if(ultimaOrigemResposta!=="webgpu")return resposta;
   if(modoAtual==="standard")return resposta;
   if(modoAtual==="resumido"){
     const partes=resposta.split(/\n\n+/).filter(Boolean);
@@ -895,7 +903,7 @@ function adaptarModo(resposta){
     return "Vamos olhar para isso por outro ângulo.\n\n"+resposta;
   }
   if(modoAtual==="detalhado"){
-    return resposta+"\n\nModo detalhado: a resposta acima foi composta a partir das evidências locais recuperadas e da intenção identificada pelo motor probabilístico.";
+    return resposta+"\n\nModo detalhado: a resposta acima foi gerada pelo modelo local carregado via WebGPU.";
   }
   return resposta;
 }
