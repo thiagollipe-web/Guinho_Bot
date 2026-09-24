@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Guinho-Bot">
 <link rel="manifest" href="./manifest.json">
-<link rel="icon" href="./icon.svg">
+<link rel="icon" type="image/svg+xml" href="./logo.svg">
 <link rel="stylesheet" href="./styles.css">
 <title>Guinho-Bot — Companheiro de Programação</title>
 </head>
@@ -21,12 +21,7 @@
     <div class="sidebar-top">
       <button class="mobile-close" id="close-left" type="button" aria-label="Fechar menu">×</button>
       <div class="brand-lockup">
-        <div class="bot-avatar" aria-hidden="true">
-<pre>╭─────╮
-│ ◉ ◉ │
-│  ▄  │
-╰─┬─┬─╯</pre>
-        </div>
+        <div class="bot-avatar" aria-hidden="true"><img src="./logo.svg" alt="Guinho-Bot"></div>
         <div>
           <div class="eyebrow">COMPANHEIRO DE PROGRAMAÇÃO</div>
           <h1>Guinho-Bot</h1>
@@ -114,10 +109,13 @@
 
     <section class="chat-stage">
       <div class="welcome-strip">
-        <div>
+        <div class="welcome-brand">
+          <img class="welcome-logo" src="./logo.svg" alt="" aria-hidden="true">
+          <div>
           <div class="eyebrow">MOTOR DE RESPOSTA</div>
           <h2>Converse. Construa. Evolua.</h2>
           <p>Um companheiro de programação: conversa, entende seu projeto, cria código, corrige bugs e sugere próximos passos.</p>
+          </div>
         </div>
         <div class="engine-status">
           <span class="pulse"></span>
