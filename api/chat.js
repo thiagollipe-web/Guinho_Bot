@@ -7,6 +7,7 @@ const DEFAULT_MAX_TOKENS = 1200;
 const DEFAULT_MODEL = "gpt-5.6-luna";
 
 import { validarDependencias } from "../project-dependencies.js";
+import { groqChat } from "../groq-chat.js";
 
 const MAX_WORKSPACE_FILES = 16;
 const MAX_WORKSPACE_FILE_CHARS = 16000;
@@ -275,91 +276,80 @@ export async function chatHandler(request) {
     });
   }
 
-  const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
-  if (!apiKey) {
-    return safeError("Serviço de IA não configurado.", 503, true, headers);
-  }
+  const openaiKey = String(process.env.OPENAI_API_KEY || "").trim();
+  const groqKey = String(process.env.GROQ_API_KEY || "").trim();
+  const provider = String(process.env.AI_PROVIDER || "auto").trim().toLowerCase();
+  const model = String(
+    isEngineering
+      ? (process.env.GROQ_MODEL_ENGINEERING || process.env.GROQ_MODEL || "openai/gpt-oss-20b")
+      : (process.env.GROQ_MODEL || "openai/gpt-oss-20b")
+  ).trim();
 
-  const contentType = String(request.headers.get("content-type") || "").toLowerCase();
-  if (!contentType.includes("application/json")) {
-    return safeError("Content-Type deve ser application/json.", 415, false, headers);
-  }
-
-  const declaredLength = Number.parseInt(request.headers.get("content-length") || "", 10);
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
-    return safeError("Payload excede o limite permitido.", 413, false, headers);
-  }
-
-  let raw;
-  try {
-    raw = await request.text();
-  } catch {
-    return safeError("Não foi possível ler a requisição.", 400, false, headers);
-  }
-
-  if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
-    return safeError("Payload excede o limite permitido.", 413, false, headers);
-  }
-
-  let body;
-  try {
-    body = JSON.parse(raw);
-  } catch {
-    return safeError("JSON inválido.", 400, false, headers);
-  }
-
-  const validation = validateMessages(body?.messages);
-  if (!validation.ok) {
-    return safeError(validation.error, validation.status, validation.retryable, headers);
-  }
-
-  const model = String(process.env.OPENAI_MODEL || DEFAULT_MODEL).trim();
-  const isEngineering = body?.mode === "engineering";
-  let engineeringWorkspace = null;
-  if (isEngineering) {
-    const workspaceValidation = validateWorkspace(body?.workspace);
-    if (!workspaceValidation.ok) {
-      return safeError(workspaceValidation.error, workspaceValidation.status, workspaceValidation.retryable, headers);
-    }
-    engineeringWorkspace = workspaceValidation.workspace;
+  if (!openaiKey && !groqKey) {
+    return safeError("Nenhum provedor de IA está configurado.", 503, true, headers);
   }
 
   const timeoutMs = parseLimit(process.env.AI_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 1000, 30000);
   const maxTokens = parseLimit(process.env.AI_MAX_TOKENS, DEFAULT_MAX_TOKENS, 64, 4000);
-  const timeout = createTimeoutSignal(timeoutMs);
 
-  try {
-    const upstream = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
+  let content = "";
+  let usedProvider = "";
+
+  if (provider === "groq" || (provider === "auto" && groqKey) || !openaiKey) {
+    try {
+      content = await groqChat({
+        apiKey: groqKey,
         model,
-        instructions: isEngineering ? buildEngineeringInstructions() : "Você é o Guinho, um companheiro de programação em português do Brasil, inspirado no estilo conversacional da ELIZA: converse naturalmente, faça perguntas quando faltarem informações, mantenha o contexto do projeto e ajude o usuário a transformar ideias em software. Seu foco é programação. Reconheça linguagens, frameworks e ferramentas. Pode criar, explicar, analisar, corrigir, refatorar, testar, otimizar e sugerir melhorias. Não imponha decisões: apresente opções e deixe a escolha ao usuário. Quando a tarefa estiver ambígua, pergunte primeiro. Ao gerar código, entregue código utilizável e explique somente o necessário. Preserve blocos de código em Markdown quando forem úteis. Não invente que executou código, acessou arquivos, consultou a internet ou serviços que não foram fornecidos. Se não puder verificar algo, diga isso claramente. Quando o pedido não for relacionado a programação ou desenvolvimento de software, redirecione brevemente a conversa para esse domínio em vez de responder ao assunto externo. Seja preciso, colaborativo e incremental.",
-        input: isEngineering
-          ? [{ role: "user", content: JSON.stringify({ request: validation.messages.at(-1)?.content || "", workspace: engineeringWorkspace }) }]
+        messages: isEngineering
+          ? [{ role: "system", content: buildEngineeringInstructions() }, { role: "user", content: JSON.stringify({ request: validation.messages.at(-1)?.content || "", workspace: engineeringWorkspace }) }]
           : validation.messages,
-        max_output_tokens: maxTokens,
-        ...(isEngineering ? { text: { format: projectPatchFormat() } } : {})
-      }),
-      signal: timeout.signal
-    });
-
-    const providerData = await upstream.json().catch(() => null);
-
-    if (!upstream.ok) {
-      if (upstream.status === 429) {
-        return safeError("O serviço de IA atingiu um limite temporário ou de uso.", 503, true, headers);
+        maxTokens,
+        timeoutMs,
+        engineering: isEngineering,
+        schema: isEngineering ? projectPatchFormat() : null
+      });
+      usedProvider = "groq";
+    } catch (error) {
+      if (provider === "groq" || !openaiKey) {
+        return safeError("O provedor Groq está indisponível no momento.", 502, true, headers);
       }
-      if (upstream.status === 401 || upstream.status === 403) {
-        return safeError("O serviço de IA não está autorizado ou configurado.", 503, false, headers);
-      }
-      return safeError("O serviço de IA está indisponível no momento.", 502, true, headers);
+      console.warn("[GUINHO] Groq falhou; usando OpenAI como fallback:", error?.message || error);
     }
+  }
 
-    const content = extractResponseText(providerData);
+  if (!content && openaiKey) {
+    const timeout = createTimeoutSignal(timeoutMs);
+    try {
+      const upstream = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiKey}`
+        },
+        body: JSON.stringify({
+          model: String(process.env.OPENAI_MODEL || DEFAULT_MODEL).trim(),
+          instructions: isEngineering ? buildEngineeringInstructions() : "Você é o Guinho, um companheiro de programação em português do Brasil. Ajude com programação de forma precisa e colaborativa.",
+          input: isEngineering
+            ? [{ role: "user", content: JSON.stringify({ request: validation.messages.at(-1)?.content || "", workspace: engineeringWorkspace }) }]
+            : validation.messages,
+          max_output_tokens: maxTokens,
+          ...(isEngineering ? { text: { format: projectPatchFormat() } } : {})
+        }),
+        signal: timeout.signal
+      });
+      const providerData = await upstream.json().catch(() => null);
+      if (!upstream.ok) return safeError("O serviço OpenAI está indisponível no momento.", 502, true, headers);
+      content = extractResponseText(providerData);
+      usedProvider = "openai";
+    } catch (error) {
+      if (error?.name === "AbortError") return safeError("A consulta à IA excedeu o tempo limite.", 504, true, headers);
+      return safeError("Não foi possível consultar os provedores de IA.", 502, true, headers);
+    } finally {
+      timeout.clear();
+    }
+  }
+
+  const content = extractResponseText(providerData);
     if (!content) {
       return safeError("O serviço de IA não retornou conteúdo.", 502, true, headers);
     }
@@ -396,7 +386,7 @@ export async function chatHandler(request) {
         mode: "engineering",
         patch: patchValidation.patch,
         content: patchValidation.patch.summary || "Patch de engenharia gerado.",
-        provider: "openai",
+        provider: usedProvider,
         model
       }, 200, headers);
     }
@@ -404,7 +394,7 @@ export async function chatHandler(request) {
     return json({
       ok: true,
       content,
-      provider: "openai",
+      provider: usedProvider,
       model
     }, 200, headers);
   } catch (error) {
