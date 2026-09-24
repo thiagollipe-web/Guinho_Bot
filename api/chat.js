@@ -110,7 +110,11 @@ async function groqChat({ apiKey, model, messages, maxTokens = 1200, timeoutMs =
       signal: controller.signal
     });
     const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error("Groq HTTP " + response.status + ": " + (data?.error?.message || "erro desconhecido"));
+    if (!response.ok) {
+      const error = new Error("Groq HTTP " + response.status + ": " + (data?.error?.message || "erro desconhecido"));
+      error.status = response.status;
+      throw error;
+    }
     const text = data?.choices?.[0]?.message?.content?.trim();
     if (!text) throw new Error("Groq retornou conteúdo vazio.");
     return text;
@@ -330,6 +334,11 @@ export async function chatHandler(request) {
       content = await groqChat({ apiKey: groqKey, model: groqModel, messages, maxTokens, timeoutMs, engineering: isEngineering, schema: isEngineering ? projectPatchFormat() : null });
       usedProvider = "groq";
     } catch (error) {
+      console.error("[GUINHO] Groq request failed:", {
+        name: error?.name || "Error",
+        message: error?.message || String(error),
+        status: Number.isFinite(error?.status) ? error.status : null
+      });
       if (provider === "groq" || !openaiKey) {
         if (error?.name === "AbortError") return safeError("A consulta ao Groq excedeu o tempo limite.", 504, true, headers);
         return safeError("O provedor Groq está indisponível no momento.", 502, true, headers);
