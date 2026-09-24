@@ -123,6 +123,31 @@ async function groqChat({ apiKey, model, messages, maxTokens = 1200, timeoutMs =
   }
 }
 
+async function ollamaChat({ baseUrl = "http://127.0.0.1:11434", model = "gemma3:270m", messages, maxTokens = 1200, timeoutMs = 25000 }) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const prompt = messages.map(message => `${message.role}: ${message.content}`).join("\n\n");
+    const response = await fetch(String(baseUrl).replace(/\/$/, "") + "/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model, prompt, stream: false, options: { num_predict: maxTokens } }),
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = new Error("Ollama HTTP " + response.status + ": " + (data?.error || "erro desconhecido"));
+      error.status = response.status;
+      throw error;
+    }
+    const text = data?.response?.trim();
+    if (!text) throw new Error("Ollama retornou conteúdo vazio.");
+    return text;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function projectPatchFormat() {
   return {
     type: "json_schema",
@@ -306,6 +331,8 @@ export async function chatHandler(request) {
 
   const openaiKey = String(process.env.OPENAI_API_KEY || "").trim();
   const groqKey = String(process.env.GROQ_API_KEY || "").trim();
+  const ollamaBaseUrl = String(process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").trim();
+  const ollamaModel = String(isEngineering ? (process.env.OLLAMA_MODEL_ENGINEERING || process.env.OLLAMA_MODEL || "gemma3:270m") : (process.env.OLLAMA_MODEL || "gemma3:270m")).trim();
   const provider = String(process.env.AI_PROVIDER || "auto").trim().toLowerCase();
   const isEngineering = body?.mode === "engineering";
 
@@ -316,7 +343,8 @@ export async function chatHandler(request) {
     engineeringWorkspace = workspaceValidation.workspace;
   }
 
-  if (!openaiKey && !groqKey) return safeError("Nenhum provedor de IA está configurado.", 503, true, headers);
+  const ollamaEnabled = provider === "ollama" || provider === "auto" || (!openaiKey && !groqKey);
+  if (!openaiKey && !groqKey && !ollamaEnabled) return safeError("Nenhum provedor de IA está configurado.", 503, true, headers);
 
   const groqModel = String(isEngineering ? (process.env.GROQ_MODEL_ENGINEERING || process.env.GROQ_MODEL || "openai/gpt-oss-20b") : (process.env.GROQ_MODEL || "openai/gpt-oss-20b")).trim();
   const openaiModel = String(process.env.OPENAI_MODEL || DEFAULT_MODEL).trim();
@@ -376,6 +404,15 @@ export async function chatHandler(request) {
       return safeError("Não foi possível consultar os provedores de IA.", 502, true, headers);
     } finally {
       timeout.clear();
+    }
+  }
+
+  if (!content && ollamaEnabled) {
+    try {
+      content = await ollamaChat({ baseUrl: ollamaBaseUrl, model: ollamaModel, messages, maxTokens, timeoutMs });
+      usedProvider = "ollama";
+    } catch (error) {
+      console.error("[GUINHO] Ollama request failed:", { name: error?.name || "Error", message: error?.message || String(error), status: Number.isFinite(error?.status) ? error.status : null });
     }
   }
 
