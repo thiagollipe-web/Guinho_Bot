@@ -17,7 +17,8 @@ const server=http.createServer(async(req,res)=>{
         ok:true,
         service:"guinho-gateway",
         platform:"android-termux",
-        kaggle:Boolean(process.env.KAGGLE_API_TOKEN)
+        kaggle:Boolean(process.env.KAGGLE_API_TOKEN),
+        groq:Boolean(process.env.GROQ_API_KEY)
       }));
       return;
     }
@@ -70,6 +71,7 @@ server.listen(PORT,HOST,()=>{
   console.log(`Health: http://${HOST}:${PORT}/health`);
   console.log(`Chat:   http://${HOST}:${PORT}/api/chat`);
   console.log(`Kaggle: http://${HOST}:${PORT}/api/kaggle`);
-  console.log(`Token:  ${process.env.KAGGLE_API_TOKEN?"configurado":"ausente"}`);
+  console.log(`Groq:   ${process.env.GROQ_API_KEY?"configurado":"ausente"}`);
+  console.log(`Kaggle: ${process.env.KAGGLE_API_TOKEN?"configurado":"ausente"}`);
   console.log("");
 });
