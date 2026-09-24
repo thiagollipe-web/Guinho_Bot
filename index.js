@@ -1,257 +1,114 @@
-// Carrega as variáveis definidas no arquivo .env.
 import "dotenv/config";
-
-// Importa o cliente oficial do Ollama para Node.js.
 import { Ollama } from "ollama";
-
-// Importa o gerador de QR Code para o terminal.
 import qrcode from "qrcode-terminal";
-
-// Importa o cliente do WhatsApp Web e a autenticação local.
 import pkg from "whatsapp-web.js";
 
-// Extrai as classes usadas pelo bot.
 const { Client, LocalAuth } = pkg;
-
-// Define o endereço local do serviço Ollama.
+const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
+const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
+const GROQ_BASE_URL = process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1";
 const OLLAMA_HOST = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
-
-// Define o modelo que será usado pelo assistente.
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "codegemma:instruct";
-
-// Define quantas mensagens anteriores serão preservadas por conversa.
 const HISTORY_LIMIT = Math.max(2, Number.parseInt(process.env.HISTORY_LIMIT || "10", 10) || 10);
-
-// Cria um cliente Ollama conectado ao servidor local.
+const DEFAULT_PROVIDER = (process.env.AI_PROVIDER || "auto").toLowerCase();
 const ollama = new Ollama({ host: OLLAMA_HOST });
-
-// Guarda o histórico recente separado por chat do WhatsApp.
 const histories = new Map();
 
-// Define o comportamento do CodeGemma.
-const SYSTEM_PROMPT = [
-  "Você é o Guinho, um Programador Sênior Pragmático.",
-  "Ajude o usuário com programação, desenvolvimento web, scripts e depuração.",
-  "Responda em português do Brasil, salvo pedido explícito por outro idioma.",
-  "Seja direto, limpo, estruturado e tecnicamente preciso.",
-  "Priorize soluções práticas e código pronto para copiar.",
-  "Use blocos de código com três crases e identifique a linguagem quando possível.",
-  "Formate tudo para leitura rápida no WhatsApp.",
-  "Evite tabelas complexas, introduções longas e explicações desnecessárias.",
-  "Quando receber código com erro, explique a causa e mostre a correção.",
-  "Nunca invente APIs, bibliotecas, funções ou resultados de execução."
-].join("\n");
+const SYSTEM_PROMPT = "Você é o Guinho, um Programador Sênior Pragmático. Responda em português do Brasil. Ajude com programação, desenvolvimento web e depuração. Seja direto e tecnicamente preciso. Priorize código pronto para copiar. Use blocos de código. Nunca invente APIs, bibliotecas, funções ou resultados.";
 
-// Cria o cliente do WhatsApp.
 const client = new Client({
-  // Salva a sessão localmente para reutilizar a autenticação.
-  authStrategy: new LocalAuth({
-    clientId: "guinho-codegemma"
-  }),
-
-  // Configura o Chromium usado pelo whatsapp-web.js.
-  puppeteer: {
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage"
-    ]
-  }
+  authStrategy: new LocalAuth({ clientId: "guinho-codegemma" }),
+  puppeteer: { headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"] }
 });
 
-// Obtém o histórico de uma conversa.
-function getHistory(chatId) {
-  return histories.has(chatId) ? [...histories.get(chatId)] : [];
+function history(id) { return histories.has(id) ? [...histories.get(id)] : []; }
+function save(id, messages) {
+  const h = histories.get(id) || [];
+  h.push(...messages);
+  while (h.length > HISTORY_LIMIT) h.shift();
+  histories.set(id, h);
+}
+function messages(id, prompt) {
+  return [{ role: "system", content: SYSTEM_PROMPT }, ...history(id), { role: "user", content: prompt }];
 }
 
-// Adiciona uma mensagem ao histórico e limita seu tamanho.
-function pushHistory(chatId, message) {
-  const history = histories.get(chatId) || [];
-  history.push(message);
-
-  while (history.length > HISTORY_LIMIT) {
-    history.shift();
-  }
-
-  histories.set(chatId, history);
-}
-
-// Consulta o CodeGemma com histórico e system prompt.
-async function askCodeGemma(chatId, prompt) {
-  const messages = [
-    {
-      role: "system",
-      content: SYSTEM_PROMPT
-    },
-    ...getHistory(chatId),
-    {
-      role: "user",
-      content: prompt
-    }
-  ];
-
-  // stream:false faz a função aguardar a resposta completa.
-  const response = await ollama.chat({
-    model: OLLAMA_MODEL,
-    messages,
-    stream: false,
-    options: {
-      temperature: 0.2,
-      num_predict: 768
-    }
+async function askGroq(id, prompt) {
+  if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY não configurada.");
+  const r = await fetch(GROQ_BASE_URL + "/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + GROQ_API_KEY },
+    body: JSON.stringify({ model: GROQ_MODEL, messages: messages(id, prompt), temperature: 0.2, max_completion_tokens: 2048 })
   });
-
-  const answer = response?.message?.content?.trim();
-
-  if (!answer) {
-    throw new Error("O Ollama retornou uma resposta vazia.");
-  }
-
-  // Salva somente mensagens que chegaram a uma resposta válida.
-  pushHistory(chatId, {
-    role: "user",
-    content: prompt
-  });
-
-  pushHistory(chatId, {
-    role: "assistant",
-    content: answer
-  });
-
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error("Groq: " + (data?.error?.message || "HTTP " + r.status));
+  const answer = data?.choices?.[0]?.message?.content?.trim();
+  if (!answer) throw new Error("Groq retornou resposta vazia.");
+  save(id, [{ role: "user", content: prompt }, { role: "assistant", content: answer }]);
   return answer;
 }
 
-// Testa o Ollama na inicialização sem impedir o WhatsApp de iniciar.
-async function checkOllama() {
-  try {
-    const result = await ollama.list();
-    const models = Array.isArray(result?.models) ? result.models : [];
-    const installed = models.some((model) => model?.name === OLLAMA_MODEL);
+async function askOllama(id, prompt) {
+  const r = await ollama.chat({ model: OLLAMA_MODEL, messages: messages(id, prompt), stream: false, options: { temperature: 0.2, num_predict: 768 } });
+  const answer = r?.message?.content?.trim();
+  if (!answer) throw new Error("Ollama retornou resposta vazia.");
+  save(id, [{ role: "user", content: prompt }, { role: "assistant", content: answer }]);
+  return answer;
+}
 
-    console.log("Ollama:", OLLAMA_HOST);
-    console.log("Modelo:", OLLAMA_MODEL);
-
-    if (installed) {
-      console.log("CodeGemma encontrado no Ollama.");
-    } else {
-      console.warn("Modelo não encontrado. Execute: ollama pull " + OLLAMA_MODEL);
-    }
-  } catch (error) {
-    console.warn("Ollama não está acessível agora.");
-    console.warn("O bot continuará iniciando e avisará o usuário quando !code for usado.");
-    console.warn("Detalhe:", error?.message || error);
+async function askAI(id, prompt, provider = DEFAULT_PROVIDER) {
+  if (provider === "groq") return { provider: "Groq", answer: await askGroq(id, prompt) };
+  if (provider === "ollama" || provider === "local") return { provider: "Ollama", answer: await askOllama(id, prompt) };
+  try { return { provider: "Groq", answer: await askGroq(id, prompt) }; }
+  catch (e) {
+    console.warn("Groq indisponível; fallback para Ollama:", e.message);
+    return { provider: "Ollama", answer: await askOllama(id, prompt) };
   }
 }
 
-// Exibe o QR Code no terminal quando uma nova autenticação for necessária.
-client.on("qr", (qr) => {
-  console.log("\nEscaneie este QR Code no WhatsApp:");
-  qrcode.generate(qr, { small: true });
-});
+async function checkAI() {
+  console.log("Guinho WhatsApp + Router Groq/Ollama");
+  console.log("Provider:", DEFAULT_PROVIDER);
+  console.log("Groq:", GROQ_API_KEY ? GROQ_MODEL : "sem chave");
+  try {
+    const r = await ollama.list();
+    console.log("Ollama:", (r.models || []).map(m => m.name).join(", ") || "nenhum modelo");
+  } catch (e) { console.warn("Ollama indisponível:", e.message); }
+}
 
-// Confirma a autenticação.
-client.on("authenticated", () => {
-  console.log("WhatsApp autenticado.");
-});
+client.on("qr", qr => { console.log("Escaneie o QR Code:"); qrcode.generate(qr, { small: true }); });
+client.on("authenticated", () => console.log("WhatsApp autenticado."));
+client.on("ready", () => console.log("Bot conectado!"));
+client.on("auth_failure", e => console.error("Falha WhatsApp:", e));
+client.on("disconnected", r => console.warn("WhatsApp desconectado:", r));
 
-// Confirma que o cliente está pronto.
-client.on("ready", () => {
-  console.log("Bot conectado!");
-});
-
-// Registra falhas de autenticação.
-client.on("auth_failure", (error) => {
-  console.error("Falha na autenticação do WhatsApp:", error);
-});
-
-// Registra desconexões.
-client.on("disconnected", (reason) => {
-  console.warn("WhatsApp desconectado:", reason);
-});
-
-// Recebe mensagens e filtra apenas o comando !code.
-client.on("message", async (message) => {
-  // Evita responder a mensagens enviadas pelo próprio cliente.
-  if (message.fromMe) {
-    return;
-  }
-
-  // Normaliza o texto recebido.
+client.on("message", async message => {
+  if (message.fromMe) return;
   const body = String(message.body || "").trim();
+  if (!body.toLowerCase().startsWith("!code")) return;
 
-  // O bot só responde se a mensagem começar com "!code ".
-  if (!body.toLowerCase().startsWith("!code ")) {
-    return;
-  }
+  const parts = body.split(/\s+/);
+  let provider = DEFAULT_PROVIDER;
+  let start = 1;
+  const route = (parts[1] || "").toLowerCase();
+  if (["groq", "!groq"].includes(route)) { provider = "groq"; start = 2; }
+  else if (["local", "!local", "ollama"].includes(route)) { provider = "ollama"; start = 2; }
+  else if (["auto", "!auto"].includes(route)) { provider = "auto"; start = 2; }
 
-  // Remove o comando e mantém somente a pergunta.
-  const prompt = body.slice("!code ".length).trim();
-
-  // Rejeita consultas vazias.
-  if (!prompt) {
-    await message.reply("Use assim: !code sua pergunta de programação");
-    return;
-  }
-
-  // Usa o identificador do chat para manter histórico separado.
-  const chatId = message.from;
+  const prompt = parts.slice(start).join(" ").trim();
+  if (!prompt) return message.reply("Use: !code sua pergunta\nRotas: !code groq ... | !code local ... | !code auto ...");
 
   try {
-    // Informa que o modelo local está processando.
-    await message.reply("Consultando o CodeGemma local...");
-
-    // Aguarda a resposta completa do Ollama.
-    const answer = await askCodeGemma(chatId, prompt);
-
-    // Envia a resposta completa ao usuário.
-    await message.reply(answer);
-  } catch (error) {
-    // Mantém o erro detalhado no terminal para diagnóstico.
-    console.error("Erro ao consultar o Ollama:", error);
-
-    // Normaliza a mensagem para detectar erros conhecidos.
-    const detail = String(error?.message || error).toLowerCase();
-
-    // Mensagem padrão para Ollama parado ou indisponível.
-    let friendlyMessage =
-      "Não consegui consultar o CodeGemma local agora. Verifique se o Ollama está aberto e tente novamente.";
-
-    // Mensagem específica quando o modelo não está instalado.
-    if (detail.includes("not found") || (detail.includes("model") && detail.includes("pull"))) {
-      friendlyMessage =
-        "O modelo " + OLLAMA_MODEL + " não está instalado. Execute no terminal: ollama pull " + OLLAMA_MODEL;
-    }
-
-    // Envia o diagnóstico amigável ao WhatsApp.
-    await message.reply(friendlyMessage);
+    await message.reply(provider === "groq" ? "Consultando o Groq..." : provider === "ollama" ? "Consultando a IA local..." : "Consultando o Guinho...");
+    const result = await askAI(message.from, prompt, provider);
+    await message.reply("[" + result.provider + "]\n\n" + result.answer);
+  } catch (e) {
+    console.error("Erro IA:", e);
+    await message.reply("Não consegui obter uma resposta. Configure GROQ_API_KEY ou deixe o Ollama ativo.\n\n" + e.message);
   }
 });
 
-// Trata encerramento pelo terminal.
-process.on("SIGINT", async () => {
-  console.log("\nEncerrando o Guinho...");
-  await client.destroy();
-  process.exit(0);
-});
-
-// Trata encerramento pelo sistema operacional.
-process.on("SIGTERM", async () => {
-  console.log("\nEncerrando o Guinho...");
-  await client.destroy();
-  process.exit(0);
-});
-
-// Mostra a configuração principal.
-console.log("========================================");
-console.log("Guinho WhatsApp + CodeGemma + Ollama");
-console.log("========================================");
-console.log("Modelo:", OLLAMA_MODEL);
-console.log("Ollama:", OLLAMA_HOST);
-console.log("Comando: !code ");
-
-// Verifica o serviço local.
-await checkOllama();
-
-// Inicializa o WhatsApp.
+async function shutdown() { await client.destroy(); process.exit(0); }
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+await checkAI();
 client.initialize();
