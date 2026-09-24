@@ -7,7 +7,6 @@ const DEFAULT_MAX_TOKENS = 1200;
 const DEFAULT_MODEL = "gpt-5.6-luna";
 
 import { validarDependencias } from "../project-dependencies.js";
-import { groqChat } from "../groq-chat.js";
 
 const MAX_WORKSPACE_FILES = 16;
 const MAX_WORKSPACE_FILE_CHARS = 16000;
@@ -92,6 +91,34 @@ export function validateWorkspacePatch(patch, workspace = {}) {
       files: normalized
     }
   };
+}
+
+async function groqChat({ apiKey, model, messages, maxTokens = 1200, timeoutMs = 25000, engineering = false, schema = null }) {
+  if (!apiKey) throw new Error("GROQ_API_KEY não configurada.");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const body = { model, messages, temperature: 0.2, max_completion_tokens: maxTokens, stream: false, include_reasoning: false };
+    if (engineering && schema) {
+      body.response_format = {
+        type: "json_schema",
+        json_schema: { name: schema.name, strict: true, schema: schema.schema }
+      };
+    }
+    const response = await fetch((process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1") + "/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error("Groq HTTP " + response.status + ": " + (data?.error?.message || "erro desconhecido"));
+    const text = data?.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error("Groq retornou conteúdo vazio.");
+    return text;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function projectPatchFormat() {
