@@ -8,6 +8,7 @@ O código não embute nenhum modelo no Git. O APK procura os arquivos em:
 
 Os IDs usados pelo router são:
 
+- `gemma-270m` — Gemma 3 270M IT
 - `qwen-0.5b`
 - `qwen-1.5b`
 - `nemotron-4b`
@@ -20,6 +21,12 @@ adb push modelo.gguf /data/data/com.thiagollipe.guinho/files/models/qwen-0.5b.gg
 ```
 
 Para uso normal no APK, selecione o modelo no campo de modelo e toque em `Adicionar GGUF`. O Android abre o seletor nativo, valida a extensão `.gguf`, copia o arquivo para o armazenamento privado do aplicativo e informa o progresso da importação. O arquivo não é enviado para Vercel/Ollama.
+
+O arquivo que você possui pode ser selecionado diretamente em `Downloads`:
+
+`gemma-3-270m-it-UD-Q8_K_XL.gguf`
+
+No APK, escolha `Gemma 3 270M` → `Adicionar GGUF` → selecione o arquivo em Downloads. O app copia o GGUF para o armazenamento privado e o runtime usa esse arquivo localmente. O nome original não precisa ser alterado.
 
 ## Build
 
