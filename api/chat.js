@@ -359,7 +359,8 @@ export async function chatHandler(request) {
         if (upstream.status === 401 || upstream.status === 403) return safeError("O serviço de IA não está autorizado ou configurado.", 503, false, headers);
         return safeError("O serviço de IA está indisponível no momento.", 502, true, headers);
       }
-      content = extractResponseText(providerData);
+      const openaiContent = extractResponseText(providerData);
+      content = openaiContent;
       usedProvider = "openai";
     } catch (error) {
       if (error?.name === "AbortError") return safeError("A consulta à IA excedeu o tempo limite.", 504, true, headers);
