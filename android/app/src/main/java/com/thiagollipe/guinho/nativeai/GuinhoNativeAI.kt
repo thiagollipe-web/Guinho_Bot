@@ -8,8 +8,9 @@ import java.io.File
 
 class GuinhoNativeAI(private val context: Context, private val filesDir: File, private val openPicker: (String) -> Unit) {
     companion object {
-        private val MODEL_IDS = listOf("qwen-0.5b", "qwen-1.5b", "nemotron-4b")
+        private val MODEL_IDS = listOf("gemma-270m", "qwen-0.5b", "qwen-1.5b", "nemotron-4b")
         private val MODEL_NAMES = mapOf(
+            "gemma-270m" to "Gemma 3 270M IT (GGUF)",
             "qwen-0.5b" to "Qwen2.5-Coder 0.5B",
             "qwen-1.5b" to "Qwen2.5-Coder 1.5B",
             "nemotron-4b" to "NVIDIA Nemotron 3 Nano 4B"
@@ -99,6 +100,7 @@ class GuinhoNativeAI(private val context: Context, private val filesDir: File, p
         val exact = File(modelsDir, "$modelId.gguf")
         if (exact.isFile) return exact
         val aliases = when (modelId) {
+            "gemma-270m" -> listOf("gemma", "270m")
             "qwen-0.5b" -> listOf("qwen", "0.5b")
             "qwen-1.5b" -> listOf("qwen", "1.5b")
             "nemotron-4b" -> listOf("nemotron", "nano", "4b")
