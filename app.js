@@ -19,8 +19,6 @@ import { normalizarArquivosImportados, validarDependencias, arquivosRelacionados
 import { criarTokenRuntime, montarDocumentoSandbox, validarEventoRuntime, interpretarEventoRuntime } from "./sandbox-runtime.js";
 import { MAX_RUNTIME_AUTOFIX, deveAutocorrigirRuntime, proximaTentativaRuntime, construirPedidoAutocorrecao } from "./runtime-autofix.js";
 import { criarSnapshot, registrarSnapshot, desfazerWorkspace, removerUltimoSnapshot, salvarHistoricoWorkspace, carregarHistoricoWorkspace, resumoHistoricoWorkspace } from "./workspace-history.js";
-import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
-import { pesquisarKaggle } from "./kaggle-client.js";
 import { gerarWebGPU, statusWebGPU } from "./webgpu-engine.js";
 
 const chat=document.querySelector("#chat");
@@ -684,71 +682,46 @@ function historicoParaIA(){
     .map(item=>({role:item.role,content:String(item.content||"").slice(0,12000)}));
 }
 
-async function consultarKaggleOnline(texto){
-  try{
-    const resultado=await pesquisarKaggle(texto);
-    if(!resultado)return null;
-    return {content:resultado.text,provider:"kaggle-mcp",model:resultado.tool||""};
-  }catch{
-    return null;
-  }
-}
-
-async function consultarIAOnline(texto){
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),AI_CHAT_TIMEOUT_MS);
-  try{
-    const mensagens=historicoParaIA();
-    if(!mensagens.length||mensagens.at(-1)?.content!==texto){
-      mensagens.push({role:"user",content:texto});
-    }
-    const response=await fetch(AI_CHAT_URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({messages:mensagens.slice(-12)}),
-      signal:controller.signal
-    });
-    const data=await response.json().catch(()=>null);
-    const content=typeof data?.content==="string"?data.content.trim():"";
-    if(!response.ok||data?.ok!==true||!content)return null;
-    return {content,provider:data.provider||"openai",model:data.model||""};
-  }catch{
-    return null;
-  }finally{
-    clearTimeout(timer);
-  }
-}
-
 async function consultarIAEngenharia(texto,runtime=null){
   if(!workspaceEngenharia||!Object.keys(workspaceEngenharia.files||{}).length)return null;
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),AI_CHAT_TIMEOUT_MS);
+
+  const arquivos=Object.entries(workspaceEngenharia.files)
+    .slice(0,12)
+    .map(([path,content])=>({path,content:String(content||"").slice(0,12000)}));
+
+  const pedido=[
+    "Você é o agente de engenharia do Guinho-Bot.",
+    "Gere uma correção aplicável ao projeto descrito abaixo.",
+    "Responda SOMENTE com JSON válido, sem Markdown.",
+    'Formato obrigatório: {"summary":"...","next_task":"...","files":[{"path":"arquivo.ext","content":"conteúdo completo do arquivo"}]}',
+    "Não inclua arquivos desnecessários. No máximo 8 arquivos.",
+    "Preserve o código existente quando não houver necessidade de alteração.",
+    "Não invente APIs ou resultados de execução.",
+    "Projeto:",
+    JSON.stringify({
+      name:workspaceEngenharia.nome||"Projeto Guinho",
+      language:workspaceEngenharia.linguagem||"JavaScript",
+      files:arquivos,
+      dependencies:validarDependencias(workspaceEngenharia.files),
+      runtime:runtime||workspaceEngenharia.runtime||null,
+      request:String(texto||"")
+    })
+  ].join("\n");
+
   try{
-    const mensagens=historicoParaIA();
-    if(!mensagens.length||mensagens.at(-1)?.content!==texto)mensagens.push({role:"user",content:texto});
-    const response=await fetch(AI_CHAT_URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        mode:"engineering",
-        messages:mensagens.slice(-12),
-        workspace:{
-          name:workspaceEngenharia.nome||"Projeto Guinho",
-          language:workspaceEngenharia.linguagem||"JavaScript",
-          files:workspaceEngenharia.files,
-          dependencies:validarDependencias(workspaceEngenharia.files),
-          runtime:runtime||workspaceEngenharia.runtime||null
-        }
-      }),
-      signal:controller.signal
+    const raw=await gerarWebGPU({
+      message:pedido,
+      history:historicoParaIA(),
+      mode:"detalhado"
     });
-    const data=await response.json().catch(()=>null);
-    if(!response.ok||data?.ok!==true||data?.mode!=="engineering"||!data.patch)return null;
-    return data.patch;
-  }catch{
+    const match=String(raw||"").match(/\{[\s\S]*\}/);
+    if(!match)return null;
+    const patch=JSON.parse(match[0]);
+    if(!patch||!Array.isArray(patch.files)||patch.files.length>8)return null;
+    return patch;
+  }catch(error){
+    console.error("[GUINHO] Engenharia WebGPU:",error);
     return null;
-  }finally{
-    clearTimeout(timer);
   }
 }
 
@@ -976,7 +949,7 @@ function renderTextoMensagem(box,text){
 function add(role,text){
   const el=document.createElement("div");el.className="line "+(role==="user"?"user":"bot");
   const meta=document.createElement("div");meta.className="meta";
-  meta.textContent=role==="user"?"VOCÊ >":ultimaOrigemResposta==="openai"?"GUINHO • IA ONLINE >":ultimaOrigemResposta==="kaggle"?"GUINHO • KAGGLE >":"GUINHO • MOTOR LOCAL >";
+  meta.textContent=role==="user"?"VOCÊ >":"GUINHO • GEMMA WEBGPU >";
   const box=document.createElement("div");box.className="bubble";
   const fonteIndex=text.indexOf("\n\nBase local:");
   if(role==="bot"&&fonteIndex>=0){
@@ -1003,14 +976,13 @@ form.addEventListener("submit",async e=>{
     const resposta=adaptarModo(respostaBruta);
     add("bot",resposta);
     memoria.adicionar("assistant",resposta);
-    statusText.textContent=ultimaOrigemResposta==="webgpu"?"WEBGPU":"MODO LOCAL";
-    if(ultimaOrigemResposta==="local-fallback")showToast("IA online indisponível — usando o motor local.");
+    statusText.textContent="GEMMA • WEBGPU READY";
   }catch(err){
-    ultimaOrigemResposta="local-fallback";
-    add("bot","O serviço online não respondeu. O motor local permanece disponível, mas ocorreu um erro ao gerar a resposta local: "+(err?.message||"erro desconhecido"));
+    ultimaOrigemResposta="webgpu";
+    add("bot","O motor WebGPU encontrou um erro inesperado: "+(err?.message||"erro desconhecido"));
   }finally{
     buttons.forEach(b=>b.disabled=false);
-    setTimeout(()=>{statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE":ultimaOrigemResposta==="kaggle"?"KAGGLE MCP":"LOCAL READY";},1800);
+    setTimeout(()=>{statusText.textContent=statusWebGPU().loaded?"GEMMA • WEBGPU READY":statusWebGPU().supported?"WEBGPU • SELECIONE O MODELO":"WEBGPU INDISPONÍVEL";},1800);
     input.focus();
   }
 });
