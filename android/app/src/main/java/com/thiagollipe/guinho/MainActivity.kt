@@ -27,7 +27,9 @@ class MainActivity : AppCompatActivity() {
         NativeLlama.init()
         nativeAI = GuinhoNativeAI(this, filesDir) { modelId ->
             pendingModelId = modelId
-            openModel.launch(arrayOf("application/octet-stream", "application/x-gguf", "*/*"))
+            runOnUiThread {
+                openModel.launch(arrayOf("application/octet-stream", "application/x-gguf", "*/*"))
+            }
         }
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
