@@ -84,15 +84,47 @@ export class Memory{
  clear(){this.data={facts:[],history:[],learned:[],factMeta:[]};this.save()}
  snapshot(){return{format:"guinho-memory",version:3,facts:[...this.data.facts],history:[...this.data.history],learned:this.learnedRules(),factMeta:[...this.data.factMeta]}}
  importSnapshot(s){
-  if(s?.format!=="guinho-memory")throw new Error("Memória inválida.");
-  const facts=Array.isArray(s.facts)?s.facts.map(clean).filter(Boolean).slice(-MAX):[];
-  const now=Date.now(),sourceMeta=Array.isArray(s.factMeta)?s.factMeta:[];
-  this.data={
-   facts,
-   history:Array.isArray(s.history)?s.history.filter(validHistory).slice(-HISTORY_MAX):[],
-   learned:Array.isArray(s.learned)?s.learned.slice(-MAX):[],
-   factMeta:facts.map(value=>{const m=sourceMeta.find(x=>x&&clean(x.value)===value);return m?{value,createdAt:Number(m.createdAt)||now,updatedAt:Number(m.updatedAt)||now,hits:Number(m.hits)||0}:{value,createdAt:now,updatedAt:now,hits:0}})
-  };
-  this.save()
- }
+  const now=Date.now();
+  if(s?.format==="guinho-memory"){
+   const facts=Array.isArray(s.facts)?s.facts.map(clean).filter(Boolean).slice(-MAX):[];
+   const sourceMeta=Array.isArray(s.factMeta)?s.factMeta:[];
+   this.data={
+    facts,
+    history:Array.isArray(s.history)?s.history.filter(validHistory).slice(-HISTORY_MAX):[],
+    learned:Array.isArray(s.learned)?s.learned.slice(-MAX):[],
+    factMeta:facts.map(value=>{const m=sourceMeta.find(x=>x&&clean(x.value)===value);return m?{value,createdAt:Number(m.createdAt)||now,updatedAt:Number(m.updatedAt)||now,hits:Number(m.hits)||0}:{value,createdAt:now,updatedAt:now,hits:0}})
+   };
+   this.save();return
+  }
+  if(s?.user||s?.technical_profile||s?.active_projects||s?.gaming_preferences){
+   const facts=[];
+   const add=(value)=>{const v=clean(value);if(v&&!facts.includes(v))facts.push(v)};
+   const u=s.user||{};
+   if(u.name)add("meu nome e "+u.name);
+   if(u.nickname)add("meu apelido e "+u.nickname);
+   if(u.role)add("sou "+u.role);
+   if(u.teaching)add("dou "+u.teaching);
+   if(u.location)add("minha localizacao e "+u.location);
+   const t=s.technical_profile||{};
+   for(const os of t.os_environments||[])add("uso "+os);
+   for(const lang of t.preferences?.languages||[])add("programo em "+lang);
+   for(const tool of t.preferences?.tools||[])add("uso "+tool);
+   if(t.preferences?.ui_style)add("prefiro "+t.preferences.ui_style);
+   if(t.hardware?.smartphone)add("meu smartphone e "+t.hardware.smartphone);
+   for(const board of t.hardware?.dev_boards||[])add("tenho "+board);
+   for(const[key,value]of Object.entries(s.active_projects||{}))if(value)add("projeto "+key+": "+value);
+   const g=s.gaming_preferences||{};
+   if(g.style)add("prefiro jogos com "+g.style);
+   if(g.controls)add("prefiro controles "+g.controls);
+   if(g.mechanics)add("gosto de mecanicas "+g.mechanics);
+   this.data={
+    facts:facts.slice(-MAX),
+    history:[],
+    learned:[],
+    factMeta:facts.slice(-MAX).map(value=>({value,createdAt:now,updatedAt:now,hits:1}))
+   };
+   this.save();return
+  }
+  throw new Error("Formato de memória não reconhecido.");
+}
 }
