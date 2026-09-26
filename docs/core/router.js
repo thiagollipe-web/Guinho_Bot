@@ -22,7 +22,9 @@ export function route(input,{knowledge,memory,rules,references=[]}){
  if(teach){memory.learn(teach[1],teach[2]);return{response:"Aprendi essa regra.",source:"learning"}}
  const memoryQuestion=/^(?:qual e meu nome|como eu me chamo|o que voce sabe sobre mim|o que voce lembra de mim|voce lembra de mim|o que voce lembra)$/i.test(normalized)||(/\b(?:lembra|lembrar|recorda|recordar)\b/i.test(normalized)&&/\b(?:mim|sobre mim|memoria|eu)\b/i.test(normalized));
  if(memoryQuestion){
-  const facts=memory.recall(),names=facts.filter(f=>/\b(?:meu nome|me chamo|sou)\b/i.test(f));
+  const targeted=/\b(?:o que voce lembra|o que voce sabe)\s+(?:sobre|de)\s+(.+)$/i.exec(normalized);
+  const subject=targeted?.[1]&&targeted[1]!=="mim"?targeted[1].trim():"";
+  const facts=subject?memory.recall(subject,.25):memory.recall(),names=facts.filter(f=>/\b(?:meu nome|me chamo|sou)\b/i.test(f));
   if(/^(?:qual e meu nome|como eu me chamo)$/i.test(normalized)&&names.length){
    const name=names.at(-1).replace(/^(?:meu nome e|me chamo|sou)\s*/,"");
    return{response:"Meu nome é "+name+".",source:"memory"}
