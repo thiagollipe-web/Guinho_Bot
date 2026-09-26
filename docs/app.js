@@ -1,5 +1,5 @@
-import base from "../knowledge/base.json" with { type: "json" };
-import training from "../knowledge/training.json" with { type: "json" };
+import base from "./knowledge/base.json" with { type: "json" };
+import training from "./knowledge/training.json" with { type: "json" };
 
 const STOPWORDS = new Set("a o as os um uma uns umas de do da dos das e é em no na nos nas por para com sem que se ao aos à às eu tu ele ela nós vocês meu minha seu sua isso isto esse essa aquele".split(" "));
 
