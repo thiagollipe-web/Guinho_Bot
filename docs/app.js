@@ -113,36 +113,156 @@ class Knowledge {
 }
 
 class Guinho {
-  constructor(){this.memory=new Memory();this.knowledge=new Knowledge();this.context=null;this.reflections={eu:"você",me:"você",meu:"seu",minha:"sua",estou:"está",comigo:"com você"}}
-  learn(input){
-    const clean=normalize(input), m=clean.match(/^(lembre|lembrar|guarde|guarda) (que )?(.+)$/);
-    if(!m)return null; this.memory.remember(m[3]); return "Certo. Vou guardar isso.";
+  constructor(){
+    this.memory=new Memory();
+    this.knowledge=new Knowledge();
+    this.context=null;
+    this.reflections={eu:"você",me:"você",meu:"seu",minha:"sua",estou:"está",comigo:"com você"};
   }
+
+  findFact(prefix){
+    const facts=this.memory.recall();
+    return facts.find(f=>f.startsWith(prefix));
+  }
+
+  learn(input){
+    const clean=normalize(input);
+
+    const explicit=clean.match(/^(lembre|lembrar|guarde|guarda) (que )?(.+)$/);
+    if(explicit){
+      this.memory.remember(explicit[3]);
+      return "Certo. Vou guardar isso.";
+    }
+
+    const name=clean.match(/^(?:meu nome e|eu me chamo|me chamo) (.+)$/);
+    if(name){
+      const value=name[1].trim();
+      this.memory.data.facts=this.memory.data.facts.filter(f=>!f.startsWith("meu nome e "));
+      this.memory.remember("meu nome e "+value);
+      return "Entendi. Vou lembrar do seu nome.";
+    }
+
+    const likes=clean.match(/^(?:eu gosto de|eu adoro|eu prefiro) (.+)$/);
+    if(likes){
+      this.memory.remember("preferencia: "+likes[1].trim());
+      return "Entendi. Vou levar isso em conta nas próximas conversas.";
+    }
+
+    const project=clean.match(/^(?:estou trabalhando em|estou fazendo|meu projeto e|meu projeto é) (.+)$/);
+    if(project){
+      this.memory.remember("projeto: "+project[1].trim());
+      return "Entendi. Vou considerar isso como contexto do projeto.";
+    }
+
+    return null;
+  }
+
   recall(input){
     const clean=normalize(input);
-    if(!/^(o que|qual|quais).*(lembra|lembranca|memoria)/.test(clean))return null;
-    const facts=this.memory.recall(); return facts.length?"Eu tenho guardado: "+facts.join("; ")+".":"Ainda não tenho nada guardado.";
-  }
-  respond(input){
-    const clean=normalize(input); if(!clean)return "Digite alguma coisa.";
-    const learned=this.learn(input); if(learned)return learned;
-    const recalled=this.recall(input); if(recalled)return recalled;
+    if(!/^(o que|qual|quais|me diga).*(lembra|lembranca|memoria|sabe sobre mim)/.test(clean)) return null;
 
-    const concept=this.knowledge.find(clean);
-    if(concept && /^(o que|quem|qual|explique|explicar|como funciona|me fale)/.test(clean)){
-      this.context="knowledge"; return concept.response;
+    const facts=this.memory.recall();
+    if(!facts.length) return "Ainda não tenho nenhuma memória guardada.";
+
+    const visible=facts.slice(-12);
+    return "Lembro destas informações: "+visible.join("; ")+".";
+  }
+
+  personalityResponse(clean){
+    const name=this.findFact("meu nome e ");
+    const nameValue=name ? name.replace("meu nome e ","") : null;
+
+    if(/^(oi|ola|oie|bom dia|boa tarde|boa noite)/.test(clean)){
+      return nameValue
+        ? `Olá, ${nameValue}. O que vamos resolver hoje?`
+        : choose(["Olá. O que vamos resolver?","Oi. Estou aqui. Me diga o que você precisa.","Olá. Pode falar."]);
+    }
+
+    if(/^(quem e voce|o que voce e|quem e o guinho|quem e guinho)/.test(clean)){
+      return "Sou o Guinho. Um assistente conversacional feito para conversar de forma natural, lembrar do contexto e ajudar a resolver problemas.";
+    }
+
+    if(/^(como voce esta|tudo bem|como vai)/.test(clean)){
+      return "Estou por aqui e pronto para continuar. E você, como está?";
+    }
+
+    if(/^(obrigado|obrigada|valeu|agradeco)/.test(clean)){
+      return choose(["Por nada.","De nada. Vamos em frente.","Disponha."]);
+    }
+
+    if(/^(tchau|ate mais|ate logo|falou)/.test(clean)){
+      return "Até mais. Quando voltar, podemos continuar de onde paramos.";
+    }
+
+    if(/^(sim|nao|não|talvez)/.test(clean) && this.context){
+      if(this.context==="programacao") return "Certo. Então vamos continuar pela parte de programação.";
+      if(this.context==="erro") return "Entendi. Me passe o erro ou o trecho que está causando o problema.";
+    }
+
+    return null;
+  }
+
+  respond(input){
+    const clean=normalize(input);
+    if(!clean) return "Digite alguma coisa.";
+
+    const learned=this.learn(input);
+    if(learned) return learned;
+
+    const recalled=this.recall(input);
+    if(recalled) return recalled;
+
+    const natural=this.personalityResponse(clean);
+    if(natural) return natural;
+
+    if(/^(o que|quem|qual|explique|explicar|como funciona|me fale)/.test(clean)){
+      const concept=this.knowledge.find(clean);
+      if(concept){
+        this.context="knowledge";
+        return concept.response;
+      }
+    }
+
+    if(/^(voce lembra|lembra de mim|o que sabe sobre mim)/.test(clean)){
+      const facts=this.memory.recall();
+      return facts.length ? "Sim. Tenho algumas informações guardadas sobre você." : "Ainda não guardei informações suficientes sobre você.";
     }
 
     let best=null;
-    for(const intent of this.knowledge.intents) for(const example of intent.examples||[]){
-      const score=similarity(clean,example); if(!best||score>best.score)best={intent,score};
+    for(const intent of this.knowledge.intents){
+      for(const example of intent.examples||[]){
+        const score=similarity(clean,example);
+        if(!best||score>best.score) best={intent,score};
+      }
     }
-    if(best&&best.score>=0.45){this.context=best.intent.name;return choose(best.intent.responses||["Entendi."])}
+    if(best&&best.score>=0.55){
+      this.context=best.intent.name;
+      return choose(best.intent.responses||["Entendi."]);
+    }
 
-    if(/\berro\b|\bproblema\b/.test(clean)){this.context="erro";return "Qual erro apareceu? Se puder, cole a mensagem exata."}
-    if(/\b(codigo|programacao|javascript|python|html|css|node)\b/.test(clean)){this.context="programacao";return "Vamos tratar isso como um problema de programação. Qual é o código ou erro?"}
-    if(this.context==="programacao"&&/^(e|entao|como)\b/.test(clean))return "Continue a ideia anterior. Qual parte você quer aprofundar?";
-    return choose(["Me explique um pouco melhor.","Não encontrei uma regra específica para isso.","Vamos por partes: o que exatamente você quer resolver?"]);
+    if(/\b(erro|bug|falha|nao funciona|não funciona|problema)\b/.test(clean)){
+      this.context="erro";
+      return "Vamos descobrir a causa. Me mostre o erro exato ou o trecho que não está funcionando.";
+    }
+
+    if(/\b(codigo|programacao|javascript|python|html|css|node|pwa|github)\b/.test(clean)){
+      this.context="programacao";
+      return "Vamos tratar isso como um problema de programação. Me diga o que você quer construir ou mostre o código.";
+    }
+
+    if(this.context==="programacao"){
+      return "Entendi. Vamos continuar por aí. Qual é a parte que está travando?";
+    }
+
+    if(this.context==="erro"){
+      return "Vamos por partes. O que aconteceu e o que você esperava que acontecesse?";
+    }
+
+    return choose([
+      "Entendi. Me explique um pouco mais para eu acompanhar o que você quer.",
+      "Ainda não tenho uma regra específica para isso. Mas podemos analisar juntos.",
+      "Vamos por partes: qual é exatamente o resultado que você espera?"
+    ]);
   }
 }
 
