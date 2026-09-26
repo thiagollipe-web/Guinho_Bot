@@ -1,6 +1,9 @@
+import fs from "node:fs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { route } from "../docs/core/router.js";
+import { Knowledge } from "../docs/core/knowledge.js";
+import { Memory } from "../docs/core/memory.js";
 
 function makeMemory(){
   return {
@@ -140,4 +143,18 @@ test("router injects recent context when a reference pronoun is used",()=>{
   const r=route("Quero melhorar isso",{memory,knowledge,rules:{keywords:[],default:["fallback"]},references:[]});
   assert.equal(r.source,"chatterbot");
   assert.equal(r.response,"contexto recuperado");
+});
+
+test("router works with the real application knowledge stack",()=>{
+  const base=JSON.parse(fs.readFileSync("docs/knowledge/base.json","utf8"));
+  const training=JSON.parse(fs.readFileSync("docs/knowledge/training.json","utf8"));
+  const rules=JSON.parse(fs.readFileSync("docs/knowledge/rules.json","utf8"));
+  const memory=new Memory();
+  memory.clear();
+  const knowledge=new Knowledge(base,training);
+  const first=route("Estou criando um jogo de terror.",{knowledge,memory,rules,references:[]});
+  const second=route("Quero melhorar isso.",{knowledge,memory,rules,references:[]});
+  assert.equal(typeof first.response,"string");
+  assert.equal(typeof second.response,"string");
+  assert.notEqual(second.source,"error");
 });
