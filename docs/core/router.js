@@ -12,8 +12,15 @@ function wantsMemory(text) {
 
 function learningValue(text) {
   const clean = normalize(text);
-  const match = clean.match(/^(?:lembre|lembrar|guarde|guarda|memorize|memorizar)\s+(?:que\s+)?(.+)$/);
+  const match = clean.match(/^(?:lembre|lembrar|guarde|guarda|memorize|memorizar|ensine|ensinar)\s+(?:que\s+)?(.+)$/);
   return match ? match[1].trim() : null;
+}
+
+function teachRule(text) {
+  const match = String(text).match(
+    /^(?:quando eu disser|quando eu falar)\s+["“]?(.+?)["”]?\s*,?\s*(?:responda|diga|responda com)\s+["“]?(.+?)["”]?$/i
+  );
+  return match ? { pattern: match[1].trim(), response: match[2].trim() } : null;
 }
 
 function route(input, { knowledge, memory, rules, references = [] }) {
@@ -28,6 +35,22 @@ function route(input, { knowledge, memory, rules, references = [] }) {
     };
   }
 
+  const taught = teachRule(text);
+  if (taught) {
+    memory.learn(taught.pattern, taught.response);
+    return { response: "Aprendi essa regra.", source: "learning" };
+  }
+
+  const learned = memory.findLearned(text);
+  if (learned) {
+    const responses = learned.item.responses;
+    return {
+      response: responses[Math.floor(Math.random() * responses.length)] || "Entendi.",
+      source: "learned",
+      confidence: learned.score
+    };
+  }
+
   const fact = learningValue(text);
   if (fact) {
     memory.remember(fact);
@@ -36,12 +59,15 @@ function route(input, { knowledge, memory, rules, references = [] }) {
 
   if (wantsMemory(text)) {
     const facts = memory.recall();
-    return {
-      response: facts.length
-        ? "Lembro destas informações: " + facts.slice(-12).join("; ") + "."
-        : "Ainda não tenho nenhuma memória guardada.",
-      source: "memory"
-    };
+    const learnedRules = memory.learnedRules();
+    if (!facts.length && !learnedRules.length) {
+      return { response: "Ainda não tenho nenhuma memória guardada.", source: "memory" };
+    }
+
+    const parts = [];
+    if (facts.length) parts.push("informações: " + facts.slice(-8).join("; "));
+    if (learnedRules.length) parts.push("regras ensinadas: " + learnedRules.slice(-5).map((item) => item.pattern).join("; "));
+    return { response: "Lembro destas " + parts.join(" | ") + ".", source: "memory" };
   }
 
   const calculation = extractCalculation(text) ?? (/^[\d\s,().+\-*/%]+$/.test(text) ? text : null);
@@ -59,12 +85,7 @@ function route(input, { knowledge, memory, rules, references = [] }) {
   if (intents[0] && intents[0].score >= 0.55) {
     const item = intents[0];
     const response = item.responses[Math.floor(Math.random() * item.responses.length)] || "Entendi.";
-    return {
-      response,
-      source: "chatterbot",
-      intent: item.name,
-      confidence: item.score
-    };
+    return { response, source: "chatterbot", intent: item.name, confidence: item.score };
   }
 
   const concept = knowledge.findConcept(text);
@@ -93,4 +114,4 @@ function route(input, { knowledge, memory, rules, references = [] }) {
   };
 }
 
-export { route, wantsSource, wantsMemory, learningValue };
+export { route, wantsSource, wantsMemory, learningValue, teachRule };
