@@ -1,11 +1,13 @@
 {
-  "name":"guinho-bot",
-  "version":"1.0.0",
-  "private":true,
-  "type":"module",
-  "scripts":{
-    "test":"node --test",
-    "check":"node --check docs/app.js && node --check docs/core/nlp.js && node --check docs/core/eliza.js && node --check docs/core/memory.js && node --check docs/core/knowledge.js && node --check docs/core/router.js && node --check docs/core/calculator.js && node --check tests/core.test.js"
+  "name": "guinho-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check docs/app.js && node --check docs/core/nlp.js && node --check docs/core/eliza.js && node --check docs/core/memory.js && node --check docs/core/knowledge.js && node --check docs/core/router.js && node --check docs/core/calculator.js && node --check tests/core.test.js && node --check tests/router.test.js"
   },
-  "engines":{"node":">=20"}
+  "engines": {
+    "node": ">=20"
+  }
 }
