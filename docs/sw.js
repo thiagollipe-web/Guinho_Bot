@@ -1,4 +1,4 @@
-const CACHE="guinho-shell-v4";
+const CACHE="guinho-shell-v7";
 const ASSETS=[
   "./",
   "./index.html",
@@ -7,7 +7,14 @@ const ASSETS=[
   "./manifest.webmanifest",
   "./icon.svg",
   "./knowledge/base.json",
-  "./knowledge/training.json"
+  "./knowledge/training.json",
+  "./knowledge/rules.json",
+  "./core/nlp.js",
+  "./core/eliza.js",
+  "./core/memory.js",
+  "./core/knowledge.js",
+  "./core/router.js",
+  "./core/calculator.js"
 ];
 
 self.addEventListener("install",(event)=>{
