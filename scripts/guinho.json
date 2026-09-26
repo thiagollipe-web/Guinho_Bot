@@ -1,0 +1,89 @@
+{
+  "greetings": [
+    "olá! sou o guinho. como posso ajudar?",
+    "oi! manda a dúvida."
+  ],
+  "default": [
+    "me explique um pouco melhor.",
+    "não encontrei uma regra específica para isso.",
+    "posso tentar por outro caminho."
+  ],
+  "groups": {
+    "programming": [
+      "programacao",
+      "programação",
+      "javascript",
+      "typescript",
+      "python",
+      "node",
+      "html",
+      "css",
+      "codigo",
+      "código"
+    ],
+    "feelings": [
+      "ansioso",
+      "preocupado",
+      "confuso",
+      "cansado"
+    ]
+  },
+  "reflections": {
+    "eu": "voce",
+    "me": "voce",
+    "meu": "seu",
+    "minha": "sua",
+    "estou": "esta"
+  },
+  "keywords": [
+    {
+      "keyword": "ajuda",
+      "precedence": 100,
+      "rules": [
+        {
+          "decomposition": "* ajuda *",
+          "reassembly": [
+            "claro. me diga o que você precisa resolver."
+          ]
+        }
+      ]
+    },
+    {
+      "keyword": "erro",
+      "precedence": 90,
+      "rules": [
+        {
+          "decomposition": "* erro *",
+          "reassembly": [
+            "qual erro apareceu? cole a mensagem exata se puder."
+          ]
+        }
+      ]
+    },
+    {
+      "keyword": "programação",
+      "precedence": 80,
+      "rules": [
+        {
+          "decomposition": "* programação *",
+          "reassembly": [
+            "vamos tratar isso como um problema de programação. o que você quer construir?"
+          ]
+        }
+      ]
+    },
+    {
+      "keyword": "preocupado",
+      "precedence": 70,
+      "rules": [
+        {
+          "decomposition": "* preocupado *",
+          "reassembly": [
+            "o que exatamente está te preocupando?",
+            "quer separar o problema em partes?"
+          ]
+        }
+      ]
+    }
+  ]
+}\n
