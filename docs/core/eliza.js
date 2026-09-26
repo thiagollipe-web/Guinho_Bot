@@ -5,10 +5,17 @@ function choose(items, random = Math.random) {
   return items[Math.floor(random() * items.length)] || "";
 }
 
+function patternTokens(pattern) {
+  return String(pattern ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .match(/\*|#\d+|@[\p{L}\p{N}_-]+|\[[^\]]+\]|[\p{L}\p{N}_-]+/gu) || [];
+}
+
 function matchPattern(pattern, input, groups = {}) {
-  const parts = tokens(pattern);
+  const parts = patternTokens(pattern);
   const words = tokens(input);
-  let captures = [];
 
   function walk(pi, wi, current) {
     if (pi >= parts.length) return wi === words.length ? current : null;
@@ -17,8 +24,10 @@ function matchPattern(pattern, input, groups = {}) {
 
     if (part === "*") {
       for (let end = wi; end <= words.length; end += 1) {
-        const next = [...current, words.slice(wi, end).join(" ")];
-        const result = walk(pi + 1, end, next);
+        const result = walk(pi + 1, end, [
+          ...current,
+          words.slice(wi, end).join(" ")
+        ]);
         if (result) return result;
       }
       return null;
@@ -26,7 +35,7 @@ function matchPattern(pattern, input, groups = {}) {
 
     if (part.startsWith("@")) {
       const members = Array.isArray(groups[part.slice(1)])
-        ? groups[part.slice(1)].flatMap(tokens)
+        ? groups[part.slice(1)].flatMap((value) => tokens(value))
         : [];
       if (!members.includes(words[wi])) return null;
       return walk(pi + 1, wi + 1, current);
@@ -44,7 +53,9 @@ function matchPattern(pattern, input, groups = {}) {
 
     const alternatives = part.match(/^\[([^\]]+)\]$/);
     if (alternatives) {
-      const values = alternatives[1].split("|").flatMap(tokens);
+      const values = alternatives[1]
+        .split("|")
+        .flatMap((value) => tokens(value));
       if (!values.includes(words[wi])) return null;
       return walk(pi + 1, wi + 1, current);
     }
@@ -53,8 +64,10 @@ function matchPattern(pattern, input, groups = {}) {
     return walk(pi + 1, wi + 1, current);
   }
 
-  captures = walk(0, 0, []);
-  return captures ? { matched: true, captures } : { matched: false, captures: [] };
+  const captures = walk(0, 0, []);
+  return captures
+    ? { matched: true, captures }
+    : { matched: false, captures: [] };
 }
 
 function applyReflections(text, reflections = {}) {
@@ -68,6 +81,7 @@ function applyReflections(text, reflections = {}) {
 
 function fill(template, captures, reflections = {}) {
   if (!template) return "";
+
   return String(template)
     .replace(/\$(\d+)/g, (_, number) => captures[Number(number) - 1] || "")
     .replace(/\{reflect:(\d+)\}/g, (_, number) =>
@@ -77,11 +91,11 @@ function fill(template, captures, reflections = {}) {
 }
 
 function respondWithRules(input, config = {}, random = Math.random) {
-  const normalized = normalize(input);
+  const normalizedWords = tokens(input);
   const keywords = Array.isArray(config.keywords) ? config.keywords : [];
 
   const ordered = keywords
-    .filter((entry) => normalized.split(" ").includes(normalize(entry.keyword)))
+    .filter((entry) => normalizedWords.includes(normalize(entry.keyword)))
     .sort((a, b) => Number(b.precedence || 0) - Number(a.precedence || 0));
 
   for (const keyword of ordered) {
@@ -109,4 +123,4 @@ function respondWithRules(input, config = {}, random = Math.random) {
   return null;
 }
 
-export { choose, matchPattern, applyReflections, fill, respondWithRules };
+export { choose, patternTokens, matchPattern, applyReflections, fill, respondWithRules };
