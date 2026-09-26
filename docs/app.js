@@ -141,8 +141,13 @@ form.addEventListener("submit", (event) => {
 
   addMessage("user", text);
 
-  const result = localResponse(text);
-  addMessage("bot", result.response);
+  try {
+    const result = localResponse(text);
+    addMessage("bot", result.response);
+  } catch (error) {
+    console.error("Guinho local error:", error);
+    addMessage("bot", "O motor local encontrou um erro interno. A interface continua disponível; tente novamente.");
+  }
 
   input.value = "";
   input.style.height = "";
