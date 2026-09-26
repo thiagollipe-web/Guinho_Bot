@@ -15,34 +15,50 @@ class Memory {
   }
 
   load() {
-    const keys = [STORAGE_KEY, "guinho-memory-v6", "guinho-memory-v5", "guinho-memory-v4", "guinho-memory-v3"];
+    const keys = [
+      STORAGE_KEY,
+      "guinho-memory-v6",
+      "guinho-memory-v5",
+      "guinho-memory-v4",
+      "guinho-memory-v3"
+    ];
+
     for (const key of keys) {
       try {
         const value = JSON.parse(localStorage.getItem(key) || "null");
+
         if (value && Array.isArray(value.facts) && Array.isArray(value.history)) {
-        return {
-          facts: value.facts.map(normalizeFact).filter(Boolean).slice(-MAX_FACTS),
-          history: value.history
-            .filter((item) => item && (item.role === "user" || item.role === "bot"))
-            .map((item) => ({
-              role: item.role,
-              text: String(item.text ?? ""),
-              at: Number(item.at) || Date.now()
-            }))
-            .slice(-MAX_HISTORY),
-          learned: Array.isArray(value.learned)
-            ? value.learned
-                .filter((item) => item && item.pattern && Array.isArray(item.responses))
-                .map((item) => ({
-                  pattern: normalizeFact(item.pattern),
-                  responses: item.responses.map(String).filter(Boolean)
-                }))
-                .filter((item) => item.pattern && item.responses.length)
-                .slice(-MAX_LEARNED)
-            : []
-        };
+          return {
+            facts: value.facts
+              .map(normalizeFact)
+              .filter(Boolean)
+              .slice(-MAX_FACTS),
+
+            history: value.history
+              .filter((item) => item && (item.role === "user" || item.role === "bot"))
+              .map((item) => ({
+                role: item.role,
+                text: String(item.text ?? ""),
+                at: Number(item.at) || Date.now()
+              }))
+              .slice(-MAX_HISTORY),
+
+            learned: Array.isArray(value.learned)
+              ? value.learned
+                  .filter((item) => item && item.pattern && Array.isArray(item.responses))
+                  .map((item) => ({
+                    pattern: normalizeFact(item.pattern),
+                    responses: item.responses.map(String).filter(Boolean)
+                  }))
+                  .filter((item) => item.pattern && item.responses.length)
+                  .slice(-MAX_LEARNED)
+              : []
+          };
+        }
+      } catch {
+        // Tenta a próxima versão da memória.
       }
-    } catch {}
+    }
 
     return { facts: [], history: [], learned: [] };
   }
@@ -50,7 +66,9 @@ class Memory {
   save() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
-    } catch {}
+    } catch {
+      // A conversa continua mesmo sem persistência disponível.
+    }
   }
 
   remember(value) {
@@ -69,13 +87,22 @@ class Memory {
   learn(pattern, response) {
     const normalizedPattern = normalizeFact(pattern);
     const answer = String(response ?? "").trim();
+
     if (!normalizedPattern || !answer) return false;
 
-    const existing = this.data.learned.find((item) => item.pattern === normalizedPattern);
+    const existing = this.data.learned.find(
+      (item) => item.pattern === normalizedPattern
+    );
+
     if (existing) {
-      if (!existing.responses.includes(answer)) existing.responses.push(answer);
+      if (!existing.responses.includes(answer)) {
+        existing.responses.push(answer);
+      }
     } else {
-      this.data.learned.push({ pattern: normalizedPattern, responses: [answer] });
+      this.data.learned.push({
+        pattern: normalizedPattern,
+        responses: [answer]
+      });
     }
 
     this.data.learned = this.data.learned.slice(-MAX_LEARNED);
@@ -88,7 +115,9 @@ class Memory {
 
     for (const item of this.data.learned) {
       const score = similarity(input, item.pattern);
-      if (!best || score > best.score) best = { item, score };
+      if (!best || score > best.score) {
+        best = { item, score };
+      }
     }
 
     return best && best.score >= 0.72 ? best : null;
@@ -123,7 +152,12 @@ class Memory {
   }
 
   clear() {
-    this.data = { facts: [], history: [], learned: [] };
+    this.data = {
+      facts: [],
+      history: [],
+      learned: []
+    };
+
     this.save();
   }
 
@@ -149,7 +183,11 @@ class Memory {
     }
 
     this.data = {
-      facts: snapshot.facts.map(normalizeFact).filter(Boolean).slice(-MAX_FACTS),
+      facts: snapshot.facts
+        .map(normalizeFact)
+        .filter(Boolean)
+        .slice(-MAX_FACTS),
+
       learned: Array.isArray(snapshot.learned)
         ? snapshot.learned
             .filter((item) => item && item.pattern && Array.isArray(item.responses))
@@ -160,6 +198,7 @@ class Memory {
             .filter((item) => item.pattern && item.responses.length)
             .slice(-MAX_LEARNED)
         : [],
+
       history: snapshot.history
         .filter((item) => item && (item.role === "user" || item.role === "bot"))
         .map((item) => ({
