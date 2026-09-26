@@ -96,3 +96,11 @@ test("router recalls facts by topic",()=>{
   assert.equal(r.source,"memory");
   assert.match(r.response,/estou criando um jogo/);
 });
+
+test("router learns the user name from a natural declaration",()=>{
+  const memory=makeMemory();
+  memory.facts=[];
+  const r=route("meu nome é Thiago",{...agent,memory});
+  assert.equal(r.source,"memory");
+  assert.equal(memory.facts.at(-1),"meu nome e thiago");
+});
