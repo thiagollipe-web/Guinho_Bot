@@ -30,6 +30,7 @@ export function route(input,{knowledge,memory,rules,references=[]}){
    return{response:"Meu nome é "+name+".",source:"memory"}
   }
   if(names.length)return{response:"Lembro de você. "+names.at(-1)+".",source:"memory"};
+  if(subject&&facts.length)return{response:"Lembro disso: "+facts.join("; ")+"." ,source:"memory"};
   if(facts.length)return{response:"Tenho "+facts.length+" item(ns) guardado(s) na memória deste navegador.",source:"memory"};
   return{response:"Ainda não tenho nenhuma informação sua guardada.",source:"memory"}
  }
