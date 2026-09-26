@@ -1,1 +1,9 @@
-{"intents":[{"name":"saudacao","examples":["oi","ola","olá","bom dia","boa tarde","boa noite"],"responses":["Olá. Como posso ajudar?","Oi. O que você precisa resolver?"]},{"name":"identidade","examples":["quem é você","quem e voce","o que você é","quem é o guinho"],"responses":["Sou o Guinho, um assistente conversacional baseado em NLP, regras e memória."]},{"name":"ajuda","examples":["me ajuda","preciso de ajuda","pode me ajudar","quero ajuda"],"responses":["Claro. Me diga o que você precisa resolver."]},{"name":"agradecimento","examples":["obrigado","obrigada","valeu","agradeço"],"responses":["Por nada.","Disponha."]},{"name":"programacao","examples":["quero programar","ajuda com python","ajuda com javascript","quero criar um site","quero criar um jogo"],"responses":["Vamos tratar isso como um problema de programação. Qual é o objetivo?"]}]}
+{
+  "intents":[
+    {"name":"saudacao","examples":["oi","ola","olá","bom dia","boa tarde","boa noite"],"responses":["Olá. Como posso ajudar?","Olá. O que você precisa resolver?","Certo. Por onde começamos?"]},
+    {"name":"identidade","examples":["quem é você","quem e voce","o que você é","quem é o guinho"],"responses":["Sou o Guinho, um assistente conversacional local.","Meu nome é Guinho. Trabalho localmente com regras, NLP e memória."]},
+    {"name":"ajuda","examples":["me ajuda","preciso de ajuda","pode me ajudar","quero ajuda"],"responses":["Claro. Me diga o que você precisa resolver.","Posso ajudar. Qual é o problema?","Certo. Explique o que você precisa fazer."]},
+    {"name":"agradecimento","examples":["obrigado","obrigada","valeu","agradeço"],"responses":["Por nada.","Disponha.","Certo. Seguimos quando quiser."]},
+    {"name":"programacao","examples":["quero programar","ajuda com python","ajuda com javascript","quero criar um site","quero criar um jogo"],"responses":["Vamos tratar isso como um problema de programação. Qual é o objetivo?","Vamos por partes. O que você quer construir?","Certo. Descreva o resultado que espera e trabalhamos a partir dele."]}
+  ]
+}
