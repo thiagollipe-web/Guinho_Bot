@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "intents": [
+    {
+      "name": "saudacao",
+      "examples": ["oi", "ola", "bom dia", "boa tarde", "boa noite"],
+      "responses": ["Olá. Como posso ajudar?", "Oi. O que você precisa resolver?"]
+    },
+    {
+      "name": "identidade",
+      "examples": ["quem é você", "o que você é", "quem é o guinho"],
+      "responses": ["Sou o Guinho, um assistente conversacional baseado em NLP, regras e memória."]
+    },
+    {
+      "name": "ajuda",
+      "examples": ["me ajuda", "preciso de ajuda", "pode me ajudar", "quero ajuda"],
+      "responses": ["Claro. Me diga o que você precisa resolver."]
+    },
+    {
+      "name": "programacao",
+      "examples": ["quero programar", "problema no codigo", "erro no javascript", "ajuda com python", "programação"],
+      "responses": ["Vamos tratar isso como um problema de programação. Qual é o código ou erro?"]
+    },
+    {
+      "name": "agradecimento",
+      "examples": ["obrigado", "obrigada", "valeu", "agradeço"],
+      "responses": ["Por nada.", "Sempre que puder, eu ajudo."]
+    }
+  ]
+}
