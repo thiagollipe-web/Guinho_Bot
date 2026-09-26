@@ -64,3 +64,10 @@ test("router answers the stored name",()=>{
   assert.equal(r.source,"memory");
   assert.match(r.response,/Meu nome é thiago/i);
 });
+
+test("router accepts the unaccented name question",()=>{
+  const memory=makeMemory();
+  const r=route("qual e meu nome?",{...agent,memory});
+  assert.equal(r.source,"memory");
+  assert.match(r.response,/Meu nome é thiago/i);
+});
