@@ -19,6 +19,7 @@ function choose(items, random = Math.random) {
 }
 
 function fill(template, captures, reflections) {
+  if (!template) return "";
   return String(template)
     .replace(/\$(\d+)/g, (_, n) => {
       const index = Number(n) - 1;
