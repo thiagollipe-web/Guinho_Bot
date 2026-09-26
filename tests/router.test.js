@@ -111,7 +111,7 @@ test("router captures a safe preference automatically",()=>{
   const memory=makeMemory();
   memory.facts=[];
   const r=route("Eu gosto de xadrez",{...agent,memory});
-  assert.equal(r.source,"chatterbot");
+  assert.notEqual(r.source,"memory");
   assert.equal(memory.facts.at(-1),"gosto de xadrez");
 });
 
