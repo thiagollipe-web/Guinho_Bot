@@ -2,11 +2,13 @@
   "name": "guinho-whatsapp-codegemma",
   "version": "2.0.0",
   "private": true,
-  "description": "Bot do WhatsApp para assistência de programação usando CodeGemma local via Ollama.",
+  "description": "Bot do WhatsApp com Ollama e motor conversacional local híbrido baseado em regras, memória e SLM.",
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test",
+    "check": "node --check index.js && node --check src/eliza/pattern-matcher.js && node --check src/eliza/engine.js && node --check src/guinho.js"
   },
   "engines": {
     "node": ">=20"
