@@ -1,140 +1,64 @@
-# Guinho WhatsApp + CodeGemma + Ollama
+# Guinho
 
-Bot de WhatsApp focado em programação com IA local. O processamento é realizado pelo modelo CodeGemma através do Ollama instalado na própria máquina, sem API da OpenAI.
+Guinho é um experimento de agente conversacional local e leve. A primeira fase não usa IA generativa: combina ideias de **ELIZA + ChatterBot + NLP**, com memória de sessão e regras determinísticas.
 
-## Requisitos
+## Versão web
 
-- Node.js 20 ou superior.
-- Ollama instalado e em execução na mesma máquina do bot.
-- WhatsApp no celular para escanear o QR Code na primeira autenticação.
+A aplicação está em `docs/` e pode ser publicada diretamente pelo GitHub Pages.
 
-## 1. Instalar o Ollama
+O núcleo web implementa:
 
-Instale o Ollama pela página oficial:
+- normalização e tokenização em português;
+- remoção de stopwords;
+- similaridade lexical para seleção de intenção;
+- intenções com exemplos e respostas;
+- regras estilo ELIZA com curingas;
+- captura e reflexão de frases;
+- prioridade de palavras-chave;
+- contexto conversacional simples;
+- memória persistente no `localStorage`;
+- histórico da conversa;
+- funcionamento sem API, servidor ou modelo de IA.
 
-https://ollama.com/download
+## Arquitetura
 
-Confirme a instalação:
+```
+mensagem
+   ↓
+NLP
+   ↓
+palavras-chave + intenção + similaridade
+   ↓
+ELIZA / respostas estilo ChatterBot
+   ↓
+contexto + memória
+   ↓
+resposta
+```
 
-~~~bash
-ollama --version
-~~~
+A SLM fica fora desta fase. Depois podemos adicionar um modelo local como camada opcional, sem tornar o núcleo dependente dele.
 
-## 2. Baixar o CodeGemma
+## Núcleo Node
 
-Execute exatamente:
+O diretório `src/` contém a implementação reutilizável do motor simbólico para Node.js. O bot de WhatsApp continua disponível, mas a interface web é independente dele.
 
-~~~bash
-ollama pull codegemma:instruct
-~~~
+## Testes
 
-A página oficial do modelo disponibiliza o modelo codegemma:instruct e também o comando ollama run codegemma:instruct.
-
-Faça um teste:
-
-~~~bash
-ollama run codegemma:instruct
-~~~
-
-Depois encerre o teste com Ctrl+C.
-
-## 3. Instalar o projeto
-
-Clone o repositório:
-
-~~~bash
-git clone https://github.com/thiagollipe-web/Guinho_Bot.git
-cd Guinho_Bot
-~~~
-
-Instale as dependências:
-
-~~~bash
+```bash
 npm install
-~~~
+npm run check
+npm test
+```
 
-Crie o arquivo .env:
+## GitHub Pages
 
-Linux/macOS:
+O workflow `.github/workflows/pages.yml` publica automaticamente o conteúdo de `docs/` quando há push na branch `main`. No primeiro uso, o repositório precisa estar configurado para GitHub Pages usando **GitHub Actions** como fonte.
 
-~~~bash
-cp .env.example .env
-~~~
+## Próximas camadas
 
-Windows PowerShell:
-
-~~~powershell
-Copy-Item .env.example .env
-~~~
-
-Configuração padrão:
-
-~~~env
-OLLAMA_HOST=http://127.0.0.1:11434
-OLLAMA_MODEL=codegemma:instruct
-HISTORY_LIMIT=10
-~~~
-
-## 4. Iniciar
-
-~~~bash
-npm start
-~~~
-
-Na primeira execução, o terminal exibirá o QR Code.
-
-No celular:
-
-WhatsApp → Dispositivos conectados → Conectar dispositivo
-
-Escaneie o QR Code.
-
-Depois da autenticação, o terminal exibirá:
-
-~~~text
-Bot conectado!
-~~~
-
-A autenticação fica salva localmente pelo LocalAuth.
-
-## 5. Comando do bot
-
-O bot só responde a mensagens que começam com:
-
-~~~text
-!code 
-~~~
-
-Exemplos:
-
-~~~text
-!code como fazer um loop for em Python?
-~~~
-
-~~~text
-!code corrija este JavaScript: const x = ;
-~~~
-
-O histórico recente de cada conversa é enviado junto com a nova pergunta.
-
-## 6. Ollama parado
-
-O bot pode iniciar o WhatsApp mesmo que o Ollama esteja temporariamente indisponível. Ao receber !code, ele retorna um aviso amigável.
-
-Ligue o Ollama e tente novamente.
-
-## 7. Estrutura
-
-~~~text
-.
-├── .env.example
-├── .gitignore
-├── index.js
-└── package.json
-~~~
-
-Não coloque .env, a sessão do WhatsApp ou os modelos do Ollama no Git.
-
-## Observação
-
-whatsapp-web.js automatiza o WhatsApp Web por meio de um cliente não oficial. O próprio projeto alerta que o uso pode estar sujeito a bloqueios e não é um cliente oficial do WhatsApp.
+1. memória estruturada;
+2. entidades e intenção mais robustas;
+3. ferramentas locais;
+4. busca em documentos;
+5. APIs públicas;
+6. somente depois, SLM opcional.
