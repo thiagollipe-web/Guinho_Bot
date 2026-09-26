@@ -116,9 +116,28 @@ test("router captures a safe preference automatically",()=>{
 });
 
 test("router uses recent conversation context",()=>{
+
   const memory=makeMemory();
   memory.recent=()=>[{role:"user",text:"Estou criando um jogo"}];
   const r=route("qual foi minha última mensagem?",{...agent,memory});
   assert.equal(r.source,"memory");
   assert.match(r.response,/Estou criando um jogo/);
+});
+
+test("router injects recent context when a reference pronoun is used",()=>{
+  const memory=makeMemory();
+  memory.facts=[];
+  memory.recent=()=>[
+    {role:"user",text:"Estou criando um jogo de terror."},
+    {role:"bot",text:"Entendi."},
+    {role:"user",text:"Quero colocar um investigador nele."}
+  ];
+  let seen="";
+  const knowledge={
+    training:{intents:[{name:"contexto",examples:["quero colocar um investigador no jogo de terror"],responses:["contexto recuperado"]}]},
+    findConcept(){return null;}
+  };
+  const r=route("Quero melhorar isso",{memory,knowledge,rules:{keywords:[],default:["fallback"]},references:[]});
+  assert.equal(r.source,"chatterbot");
+  assert.equal(r.response,"contexto recuperado");
 });
