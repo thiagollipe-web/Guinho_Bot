@@ -8,7 +8,7 @@ export function route(input,{knowledge,memory,rules,references=[]}){
  if(/\b(?:fonte|fontes|link|links|referencia|referencias)\b/i.test(normalized)){
   const last=references.at(-1);return{response:last?.url?"Fonte: "+last.url:"Nenhuma fonte foi registrada nesta sessão.",source:"reference"}
  }
- if(/^(?:lembre|lembrar|guarde|guarda|memorize|memorizar|ensine|ensinar)\s+(?:que\s+)?/i.test(text)){
+ const nameMatch=text.match(/^meu nome\s+(?:e|é)\s+(.+)$/i);\n if(nameMatch){const name=normalize(nameMatch[1]);if(name)return{response:(memory.remember("meu nome e "+name),"Prazer, "+name+"."),source:"memory"}}\n if(/^(?:lembre|lembrar|guarde|guarda|memorize|memorizar|ensine|ensinar)\s+(?:que\s+)?/i.test(text)){
   const fact=normalized.replace(/^(?:lembre|lembrar|guarde|guarda|memorize|memorizar|ensine|ensinar)\s+(?:que\s+)?/,"");
   if(!fact)return{response:"Diga o que devo guardar.",source:"memory"};
   memory.remember(fact);return{response:"Certo. Vou guardar isso.",source:"memory"}
