@@ -4,6 +4,7 @@ import{extractCalculation,calculate}from"./calculator.js";
 export function route(input,{knowledge,memory,rules,references=[]}){
  const text=String(input??"").trim(),normalized=normalize(text);
  if(!text)return{response:"Digite alguma coisa.",source:"system"};
+ if(typeof memory.capture==="function")memory.capture(text);
  if(/^(?:quem e voce|quem e o guinho|o que voce e)$/i.test(normalized))return{response:"Meu nome é Guinho. Sou um assistente conversacional local.",source:"identity"};
  if(/\b(?:fonte|fontes|link|links|referencia|referencias)\b/i.test(normalized)){
   const last=references.at(-1);return{response:last?.url?"Fonte: "+last.url:"Nenhuma fonte foi registrada nesta sessão.",source:"reference"}
@@ -22,6 +23,8 @@ export function route(input,{knowledge,memory,rules,references=[]}){
  }
  const teach=text.match(/^(?:quando eu disser|quando eu falar)\s+["“]?(.+?)["”]?\s*,?\s*(?:responda|diga|responda com)\s+["“]?(.+?)["”]?$/i);
  if(teach){memory.learn(teach[1],teach[2]);return{response:"Aprendi essa regra.",source:"learning"}}
+ const contextQuestion=/^(?:o que acabamos de conversar|sobre o que estavamos falando|o que eu falei agora|qual foi minha ultima mensagem)$/i.test(normalized);
+ if(contextQuestion){const recent=typeof memory.recent==="function"?memory.recent(6):[];const users=recent.filter(x=>x.role==="user");const last=users.at(-1);return{response:last?`Sua última mensagem foi: "${last.text}".`:"Ainda não há conversa suficiente para recuperar o contexto.",source:"memory"} }
  const memoryQuestion=/^(?:qual e meu nome|como eu me chamo|o que voce sabe sobre mim|o que voce lembra de mim|voce lembra de mim|o que voce lembra)$/i.test(normalized)||(/\b(?:lembra|lembrar|recorda|recordar)\b/i.test(normalized)&&/\b(?:mim|sobre|memoria|eu)\b/i.test(normalized));
  if(memoryQuestion){
   const targeted=/\b(?:o que voce lembra|o que voce sabe)\s+(?:sobre|de)\s+(.+)$/i.exec(normalized);
