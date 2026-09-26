@@ -71,3 +71,18 @@ test("router accepts the unaccented name question",()=>{
   assert.equal(r.source,"memory");
   assert.match(r.response,/Meu nome é thiago/i);
 });
+
+test("router keeps the assistant identity as Guinho",()=>{
+  const memory=makeMemory();
+  const r=route("quem é você?",{...agent,memory});
+  assert.equal(r.source,"identity");
+  assert.match(r.response,/Guinho/);
+  assert.doesNotMatch(r.response,/Thiago/);
+});
+
+test("router removes an exact stored fact",()=>{
+  const memory=makeMemory();
+  const r=route("esqueça meu nome e thiago",{...agent,memory});
+  assert.equal(r.source,"memory");
+  assert.equal(memory.facts.includes("meu nome e thiago"),false);
+});
