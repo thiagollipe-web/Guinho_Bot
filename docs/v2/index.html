@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070b13">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Guinho-Bot">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon.svg">
+<link rel="stylesheet" href="./styles.css">
+<title>Guinho-Bot — Companheiro de Programação</title>
+</head>
+<body>
+<div class="app-bg"></div>
+
+<main class="app-shell">
+  <aside class="sidebar sidebar-left" aria-label="Navegação principal">
+    <div class="sidebar-top">
+      <button class="mobile-close" id="close-left" type="button" aria-label="Fechar menu">×</button>
+      <div class="brand-lockup">
+        <div class="bot-avatar" aria-hidden="true">
+<pre>╭─────╮
+│ ◉ ◉ │
+│  ▄  │
+╰─┬─┬─╯</pre>
+        </div>
+        <div>
+          <div class="eyebrow">COMPANHEIRO DE PROGRAMAÇÃO</div>
+          <h1>Guinho-Bot</h1>
+          <div class="online"><span></span> PROGRAMADOR WEBGPU LOCAL</div>
+        </div>
+      </div>
+
+      <button type="button" class="primary-action" id="new-chat">
+        <span>＋</span> Nova conversa
+      </button>
+
+      <nav class="main-nav" aria-label="Seções">
+        <button type="button" class="nav-item active" data-nav="chat"><span>⌂</span> Conversa</button>
+        <button type="button" class="nav-item" data-nav="history"><span>◷</span> Histórico</button>
+        <button type="button" class="nav-item" data-nav="favorites"><span>☆</span> Favoritos</button>
+        <button type="button" class="nav-item" data-nav="explore"><span>⌕</span> Explorar</button>
+      </nav>
+    </div>
+
+    <div class="sidebar-section knowledge-nav">
+      <div class="section-title">LINGUAGENS E STACKS</div>
+      <button type="button" data-topic="JavaScript">JavaScript</button>
+      <button type="button" data-topic="TypeScript">TypeScript</button>
+      <button type="button" data-topic="Python">Python</button>
+      <button type="button" data-topic="C# e .NET">C# / .NET</button>
+      <button type="button" data-topic="C++">C++</button>
+      <button type="button" data-topic="Java">Java</button>
+      <button type="button" data-topic="Rust">Rust</button>
+      <button type="button" data-topic="Go">Go</button>
+      <button type="button" data-topic="HTML CSS e Canvas">HTML / CSS / Canvas</button>
+      <button type="button" data-topic="SQL e bancos de dados">SQL / Bancos</button>
+      <button type="button" data-topic="Git e GitHub">Git / GitHub</button>
+      <button type="button" data-topic="Docker e Linux">Docker / Linux</button>
+    </div>
+
+    <details class="game-library">
+      <summary><span>▣</span> Biblioteca de Jogos</summary>
+      <div class="library-group">
+        <div class="library-label">MOTORES</div>
+        <a href="https://arcade.makecode.com/" target="_blank" rel="noopener noreferrer">MakeCode Arcade ↗</a>
+        <a href="https://microstudio.dev/" target="_blank" rel="noopener noreferrer">microStudio ↗</a>
+        <a href="https://tic80.com/" target="_blank" rel="noopener noreferrer">TIC-80 ↗</a>
+      </div>
+      <div class="library-group">
+        <div class="library-label">ASSETS</div>
+        <a href="https://kenney.nl/assets" target="_blank" rel="noopener noreferrer">Kenney Assets ↗</a>
+        <a href="https://opengameart.org/" target="_blank" rel="noopener noreferrer">OpenGameArt ↗</a>
+        <a href="https://itch.io/game-assets/free" target="_blank" rel="noopener noreferrer">Itch.io Free Assets ↗</a>
+      </div>
+      <div class="library-group">
+        <div class="library-label">SPRITES & ANIMAÇÃO</div>
+        <a class="library-featured" href="https://www.piskelapp.com/" target="_blank" rel="noopener noreferrer">Piskel — primeiro protótipo ↗</a>
+        <a href="https://orama-interactive.itch.io/pixelorama" target="_blank" rel="noopener noreferrer">Pixelorama ↗</a>
+      </div>
+    </details>
+
+    <div class="sidebar-bottom">
+      <button type="button" class="nav-item" data-nav="engineering"><span>⌘</span> Workspace</button>
+      <button type="button" class="nav-item" data-nav="settings"><span>⚙</span> Configurações</button>
+      <div class="privacy-card">
+        <div class="privacy-icon">⌁</div>
+        <div>
+          <strong>Privacidade local</strong>
+          <p>O processamento textual acontece no navegador.</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <section class="workspace">
+    <header class="topbar">
+      <button class="mobile-menu" id="open-left" type="button" aria-label="Abrir menu">☰</button>
+      <button class="mobile-tools" id="open-right" type="button" aria-label="Abrir ferramentas">☷</button>
+      <div class="search-wrap">
+        <span>⌕</span>
+        <input id="site-search" type="search" placeholder="Pesquisar na base de conhecimento..." autocomplete="off">
+        <kbd>Ctrl K</kbd>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="icon-btn" id="clear-chat" title="Limpar conversa">↺</button>
+        <button type="button" class="icon-btn" id="focus-input" title="Focar no campo de mensagem">⌘</button>
+        <div class="profile-dot" aria-hidden="true">G</div>
+      </div>
+    </header>
+
+    <section class="chat-stage">
+      <div class="welcome-strip">
+        <div>
+          <div class="eyebrow">MOTOR DE RESPOSTA</div>
+          <h2>Converse. Construa. Evolua.</h2>
+          <p>Um companheiro de programação: conversa, entende seu projeto, cria código, corrige bugs e sugere próximos passos.</p>
+        </div>
+        <div class="engine-status">
+          <span class="pulse"></span>
+          <span id="status-text">WEBGPU DISPONÍVEL</span>
+          <button type="button" class="icon-btn model-select-btn" id="select-model">Selecionar modelo</button>
+          <input id="model-file-input" type="file" accept=".gguf" hidden>
+          <small id="model-name">Nenhum modelo GGUF selecionado</small>
+        </div>
+      </div>
+
+      <section id="chat" class="chat" aria-live="polite" aria-label="Conversa"></section>
+
+      <div class="suggestion-row" aria-label="Sugestões rápidas">
+        <button type="button" data-cmd="quero criar um jogo em JavaScript">Quero criar um jogo</button>
+        <button type="button" data-cmd="quero aprender Python">Quero aprender Python</button>
+        <button type="button" data-cmd="tenho uma ideia para meu projeto">Tenho uma ideia</button>
+      </div>
+
+      <form id="composer" class="composer" autocomplete="off">
+        <button type="button" class="composer-tool" id="attach-placeholder" aria-label="Anexar arquivo" title="Anexar arquivo">＋</button>
+        <label class="sr-only" for="message">Mensagem</label>
+        <textarea id="message" name="message" rows="1" maxlength="12000" inputmode="text" enterkeyhint="send" placeholder="Conte ao Guinho o que você quer construir, corrigir ou entender..." required></textarea>
+        <div class="composer-actions">
+          <button type="button" class="composer-tool subtle" id="voice-placeholder" title="Entrada de voz">◉</button>
+          <button type="submit" class="send-btn" aria-label="Enviar mensagem" title="Enviar mensagem">↑</button>
+        </div>
+      </form>
+      <div class="composer-hint">Enter envia • Shift + Enter quebra linha • IA local com WebGPU</div>
+    </section>
+  </section>
+
+  <aside class="sidebar sidebar-right" aria-label="Ferramentas e modos">
+    <div class="sidebar-top right-head">
+      <button class="mobile-close" id="close-right" type="button" aria-label="Fechar painel">×</button>
+      <div class="section-title">MODO DE RESPOSTA</div>
+      <div class="mode-list" id="mode-list">
+        <button type="button" class="mode-item active" data-mode="standard">
+          <span class="mode-icon">●</span><span><strong>Standard</strong><small>Equilibrado</small></span>
+        </button>
+        <button type="button" class="mode-item" data-mode="resumido">
+          <span class="mode-icon">≡</span><span><strong>Resumido</strong><small>Direto ao ponto</small></span>
+        </button>
+        <button type="button" class="mode-item" data-mode="detalhado">
+          <span class="mode-icon">▤</span><span><strong>Detalhado</strong><small>Mais contexto</small></span>
+        </button>
+        <button type="button" class="mode-item" data-mode="passo">
+          <span class="mode-icon">1·2·3</span><span><strong>Passo a passo</strong><small>Sequência clara</small></span>
+        </button>
+        <button type="button" class="mode-item" data-mode="criativo">
+          <span class="mode-icon">✦</span><span><strong>Criativo</strong><small>Mais variação</small></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-title">CAPACIDADES DO GUINHO</div>
+      <div class="resource-card"><span>◇</span><div><strong>Linguagens</strong><small>JavaScript, Python, C#, C++, Java, Rust e mais</small></div></div>
+      <div class="resource-card"><span>⌕</span><div><strong>Contexto</strong><small>Memória de sessão e projeto</small></div></div>
+      <div class="resource-card"><span>∿</span><div><strong>Engenharia</strong><small>Cria, analisa, corrige e valida</small></div></div>
+      <div class="resource-card"><span>✦</span><div><strong>Sugestões</strong><small>Ideias e próximos passos do projeto</small></div></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-title">PERGUNTAS EM DESTAQUE</div>
+      <button class="mini-question" type="button" data-cmd="como funciona a recuperação semântica?">Como a busca semântica encontra uma resposta?</button>
+      <button class="mini-question" type="button" data-cmd="o que é probabilidade?">O que é probabilidade?</button>
+      <button class="mini-question" type="button" data-cmd="como criar um jogo em canvas?">Como criar um jogo em Canvas?</button>
+    </div>
+
+    <div class="curiosity-card">
+      <div class="section-title">CURIOSIDADE DO DIA</div>
+      <strong>TF-IDF mede relevância relativa de termos.</strong>
+      <p>O Guinho-Bot usa essa ideia para pesar palavras raras e úteis durante a recuperação local.</p>
+    </div>
+  </aside>
+</main>
+
+<section class="engineering-workspace" id="engineering-workspace" aria-label="Workspace de Engenharia" hidden>
+  <header class="engineering-head">
+    <div><div class="eyebrow">WORKSPACE DE ENGENHARIA</div><h2 id="eng-title">Projeto</h2><span id="eng-status" class="eng-badge">AGUARDANDO</span></div>
+    <div class="eng-actions"><button type="button" class="icon-btn eng-action-primary" id="eng-save">Salvar</button><button type="button" class="icon-btn" id="eng-import">＋ Importar projeto</button><input id="eng-import-input" type="file" multiple webkitdirectory directory hidden accept=".html,.htm,.css,.js,.mjs,.cjs,.ts,.tsx,.jsx,.json,.py,.java,.cs,.cpp,.c,.rs,.go,.php,.rb,.kt,.swift,.dart,.lua,.sql,.sh,.md,.txt"><button type="button" class="icon-btn" id="eng-analyze">Analisar</button><button type="button" class="icon-btn" id="eng-fix">Corrigir</button><button type="button" class="icon-btn" id="eng-improve">Melhorar</button><button type="button" class="icon-btn" id="eng-validate">Validar</button><button type="button" class="icon-btn" id="eng-preview">▶ Preview</button><button type="button" class="icon-btn" id="eng-undo" disabled>↶ Desfazer</button><button type="button" class="icon-btn" id="eng-execute">▶ Executar</button><button type="button" class="icon-btn" id="eng-close">×</button></div>
+  </header>
+  <div class="eng-pipeline" id="eng-pipeline">
+    <span data-stage="CRIAR">CRIAR</span><i>→</i><span data-stage="ANALISAR">ANALISAR</span><i>→</i><span data-stage="CORRIGIR">CORRIGIR</span><i>→</i><span data-stage="MELHORAR">MELHORAR</span><i>→</i><span data-stage="VALIDAR">VALIDAR</span><i>→</i><span data-stage="EXECUTAR">EXECUTAR</span><i>→</i><b>ENTREGAR</b>
+  </div>
+  <div class="eng-body">
+    <aside class="eng-files"><div class="section-title">ARQUIVOS</div><div id="eng-file-list"></div></aside>
+    <section class="eng-code"><div class="eng-code-head"><strong id="eng-file-name">index.html</strong><span id="eng-file-meta"></span></div><textarea id="eng-editor" class="eng-editor" spellcheck="false" aria-label="Editor de código"></textarea></section>
+    <section class="eng-preview-panel"><div class="eng-code-head"><strong>PREVIEW / RUNTIME</strong><span id="eng-preview-note">somente projetos gerados</span></div><div id="eng-deps" class="eng-deps" data-state="IDLE">Dependências: não analisadas</div><div id="eng-runtime" class="eng-runtime" data-state="IDLE">IDLE: aguardando execução</div><iframe id="eng-preview-frame" title="Preview do projeto" sandbox="allow-scripts allow-forms"></iframe></section>
+  </div>
+  <section class="eng-diff-panel"><div class="eng-code-head"><strong>ÚLTIMO DIFF</strong><span>alterações do ciclo atual</span></div><pre id="eng-diff" class="eng-diff">Nenhuma alteração registrada neste ciclo.</pre></section>
+  <footer class="eng-foot"><div class="eng-foot-info"><div id="eng-summary">Nenhum ciclo executado.</div><details class="eng-memory"><summary>Memória + aprendizado</summary><pre id="eng-memory">Nenhuma memória de engenharia.</pre></details></div><div class="eng-foot-actions"><button type="button" class="icon-btn" id="eng-cycle">Executar ciclo</button><button type="button" class="icon-btn" id="eng-run">Novo projeto</button></div></footer>
+</section>
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<footer class="site-footer">GUINHO-BOT • PLN LOCAL • RECUPERAÇÃO SEMÂNTICA • PWA • APIS PÚBLICAS</footer>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
