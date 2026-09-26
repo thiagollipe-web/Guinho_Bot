@@ -1,348 +1,551 @@
-import base from "./knowledge/base.json" with { type: "json" };
-import training from "./knowledge/training.json" with { type: "json" };
+const STORAGE_KEY = "guinho-memory-v5";
+const MAX_FACTS = 500;
+const MAX_HISTORY = 100;
 
-const STOPWORDS = new Set("a o as os um uma uns umas de do da dos das e é em no na nos nas por para com sem que se ao aos à às eu tu ele ela nós vocês meu minha seu sua isso isto esse essa aquele".split(" "));
+const STOPWORDS = new Set([
+  "a","o","as","os","um","uma","uns","umas","de","do","da","dos","das",
+  "e","é","em","no","na","nos","nas","por","para","com","sem","que","se",
+  "ao","aos","à","às","eu","tu","ele","ela","nós","vocês","meu","minha",
+  "seu","sua","isso","isto","esse","essa","aquele"
+]);
 
-function normalize(text) {
-  return String(text ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+function normalize(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
-function tokens(text) { const value = normalize(text); return value ? value.split(" ") : []; }
-function contentTokens(text) { return tokens(text).filter((word) => !STOPWORDS.has(word)); }
-function choose(items) { return items[Math.floor(Math.random() * items.length)]; }
 
-function similarity(a,b) {
-  const A=new Set(contentTokens(a)), B=new Set(contentTokens(b));
-  if(!A.size||!B.size) return 0;
-  let common=0; for(const word of A) if(B.has(word)) common++;
-  return common/Math.max(A.size,B.size);
+function tokens(value) {
+  const text = normalize(value);
+  return text ? text.split(" ") : [];
 }
 
-function matchPattern(pattern,input) {
-  const p=tokens(pattern), w=tokens(input), captures=[];
-  function walk(pi,wi){
-    if(pi>=p.length) return wi===w.length;
-    if(p[pi]==="*"){
-      for(let end=wi;end<=w.length;end++){ captures.push(w.slice(wi,end).join(" ")); if(walk(pi+1,end)) return true; captures.pop(); }
-      return false;
-    }
-    if(w[wi]!==p[pi]) return false;
-    return walk(pi+1,wi+1);
+function contentTokens(value) {
+  return tokens(value).filter(token => !STOPWORDS.has(token));
+}
+
+function choose(items) {
+  return items[Math.floor(Math.random() * items.length)] || "";
+}
+
+function similarity(a, b) {
+  const A = new Set(contentTokens(a));
+  const B = new Set(contentTokens(b));
+  if (!A.size || !B.size) return 0;
+
+  let common = 0;
+  for (const word of A) {
+    if (B.has(word)) common++;
   }
-  return walk(0,0)?[...captures]:null;
-}
-
-function reflect(text, reflections) {
-  return tokens(text).map(word => reflections[word] || word).join(" ");
-}
-
-function fill(template,captures,reflections) {
-  return String(template).replace(/\$(\d+)/g,(_,n)=>captures[Number(n)-1]||"").replace(/\{reflect:(\d+)\}/g,(_,n)=>reflect(captures[Number(n)-1]||"",reflections)).trim();
+  return common / Math.max(A.size, B.size);
 }
 
 class Memory {
-  constructor(){ this.key="guinho-memory-v4"; this.data=this.read(); }
-  read(){
-    try{
-      const raw=JSON.parse(localStorage.getItem(this.key)||"null");
-      if(raw&&Array.isArray(raw.facts)&&Array.isArray(raw.history)) return raw;
-    }catch{}
-    try{
-      const legacy=JSON.parse(localStorage.getItem("guinho-memory-v3")||"null");
-      if(legacy&&Array.isArray(legacy.facts)&&Array.isArray(legacy.history)) return {
-        facts:legacy.facts.slice(0,500),
-        history:legacy.history.slice(-100)
-      };
-    }catch{}
-    return {facts:[],history:[]};
+  constructor() {
+    this.data = this.load();
   }
-  save(){localStorage.setItem(this.key,JSON.stringify(this.data))}
-  remember(text){
-    const value=normalize(text);
-    if(value&&!this.data.facts.includes(value)){
-      this.data.facts.push(value);
-      this.data.facts=this.data.facts.slice(-500);
+
+  load() {
+    const candidates = [STORAGE_KEY, "guinho-memory-v4", "guinho-memory-v3"];
+
+    for (const key of candidates) {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) || "null");
+        if (value && Array.isArray(value.facts) && Array.isArray(value.history)) {
+          return {
+            facts: value.facts.map(String).filter(Boolean).slice(-MAX_FACTS),
+            history: value.history
+              .filter(item => item && (item.role === "user" || item.role === "bot"))
+              .map(item => ({
+                role: item.role,
+                text: String(item.text ?? ""),
+                at: Number(item.at) || Date.now()
+              }))
+              .slice(-MAX_HISTORY)
+          };
+        }
+      } catch {
+        // Ignora memória corrompida e tenta a próxima versão.
+      }
+    }
+
+    return { facts: [], history: [] };
+  }
+
+  save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+    } catch {
+      // O chat continua funcionando mesmo se o armazenamento estiver indisponível.
+    }
+  }
+
+  remember(value) {
+    const fact = normalize(value);
+    if (!fact) return false;
+
+    if (!this.data.facts.includes(fact)) {
+      this.data.facts.push(fact);
+      this.data.facts = this.data.facts.slice(-MAX_FACTS);
       this.save();
     }
-    return !!value;
+
+    return true;
   }
-  recall(){return [...this.data.facts]}
-  addHistory(role,text){
-    this.data.history.push({role,text:String(text),at:Date.now()});
-    this.data.history=this.data.history.slice(-100);
+
+  replace(prefix, value) {
+    this.data.facts = this.data.facts.filter(item => !item.startsWith(prefix));
+    this.remember(value);
+  }
+
+  recall() {
+    return [...this.data.facts];
+  }
+
+  addHistory(role, text) {
+    this.data.history.push({
+      role,
+      text: String(text),
+      at: Date.now()
+    });
+    this.data.history = this.data.history.slice(-MAX_HISTORY);
     this.save();
   }
-  snapshot(){
+
+  clear() {
+    this.data = { facts: [], history: [] };
+    this.save();
+  }
+
+  snapshot() {
     return {
-      format:"guinho-memory",
-      version:1,
-      exportedAt:new Date().toISOString(),
-      facts:[...this.data.facts],
-      history:[...this.data.history]
+      format: "guinho-memory",
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      facts: [...this.data.facts],
+      history: [...this.data.history]
     };
   }
-  importSnapshot(snapshot){
-    if(!snapshot||snapshot.format!=="guinho-memory"||!Array.isArray(snapshot.facts)||!Array.isArray(snapshot.history)){
+
+  import(snapshot) {
+    if (
+      !snapshot ||
+      snapshot.format !== "guinho-memory" ||
+      !Array.isArray(snapshot.facts) ||
+      !Array.isArray(snapshot.history)
+    ) {
       throw new Error("Arquivo de memória inválido.");
     }
-    this.data={
-      facts:snapshot.facts.map(v=>normalize(v)).filter(Boolean).slice(-500),
-      history:snapshot.history
-        .filter(v=>v&&["user","bot"].includes(v.role)&&typeof v.text==="string")
-        .map(v=>({role:v.role,text:v.text,at:Number(v.at)||Date.now()}))
-        .slice(-100)
+
+    this.data = {
+      facts: snapshot.facts.map(String).map(normalize).filter(Boolean).slice(-MAX_FACTS),
+      history: snapshot.history
+        .filter(item => item && (item.role === "user" || item.role === "bot"))
+        .map(item => ({
+          role: item.role,
+          text: String(item.text ?? ""),
+          at: Number(item.at) || Date.now()
+        }))
+        .slice(-MAX_HISTORY)
     };
+
     this.save();
   }
-  clearAll(){this.data={facts:[],history:[]};this.save()}
 }
 
 class Knowledge {
-  constructor(){
-    this.concepts=Array.isArray(base.concepts)?base.concepts:[];
-    this.intents=Array.isArray(training.intents)?training.intents:[];
+  constructor() {
+    this.concepts = [
+      {
+        id: "nlp",
+        aliases: ["nlp", "processamento de linguagem natural", "linguagem natural"],
+        keywords: ["texto", "linguagem", "intencao", "palavras"],
+        response: "NLP é o processamento de linguagem natural: técnicas para analisar texto, identificar padrões, intenções e informações."
+      },
+      {
+        id: "eliza",
+        aliases: ["eliza", "motor eliza"],
+        keywords: ["regras", "padroes", "conversacao"],
+        response: "ELIZA é uma abordagem clássica de conversação baseada em palavras-chave, padrões de entrada e regras de resposta."
+      },
+      {
+        id: "chatterbot",
+        aliases: ["chatterbot"],
+        keywords: ["treinamento", "conversas", "respostas"],
+        response: "ChatterBot é uma abordagem baseada em exemplos de conversa e seleção de respostas."
+      }
+    ];
+
+    this.intents = [
+      {
+        name: "ajuda",
+        examples: ["me ajuda", "preciso de ajuda", "pode me ajudar", "quero ajuda"]
+      },
+      {
+        name: "programacao",
+        examples: ["quero programar", "problema no codigo", "erro no javascript", "ajuda com python", "programacao"]
+      },
+      {
+        name: "agradecimento",
+        examples: ["obrigado", "obrigada", "valeu", "agradeco"]
+      }
+    ];
   }
-  find(query){
-    let best=null;
-    for(const concept of this.concepts){
-      const terms=[concept.title,...(concept.aliases||[]),...(concept.keywords||[])];
-      const score=Math.max(...terms.map(term=>similarity(query,term)),0);
-      if(!best||score>best.score) best={concept,score};
+
+  findConcept(query) {
+    let best = null;
+
+    for (const concept of this.concepts) {
+      for (const term of [...concept.aliases, ...concept.keywords]) {
+        const score = similarity(query, term);
+        if (!best || score > best.score) {
+          best = { concept, score };
+        }
+      }
     }
-    return best&&best.score>=0.45?best.concept:null;
+
+    return best && best.score >= 0.45 ? best.concept : null;
+  }
+
+  findIntent(query) {
+    let best = null;
+
+    for (const intent of this.intents) {
+      for (const example of intent.examples) {
+        const score = similarity(query, example);
+        if (!best || score > best.score) {
+          best = { intent, score };
+        }
+      }
+    }
+
+    return best && best.score >= 0.55 ? best.intent : null;
   }
 }
 
 class Guinho {
-  constructor(){
-    this.memory=new Memory();
-    this.knowledge=new Knowledge();
-    this.context=null;
-    this.reflections={eu:"você",me:"você",meu:"seu",minha:"sua",estou:"está",comigo:"com você"};
+  constructor() {
+    this.memory = new Memory();
+    this.knowledge = new Knowledge();
+    this.context = null;
   }
 
-  findFact(prefix){
-    const facts=this.memory.recall();
-    return facts.find(f=>f.startsWith(prefix));
+  getName() {
+    const fact = this.memory.recall().find(item => item.startsWith("nome:"));
+    return fact ? fact.slice(5) : "";
   }
 
-  learn(input){
-    const clean=normalize(input);
+  learn(input) {
+    const clean = normalize(input);
 
-    const explicit=clean.match(/^(lembre|lembrar|guarde|guarda) (que )?(.+)$/);
-    if(explicit){
+    const explicit = clean.match(/^(lembre|lembrar|guarde|guarda)\s+(que\s+)?(.+)$/);
+    if (explicit) {
       this.memory.remember(explicit[3]);
       return "Certo. Vou guardar isso.";
     }
 
-    const name=clean.match(/^(?:meu nome e|eu me chamo|me chamo) (.+)$/);
-    if(name){
-      const value=name[1].trim();
-      this.memory.data.facts=this.memory.data.facts.filter(f=>!f.startsWith("meu nome e "));
-      this.memory.remember("meu nome e "+value);
+    const name = clean.match(/^(?:meu nome e|eu me chamo|me chamo)\s+(.+)$/);
+    if (name) {
+      this.memory.replace("nome:", "nome:" + name[1]);
       return "Entendi. Vou lembrar do seu nome.";
     }
 
-    const likes=clean.match(/^(?:eu gosto de|eu adoro|eu prefiro) (.+)$/);
-    if(likes){
-      this.memory.remember("preferencia: "+likes[1].trim());
-      return "Entendi. Vou levar isso em conta nas próximas conversas.";
+    const preference = clean.match(/^(?:eu gosto de|eu adoro|eu prefiro)\s+(.+)$/);
+    if (preference) {
+      this.memory.remember("preferencia:" + preference[1]);
+      return "Entendi. Vou levar isso em conta.";
     }
 
-    const project=clean.match(/^(?:estou trabalhando em|estou fazendo|meu projeto e|meu projeto é) (.+)$/);
-    if(project){
-      this.memory.remember("projeto: "+project[1].trim());
-      return "Entendi. Vou considerar isso como contexto do projeto.";
+    const project = clean.match(/^(?:estou trabalhando em|estou fazendo|meu projeto e)\s+(.+)$/);
+    if (project) {
+      this.memory.remember("projeto:" + project[1]);
+      return "Entendi. Vou considerar isso como contexto.";
     }
 
     return null;
   }
 
-  recall(input){
-    const clean=normalize(input);
-    if(!/^(o que|qual|quais|me diga).*(lembra|lembranca|memoria|sabe sobre mim)/.test(clean)) return null;
+  recall(input) {
+    const clean = normalize(input);
 
-    const facts=this.memory.recall();
-    if(!facts.length) return "Ainda não tenho nenhuma memória guardada.";
+    if (
+      /^(?:voce lembra|lembra de mim|o que voce sabe sobre mim|o que voce lembra|qual e minha memoria)/.test(clean)
+    ) {
+      const facts = this.memory.recall();
+      if (!facts.length) return "Ainda não tenho nenhuma memória guardada.";
 
-    const visible=facts.slice(-12);
-    return "Lembro destas informações: "+visible.join("; ")+".";
+      const readable = facts
+        .slice(-12)
+        .map(fact => fact.replace(/^nome:/, "nome: ").replace(/^preferencia:/, "preferência: ").replace(/^projeto:/, "projeto: "));
+
+      return "Lembro destas informações: " + readable.join("; ") + ".";
+    }
+
+    return null;
   }
 
-  personalityResponse(clean){
-    const name=this.findFact("meu nome e ");
-    const nameValue=name ? name.replace("meu nome e ","") : null;
+  respond(input) {
+    const clean = normalize(input);
+    if (!clean) return "Digite alguma coisa.";
 
-    if(/^(oi|ola|oie|bom dia|boa tarde|boa noite)/.test(clean)){
-      return nameValue
-        ? `Olá, ${nameValue}. O que vamos resolver hoje?`
-        : choose(["Olá. O que vamos resolver?","Oi. Estou aqui. Me diga o que você precisa.","Olá. Pode falar."]);
+    const learned = this.learn(input);
+    if (learned) return learned;
+
+    const recalled = this.recall(input);
+    if (recalled) return recalled;
+
+    const name = this.getName();
+
+    if (/^(oi|ola|oie|bom dia|boa tarde|boa noite)(\s|$)/.test(clean)) {
+      return name
+        ? `Olá, ${name}. O que vamos resolver hoje?`
+        : choose([
+            "Olá. O que vamos resolver?",
+            "Oi. Estou aqui. Me diga o que você precisa.",
+            "Olá. Pode falar."
+          ]);
     }
 
-    if(/^(quem e voce|o que voce e|quem e o guinho|quem e guinho)/.test(clean)){
-      return "Sou o Guinho. Um assistente conversacional feito para conversar de forma natural, lembrar do contexto e ajudar a resolver problemas.";
+    if (/^(quem e voce|o que voce e|quem e o guinho|quem e guinho)(\s|$)/.test(clean)) {
+      return "Sou o Guinho, um assistente conversacional com NLP, regras e memória. Posso acompanhar o contexto da conversa e guardar informações que você me pedir para lembrar.";
     }
 
-    if(/^(como voce esta|tudo bem|como vai)/.test(clean)){
+    if (/^(como voce esta|tudo bem|como vai)(\s|$)/.test(clean)) {
       return "Estou por aqui e pronto para continuar. E você, como está?";
     }
 
-    if(/^(obrigado|obrigada|valeu|agradeco)/.test(clean)){
-      return choose(["Por nada.","De nada. Vamos em frente.","Disponha."]);
+    if (/^(obrigado|obrigada|valeu|agradeco)(\s|$)/.test(clean)) {
+      return choose(["Por nada.", "De nada. Vamos em frente.", "Disponha."]);
     }
 
-    if(/^(tchau|ate mais|ate logo|falou)/.test(clean)){
+    if (/^(tchau|ate mais|ate logo|falou)(\s|$)/.test(clean)) {
       return "Até mais. Quando voltar, podemos continuar de onde paramos.";
     }
 
-    if(/^(sim|nao|não|talvez)/.test(clean) && this.context){
-      if(this.context==="programacao") return "Certo. Então vamos continuar pela parte de programação.";
-      if(this.context==="erro") return "Entendi. Me passe o erro ou o trecho que está causando o problema.";
+    if (/\b(erro|bug|falha|nao funciona|problema)\b/.test(clean)) {
+      this.context = "erro";
+      return "Vamos descobrir a causa. Me mostre o erro exato ou o trecho que não está funcionando.";
     }
 
-    return null;
-  }
+    if (/\b(codigo|programacao|javascript|python|html|css|node|pwa|github)\b/.test(clean)) {
+      this.context = "programacao";
+      return "Vamos tratar isso como um problema de programação. Me diga o que você quer construir ou mostre o código.";
+    }
 
-  respond(input){
-    const clean=normalize(input);
-    if(!clean) return "Digite alguma coisa.";
+    if (/^(sim|nao|talvez)(\s|$)/.test(clean) && this.context === "erro") {
+      return "Entendi. Então me passe o erro exato ou o que aconteceu antes dele aparecer.";
+    }
 
-    const learned=this.learn(input);
-    if(learned) return learned;
+    if (/^(sim|nao|talvez)(\s|$)/.test(clean) && this.context === "programacao") {
+      return "Certo. Continue me passando os detalhes do código ou do comportamento esperado.";
+    }
 
-    const recalled=this.recall(input);
-    if(recalled) return recalled;
-
-    const natural=this.personalityResponse(clean);
-    if(natural) return natural;
-
-    if(/^(o que|quem|qual|explique|explicar|como funciona|me fale)/.test(clean)){
-      const concept=this.knowledge.find(clean);
-      if(concept){
-        this.context="knowledge";
+    if (/^(o que|quem|qual|explique|explicar|como funciona|me fale)\b/.test(clean)) {
+      const concept = this.knowledge.findConcept(clean);
+      if (concept) {
+        this.context = "knowledge";
         return concept.response;
       }
     }
 
-    if(/^(voce lembra|lembra de mim|o que sabe sobre mim)/.test(clean)){
-      const facts=this.memory.recall();
-      return facts.length ? "Sim. Tenho algumas informações guardadas sobre você." : "Ainda não guardei informações suficientes sobre você.";
-    }
+    const intent = this.knowledge.findIntent(clean);
+    if (intent) {
+      this.context = intent.name;
 
-    let best=null;
-    for(const intent of this.knowledge.intents){
-      for(const example of intent.examples||[]){
-        const score=similarity(clean,example);
-        if(!best||score>best.score) best={intent,score};
+      if (intent.name === "ajuda") {
+        return "Claro. Me diga o que você precisa resolver e eu vou por partes com você.";
+      }
+
+      if (intent.name === "programacao") {
+        return "Claro. Mande o código, o erro ou explique o que você quer construir.";
+      }
+
+      if (intent.name === "agradecimento") {
+        return choose(["Por nada.", "Disponha.", "De nada."]);
       }
     }
-    if(best&&best.score>=0.55){
-      this.context=best.intent.name;
-      return choose(best.intent.responses||["Entendi."]);
+
+    if (this.context === "programacao") {
+      return "Entendi. Vamos continuar por aí. Qual parte do projeto está travando?";
     }
 
-    if(/\b(erro|bug|falha|nao funciona|não funciona|problema)\b/.test(clean)){
-      this.context="erro";
-      return "Vamos descobrir a causa. Me mostre o erro exato ou o trecho que não está funcionando.";
-    }
-
-    if(/\b(codigo|programacao|javascript|python|html|css|node|pwa|github)\b/.test(clean)){
-      this.context="programacao";
-      return "Vamos tratar isso como um problema de programação. Me diga o que você quer construir ou mostre o código.";
-    }
-
-    if(this.context==="programacao"){
-      return "Entendi. Vamos continuar por aí. Qual é a parte que está travando?";
-    }
-
-    if(this.context==="erro"){
+    if (this.context === "erro") {
       return "Vamos por partes. O que aconteceu e o que você esperava que acontecesse?";
     }
 
     return choose([
-      "Entendi. Me explique um pouco mais para eu acompanhar o que você quer.",
-      "Ainda não tenho uma regra específica para isso. Mas podemos analisar juntos.",
-      "Vamos por partes: qual é exatamente o resultado que você espera?"
+      "Entendi. Me explique um pouco mais para eu acompanhar.",
+      "Certo. Vamos por partes. O que você quer resolver?",
+      "Pode continuar. Quero entender melhor o que você está tentando fazer."
     ]);
   }
 }
 
-const guinho=new Guinho();
-const chat=document.querySelector("#chat"), form=document.querySelector("#composer"), input=document.querySelector("#input"), menuButton=document.querySelector("#menuButton"), menu=document.querySelector("#menu"), memoryPanel=document.querySelector("#memoryPanel"), memoryList=document.querySelector("#memoryList");
+const chat = document.querySelector("#chat");
+const form = document.querySelector("#composer");
+const input = document.querySelector("#input");
+const menuButton = document.querySelector("#menuButton");
+const menu = document.querySelector("#menu");
+const memoryPanel = document.querySelector("#memoryPanel");
+const memoryList = document.querySelector("#memoryList");
+const guinho = new Guinho();
 
-function addMessage(role,text,persist=true){const el=document.createElement("div");el.className="message "+role;el.textContent=text;chat.appendChild(el);chat.scrollTop=chat.scrollHeight;if(persist)guinho.memory.addHistory(role,text)}
-function renderMemory(){
+function addMessage(role, text, persist = true) {
+  const element = document.createElement("div");
+  element.className = "message " + role;
+  element.textContent = text;
+  chat.appendChild(element);
+  chat.scrollTop = chat.scrollHeight;
+
+  if (persist) guinho.memory.addHistory(role, text);
+}
+
+function renderMemory() {
   memoryList.replaceChildren();
-  const facts=guinho.memory.recall();
-  if(!facts.length){
-    const e=document.createElement("div");
-    e.className="memory-empty";
-    e.textContent="Nenhuma informação foi guardada ainda.";
-    memoryList.appendChild(e);
+
+  const facts = guinho.memory.recall();
+
+  if (!facts.length) {
+    const empty = document.createElement("div");
+    empty.className = "memory-empty";
+    empty.textContent = "Nenhuma informação foi guardada ainda.";
+    memoryList.appendChild(empty);
     return;
   }
-  for(const fact of facts){
-    const e=document.createElement("div");
-    e.className="memory-item";
-    e.textContent=fact;
-    memoryList.appendChild(e);
+
+  for (const fact of facts) {
+    const item = document.createElement("div");
+    item.className = "memory-item";
+    item.textContent = fact
+      .replace(/^nome:/, "Nome: ")
+      .replace(/^preferencia:/, "Preferência: ")
+      .replace(/^projeto:/, "Projeto: ");
+    memoryList.appendChild(item);
   }
 }
-function restoreHistory(){
-  const h=guinho.memory.data.history;
-  if(!h.length){addMessage("bot","Olá. Sou o Guinho. Como posso ajudar?",false);return}
-  for(const item of h)addMessage(item.role==="user"?"user":"bot",item.text,false);
+
+function restoreHistory() {
+  const history = guinho.memory.data.history;
+
+  if (!history.length) {
+    addMessage("bot", "Olá. Sou o Guinho. Como posso ajudar?", false);
+    return;
+  }
+
+  for (const item of history) {
+    addMessage(item.role, item.text, false);
+  }
 }
-function downloadMemory(){
-  const blob=new Blob([JSON.stringify(guinho.memory.snapshot(),null,2)],{type:"application/json"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=url;
-  a.download="guinho-memoria.json";
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+
+function exportMemory() {
+  const blob = new Blob(
+    [JSON.stringify(guinho.memory.snapshot(), null, 2)],
+    { type: "application/json" }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "guinho-memoria.json";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function importMemory(file){
-  const reader=new FileReader();
-  reader.onload=()=>{
-    try{
-      guinho.memory.importSnapshot(JSON.parse(reader.result));
-      guinho.context=null;
+
+function importMemory(file) {
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    try {
+      guinho.memory.import(JSON.parse(reader.result));
+      guinho.context = null;
       chat.replaceChildren();
       restoreHistory();
       renderMemory();
-      memoryPanel.hidden=false;
-    }catch(error){
-      alert(error.message||"Não foi possível importar a memória.");
+    } catch (error) {
+      alert(error.message || "Não foi possível importar a memória.");
     }
   };
+
+  reader.onerror = () => alert("Não foi possível ler o arquivo.");
   reader.readAsText(file);
 }
 
-form.addEventListener("submit",e=>{
-  e.preventDefault();
-  const text=input.value.trim();
-  if(!text)return;
-  addMessage("user",text);
-  addMessage("bot",guinho.respond(text));
-  input.value="";
-  input.style.height="";
+form.addEventListener("submit", event => {
+  event.preventDefault();
+
+  const text = input.value.trim();
+  if (!text) return;
+
+  addMessage("user", text);
+  addMessage("bot", guinho.respond(text));
+
+  input.value = "";
+  input.style.height = "";
   input.focus();
 });
-input.addEventListener("input",()=>{input.style.height="auto";input.style.height=Math.min(input.scrollHeight,140)+"px"});
-input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();form.requestSubmit()}});
-menuButton.addEventListener("click",()=>{const open=menu.hidden;menu.hidden=!open;menuButton.setAttribute("aria-expanded",String(open))});
-document.querySelector("#memoryButton").addEventListener("click",()=>{menu.hidden=true;menuButton.setAttribute("aria-expanded","false");renderMemory();memoryPanel.hidden=false});
-document.querySelector("#exportMemory").addEventListener("click",()=>downloadMemory());
-document.querySelector("#importMemory").addEventListener("click",()=>document.querySelector("#memoryFile").click());
-document.querySelector("#memoryFile").addEventListener("change",e=>{const file=e.target.files?.[0];if(file)importMemory(file);e.target.value=""});
-document.querySelector("#closeMemory").addEventListener("click",()=>memoryPanel.hidden=true);
-document.querySelector("#clear").addEventListener("click",()=>{
-  menu.hidden=true;
-  if(!confirm("Apagar todas as memórias e o histórico desta instalação?"))return;
-  guinho.memory.clearAll();
-  guinho.context=null;
-  chat.replaceChildren();
-  addMessage("bot","Tudo limpo. Podemos começar de novo.",false);
+
+input.addEventListener("input", () => {
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 140) + "px";
 });
+
+input.addEventListener("keydown", event => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    form.requestSubmit();
+  }
+});
+
+menuButton.addEventListener("click", () => {
+  const open = menu.hidden;
+  menu.hidden = !open;
+  menuButton.setAttribute("aria-expanded", String(open));
+});
+
+document.querySelector("#memoryButton").addEventListener("click", () => {
+  menu.hidden = true;
+  menuButton.setAttribute("aria-expanded", "false");
+  renderMemory();
+  memoryPanel.hidden = false;
+});
+
+document.querySelector("#exportMemory").addEventListener("click", exportMemory);
+
+document.querySelector("#importMemory").addEventListener("click", () => {
+  document.querySelector("#memoryFile").click();
+});
+
+document.querySelector("#memoryFile").addEventListener("change", event => {
+  const file = event.target.files?.[0];
+  if (file) importMemory(file);
+  event.target.value = "";
+});
+
+document.querySelector("#closeMemory").addEventListener("click", () => {
+  memoryPanel.hidden = true;
+});
+
+document.querySelector("#clear").addEventListener("click", () => {
+  menu.hidden = true;
+
+  if (!confirm("Apagar todas as memórias e o histórico desta instalação?")) return;
+
+  guinho.memory.clear();
+  guinho.context = null;
+  chat.replaceChildren();
+  addMessage("bot", "Tudo limpo. Podemos começar de novo.", false);
+});
+
 restoreHistory();
-if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
