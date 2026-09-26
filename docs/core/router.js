@@ -1,12 +1,13 @@
 import { normalize, extractEntities, detectIntents } from "./nlp.js";
 import { respondWithRules } from "./eliza.js";
+import { extractCalculation, calculate } from "./calculator.js";
 
 function wantsSource(text) {
   return /\b(fonte|fontes|link|links|referencia|referências)\b/i.test(text);
 }
 
 function wantsMemory(text) {
-  return /\b(voce lembra|você lembra|lembra de mim|o que voce sabe|o que você sabe|o que voce lembra|minha memoria|minha memória)\b/i.test(text);
+  return /\b(voce lembra|você lembra|lembra de mim|o que voce sabe|o que você sabe|o que voce lembra|o que você lembra|minha memoria|minha memória)\b/i.test(text);
 }
 
 function learningValue(text) {
@@ -15,12 +16,12 @@ function learningValue(text) {
   return match ? match[1].trim() : null;
 }
 
-function route(input, { knowledge, memory, rules, references }) {
+function route(input, { knowledge, memory, rules, references = [] }) {
   const text = String(input ?? "").trim();
   if (!text) return { response: "Digite alguma coisa.", source: "system" };
 
   if (wantsSource(text)) {
-    const last = references?.at(-1);
+    const last = references.at(-1);
     return {
       response: last?.url ? "Fonte: " + last.url : "Nenhuma fonte foi registrada nesta conversa.",
       source: "reference"
@@ -36,9 +37,19 @@ function route(input, { knowledge, memory, rules, references }) {
   if (wantsMemory(text)) {
     const facts = memory.recall();
     return {
-      response: facts.length ? "Lembro destas informações: " + facts.slice(-12).join("; ") + "." : "Ainda não tenho nenhuma memória guardada.",
+      response: facts.length
+        ? "Lembro destas informações: " + facts.slice(-12).join("; ") + "."
+        : "Ainda não tenho nenhuma memória guardada.",
       source: "memory"
     };
+  }
+
+  const calculation = extractCalculation(text) ?? (/^[\d\s,().+\-*/%]+$/.test(text) ? text : null);
+  if (calculation) {
+    const result = calculate(calculation);
+    if (result !== null) {
+      return { response: String(result), source: "calculator", intent: "calculo" };
+    }
   }
 
   const rule = respondWithRules(text, rules || {});
@@ -48,7 +59,12 @@ function route(input, { knowledge, memory, rules, references }) {
   if (intents[0] && intents[0].score >= 0.55) {
     const item = intents[0];
     const response = item.responses[Math.floor(Math.random() * item.responses.length)] || "Entendi.";
-    return { response, source: "chatterbot", intent: item.name, confidence: item.score };
+    return {
+      response,
+      source: "chatterbot",
+      intent: item.name,
+      confidence: item.score
+    };
   }
 
   const concept = knowledge.findConcept(text);
