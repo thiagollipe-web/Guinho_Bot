@@ -39,12 +39,24 @@ export function route(input,{knowledge,memory,rules,references=[]}){
   if(facts.length)return{response:"Tenho "+facts.length+" item(ns) guardado(s) na memória deste navegador.",source:"memory"};
   return{response:"Ainda não tenho nenhuma informação sua guardada.",source:"memory"}
  }
- const learned=memory.findLearned(text);if(learned)return{response:chooseResponse(learned.item.responses),source:"learned"};
+ const contextualText=contextualize(text,memory);
+ const learned=memory.findLearned(contextualText);if(learned)return{response:chooseResponse(learned.item.responses),source:"learned"};
  const calc=extractCalculation(text);if(calc){const n=calculate(calc);if(n!==null)return{response:String(n),source:"calculator"}}
- const eliza=runEliza(text,rules);if(eliza)return eliza;
- const intent=detectIntent(text,knowledge.training);if(intent?.score>=.55)return{response:chooseResponse(intent.intent.responses),source:"chatterbot",intent:intent.intent.name};
+ const eliza=runEliza(contextualText,rules);if(eliza)return eliza;
+ const intent=detectIntent(contextualText,knowledge.training);if(intent?.score>=.55)return{response:chooseResponse(intent.intent.responses),source:"chatterbot",intent:intent.intent.name};
  const concept=knowledge.findConcept(text);if(concept)return{response:concept.concept.response,source:"knowledge"};
- const entities=extractEntities(text);if(entities.length)return{response:"Entendi. Você mencionou "+entities.map(e=>e.value).join(", ")+". O que deseja fazer com isso?",source:"nlp"};
+ const entities=extractEntities(contextualText);if(entities.length)return{response:"Entendi. Você mencionou "+entities.map(e=>e.value).join(", ")+". O que deseja fazer com isso?",source:"nlp"};
  return{response:chooseResponse(rules.default)||"Entendi. Me explique um pouco mais.",source:"fallback"}
+}
+function contextualize(text,memory){
+ const normalized=normalize(text);
+ if(!memory)return text;
+ const context=typeof memory.context==="function"?memory.context(8):[];
+ const previous=context.filter(x=>x.role==="user").map(x=>x.text).filter(Boolean);
+ if(!previous.length)return text;
+ const references=previous.slice(-4);
+ const mentionsReference=/\b(ele|ela|eles|elas|isso|isto|esse|essa|esses|essas|aquele|aquela|dele|dela|desse|dessa|nessa|nesse|o projeto|o jogo|a ideia|isso ai)\b/i.test(normalized);
+ if(!mentionsReference)return text;
+ return text+" [Contexto recente: "+references.join(" | ")+"]";
 }
 function chooseResponse(items){return Array.isArray(items)&&items.length?items[Math.floor(Math.random()*items.length)]:"Entendi."}
