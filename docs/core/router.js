@@ -24,7 +24,10 @@ export function route(input,{knowledge,memory,rules,references=[]}){
  const teach=text.match(/^(?:quando eu disser|quando eu falar)\s+["“]?(.+?)["”]?\s*,?\s*(?:responda|diga|responda com)\s+["“]?(.+?)["”]?$/i);
  if(teach){memory.learn(teach[1],teach[2]);return{response:"Aprendi essa regra.",source:"learning"}}
  const contextQuestion=/^(?:o que acabamos de conversar|sobre o que estavamos falando|o que eu falei agora|qual foi minha ultima mensagem)$/i.test(normalized);
- if(contextQuestion){const recent=typeof memory.recent==="function"?memory.recent(6):[];const users=recent.filter(x=>x.role==="user");const last=users.at(-1);return{response:last?`Sua última mensagem foi: "${last.text}".`:"Ainda não há conversa suficiente para recuperar o contexto.",source:"memory"} }
+ if(contextQuestion){
+  const recent=typeof memory.recent==="function"?memory.recent(6):[],users=recent.filter(x=>x.role==="user"),last=users.at(-1);
+  return{response:last?"Sua última mensagem foi: \""+last.text+"\".":"Ainda não há conversa suficiente para recuperar o contexto.",source:"memory"}
+ }
  const memoryQuestion=/^(?:qual e meu nome|como eu me chamo|o que voce sabe sobre mim|o que voce lembra de mim|voce lembra de mim|o que voce lembra)$/i.test(normalized)||(/\b(?:lembra|lembrar|recorda|recordar)\b/i.test(normalized)&&/\b(?:mim|sobre|memoria|eu)\b/i.test(normalized));
  if(memoryQuestion){
   const targeted=/\b(?:o que voce lembra|o que voce sabe)\s+(?:sobre|de)\s+(.+)$/i.exec(normalized);
@@ -39,25 +42,41 @@ export function route(input,{knowledge,memory,rules,references=[]}){
   if(facts.length)return{response:"Tenho "+facts.length+" item(ns) guardado(s) na memória deste navegador.",source:"memory"};
   return{response:"Ainda não tenho nenhuma informação sua guardada.",source:"memory"}
  }
- const contextualText=contextualize(text,memory);
- const learned=memory.findLearned(contextualText);if(learned)return{response:selectResponse(learned.item.responses,memory),source:"learned"};
- const calc=extractCalculation(text);if(calc){const n=calculate(calc);if(n!==null)return{response:String(n),source:"calculator"}}
- const eliza=runEliza(contextualText,rules);if(eliza)return eliza;
- const intent=detectIntent(contextualText,knowledge.training),intentThreshold=contextualText!==text?.4:.55;if(intent?.score>=intentThreshold)return{response:chooseResponse(intent.intent.responses),source:"chatterbot",intent:intent.intent.name};
- const concept=knowledge.findConcept(text);if(concept)return{response:concept.concept.response,source:"knowledge"};
- const entities=extractEntities(contextualText);if(entities.length)return{response:"Entendi. Você mencionou "+entities.map(e=>e.value).join(", ")+". O que deseja fazer com isso?",source:"nlp"};
+ const variants=contextVariants(text,memory);
+ const learned=bestLearned(variants,memory);
+ if(learned)return{response:selectResponse(learned.item.responses,memory),source:"learned"};
+ const calc=extractCalculation(text);
+ if(calc){const n=calculate(calc);if(n!==null)return{response:String(n),source:"calculator"}}
+ for(const candidate of variants){const eliza=runEliza(candidate,rules);if(eliza)return{response:selectResponse([eliza.response],memory),source:"eliza"}}
+ const intent=bestIntent(variants,knowledge.training),intentThreshold=variants.length>1?.4:.55;
+ if(intent?.score>=intentThreshold)return{response:selectResponse(intent.intent.responses,memory),source:"chatterbot",intent:intent.intent.name};
+ const concept=knowledge.findConcept(text);
+ if(concept)return{response:concept.concept.response,source:"knowledge"};
+ const entities=extractEntities(text);
+ if(entities.length){
+  const values=entities.map(e=>e.value).join(", ");
+  return{response:selectResponse(["Entendi. Você mencionou "+values+". O que deseja fazer com isso?","Você mencionou "+values+". O que quer fazer com isso?"],memory),source:"nlp"}
+ }
  return{response:selectResponse(rules.default,memory)||"Entendi. Me explique um pouco mais.",source:"fallback"}
 }
-function contextualize(text,memory){
- const normalized=normalize(text);
- if(!memory)return text;
- const context=typeof memory.context==="function"?memory.context(8):[];
- const previous=context.filter(x=>x.role==="user").map(x=>x.text).filter(Boolean);
- if(!previous.length)return text;
- const references=previous.slice(-4);
- const mentionsReference=/\b(ele|ela|eles|elas|isso|isto|esse|essa|esses|essas|aquele|aquela|dele|dela|desse|dessa|nessa|nesse|o projeto|o jogo|a ideia|isso ai)\b/i.test(normalized);
- if(!mentionsReference)return text;
- return text+" [Contexto recente: "+references.join(" | ")+"]";
+function hasReference(text){
+ return/\b(?:ele|ela|eles|elas|isso|isto|esse|essa|esses|essas|aquele|aquela|dele|dela|desse|dessa|nessa|nesse|o projeto|o jogo|a ideia|isso ai)\b/i.test(normalize(text));
+}
+function contextVariants(text,memory){
+ if(!hasReference(text)||typeof memory?.recent!=="function")return[text];
+ const users=memory.recent(8).filter(x=>x.role==="user").slice(-4).reverse(),variants=[text];
+ for(const item of users)variants.push(text+" "+item.text);
+ return[...new Set(variants)];
+}
+function bestLearned(variants,memory){
+ let best=null;
+ for(const value of variants){const found=memory.findLearned(value);if(found&&(!best||found.score>best.score))best=found}
+ return best;
+}
+function bestIntent(variants,training){
+ let best=null;
+ for(const value of variants){const found=detectIntent(value,training);if(found&&(!best||found.score>best.score))best=found}
+ return best;
 }
 function selectResponse(items,memory){
  const options=[...new Set((Array.isArray(items)?items:[]).map(x=>String(x??"").trim()).filter(Boolean))];
@@ -66,13 +85,4 @@ function selectResponse(items,memory){
  const fresh=options.filter(x=>!recent.has(normalize(x)));
  const pool=fresh.length?fresh:options;
  return pool[Math.floor(Math.random()*pool.length)];
-}
-function avoidRepeated(response,memory){
- const value=String(response??"").trim();
- if(!value)return"Entendi.";
- const recent=(typeof memory?.recent==="function"?memory.recent(6):[]).filter(x=>x.role==="bot").map(x=>normalize(x.text));
- if(!recent.includes(normalize(value)))return value;
- const alternatives=["Certo. Vamos continuar a partir disso.","Entendi. Pode continuar.","Estou acompanhando. Qual é o próximo passo?"];
- const fresh=alternatives.filter(x=>!recent.includes(normalize(x)));
- return(fresh[0]||value);
 }
