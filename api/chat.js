@@ -332,9 +332,9 @@ export async function chatHandler(request) {
   const openaiKey = String(process.env.OPENAI_API_KEY || "").trim();
   const groqKey = String(process.env.GROQ_API_KEY || "").trim();
   const ollamaBaseUrl = String(process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").trim();
+  const isEngineering = body?.mode === "engineering";
   const ollamaModel = String(isEngineering ? (process.env.OLLAMA_MODEL_ENGINEERING || process.env.OLLAMA_MODEL || "gemma3:270m") : (process.env.OLLAMA_MODEL || "gemma3:270m")).trim();
   const provider = String(process.env.AI_PROVIDER || "auto").trim().toLowerCase();
-  const isEngineering = body?.mode === "engineering";
 
   let engineeringWorkspace = null;
   if (isEngineering) {
@@ -343,7 +343,7 @@ export async function chatHandler(request) {
     engineeringWorkspace = workspaceValidation.workspace;
   }
 
-  const ollamaEnabled = provider === "ollama" || provider === "auto" || (!openaiKey && !groqKey);
+  const ollamaEnabled = provider === "ollama" || provider === "auto";
   if (!openaiKey && !groqKey && !ollamaEnabled) return safeError("Nenhum provedor de IA está configurado.", 503, true, headers);
 
   const groqModel = String(isEngineering ? (process.env.GROQ_MODEL_ENGINEERING || process.env.GROQ_MODEL || "openai/gpt-oss-20b") : (process.env.GROQ_MODEL || "openai/gpt-oss-20b")).trim();

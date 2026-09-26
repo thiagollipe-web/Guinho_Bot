@@ -6,7 +6,7 @@ const originalEnv = { ...process.env };
 const originalFetch = globalThis.fetch;
 
 function restoreEnv() {
-  for (const key of ["OPENAI_API_KEY", "OPENAI_MODEL", "AI_TIMEOUT_MS", "AI_MAX_TOKENS", "CORS_ORIGIN"]) {
+  for (const key of ["OPENAI_API_KEY", "OPENAI_MODEL", "AI_TIMEOUT_MS", "AI_MAX_TOKENS", "CORS_ORIGIN", "AI_PROVIDER", "GROQ_API_KEY"]) {
     if (key in originalEnv) process.env[key] = originalEnv[key];
     else delete process.env[key];
   }
@@ -18,6 +18,8 @@ function configure() {
   process.env.AI_TIMEOUT_MS = "1000";
   process.env.AI_MAX_TOKENS = "200";
   process.env.CORS_ORIGIN = "https://thiagollipe-web.github.io";
+  process.env.AI_PROVIDER = "openai";
+  delete process.env.GROQ_API_KEY;
 }
 
 function request(body, options = {}) {
