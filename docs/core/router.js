@@ -4,6 +4,7 @@ import{extractCalculation,calculate}from"./calculator.js";
 export function route(input,{knowledge,memory,rules,references=[]}){
  const text=String(input??"").trim(),normalized=normalize(text);
  if(!text)return{response:"Digite alguma coisa.",source:"system"};
+ if(/^(?:quem e voce|quem e o guinho|o que voce e)$/i.test(normalized))return{response:"Sou o Guinho, um assistente conversacional local.",source:"identity"};
  if(/\b(?:fonte|fontes|link|links|referencia|referencias)\b/i.test(normalized)){
   const last=references.at(-1);return{response:last?.url?"Fonte: "+last.url:"Nenhuma fonte foi registrada nesta sessão.",source:"reference"}
  }
