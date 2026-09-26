@@ -9,13 +9,22 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
       - name: Check project syntax
-        run: npm run check
+        run: |
+          npm run check
+          node --check docs/app.js
+
+      - name: Validate JSON
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('knowledge/base.json','utf8')); JSON.parse(require('fs').readFileSync('knowledge/training.json','utf8')); JSON.parse(require('fs').readFileSync('docs/manifest.webmanifest','utf8'));"
+
       - name: Install dependencies
         run: npm install
+
       - name: Run tests
         run: npm test
-
