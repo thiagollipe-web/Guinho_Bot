@@ -1,22 +1,11 @@
 {
-  "name": "guinho-bot",
-  "version": "2.1.0",
-  "private": true,
-  "description": "Guinho: agente conversacional local com NLP, regras ELIZA, memória e integração opcional com SLM.",
-  "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "test": "node --test",
-    "check": "node --check index.js && node --check src/eliza/pattern-matcher.js && node --check src/eliza/engine.js && node --check src/guinho.js && node --check docs/app.js && node --check docs/core/nlp.js && node --check docs/core/eliza.js && node --check docs/core/memory.js && node --check docs/core/knowledge.js && node --check docs/core/router.js && node --check docs/core/calculator.js"
+  "name":"guinho-bot",
+  "version":"1.0.0",
+  "private":true,
+  "type":"module",
+  "scripts":{
+    "test":"node --test",
+    "check":"node --check docs/app.js && node --check docs/core/nlp.js && node --check docs/core/eliza.js && node --check docs/core/memory.js && node --check docs/core/knowledge.js && node --check docs/core/router.js && node --check docs/core/calculator.js && node --check tests/core.test.js"
   },
-  "engines": {
-    "node": ">=20"
-  },
-  "dependencies": {
-    "dotenv": "^17.2.2",
-    "ollama": "^0.6.3",
-    "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.34.7"
-  }
+  "engines":{"node":">=20"}
 }
