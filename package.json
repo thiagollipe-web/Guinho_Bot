@@ -8,7 +8,7 @@
   "scripts": {
     "start": "node index.js",
     "test": "node --test",
-    "check": "node --check index.js && node --check src/eliza/pattern-matcher.js && node --check src/eliza/engine.js && node --check src/guinho.js"
+    "check": "node --check index.js && node --check src/eliza/pattern-matcher.js && node --check src/eliza/engine.js && node --check src/guinho.js && node --check docs/app.js && node --check docs/core/nlp.js && node --check docs/core/eliza.js && node --check docs/core/memory.js && node --check docs/core/knowledge.js && node --check docs/core/router.js && node --check docs/core/calculator.js"
   },
   "engines": {
     "node": ">=20"
