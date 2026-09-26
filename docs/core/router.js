@@ -1,7 +1,10 @@
 import{normalize,detectIntent,extractEntities}from"./nlp.js";
 import{runEliza}from"./eliza.js";
 import{extractCalculation,calculate}from"./calculator.js";
-export function route(input,options={}){\n try{return routeCore(input,options)}catch(error){console.error("Guinho router:",error);return{response:"Entendi. Houve um problema ao processar essa mensagem. Tente novamente.",source:"error"}}\n}\nfunction routeCore(input,{knowledge,memory,rules,references=[]}={}){
+export function route(input,options={}){
+ try{return routeCore(input,options)}catch(error){console.error("Guinho router:",error);return{response:"Entendi. Houve um problema ao processar essa mensagem. Tente novamente.",source:"error"}}
+}
+function routeCore(input,{knowledge,memory,rules,references=[]}={}){
  const text=String(input??"").trim(),normalized=normalize(text);
  if(!text)return{response:"Digite alguma coisa.",source:"system"};
  if(typeof memory.capture==="function")memory.capture(text);
