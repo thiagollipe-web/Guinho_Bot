@@ -40,13 +40,13 @@ export function route(input,{knowledge,memory,rules,references=[]}){
   return{response:"Ainda não tenho nenhuma informação sua guardada.",source:"memory"}
  }
  const contextualText=contextualize(text,memory);
- const learned=memory.findLearned(contextualText);if(learned)return{response:chooseResponse(learned.item.responses),source:"learned"};
+ const learned=memory.findLearned(contextualText);if(learned)return{response:selectResponse(learned.item.responses,memory),source:"learned"};
  const calc=extractCalculation(text);if(calc){const n=calculate(calc);if(n!==null)return{response:String(n),source:"calculator"}}
  const eliza=runEliza(contextualText,rules);if(eliza)return eliza;
  const intent=detectIntent(contextualText,knowledge.training),intentThreshold=contextualText!==text?.4:.55;if(intent?.score>=intentThreshold)return{response:chooseResponse(intent.intent.responses),source:"chatterbot",intent:intent.intent.name};
  const concept=knowledge.findConcept(text);if(concept)return{response:concept.concept.response,source:"knowledge"};
  const entities=extractEntities(contextualText);if(entities.length)return{response:"Entendi. Você mencionou "+entities.map(e=>e.value).join(", ")+". O que deseja fazer com isso?",source:"nlp"};
- return{response:chooseResponse(rules.default)||"Entendi. Me explique um pouco mais.",source:"fallback"}
+ return{response:selectResponse(rules.default,memory)||"Entendi. Me explique um pouco mais.",source:"fallback"}
 }
 function contextualize(text,memory){
  const normalized=normalize(text);
@@ -59,4 +59,20 @@ function contextualize(text,memory){
  if(!mentionsReference)return text;
  return text+" [Contexto recente: "+references.join(" | ")+"]";
 }
-function chooseResponse(items){return Array.isArray(items)&&items.length?items[Math.floor(Math.random()*items.length)]:"Entendi."}
+function selectResponse(items,memory){
+ const options=[...new Set((Array.isArray(items)?items:[]).map(x=>String(x??"").trim()).filter(Boolean))];
+ if(!options.length)return"Entendi.";
+ const recent=new Set((typeof memory?.recent==="function"?memory.recent(10):[]).filter(x=>x.role==="bot").map(x=>normalize(x.text)));
+ const fresh=options.filter(x=>!recent.has(normalize(x)));
+ const pool=fresh.length?fresh:options;
+ return pool[Math.floor(Math.random()*pool.length)];
+}
+function avoidRepeated(response,memory){
+ const value=String(response??"").trim();
+ if(!value)return"Entendi.";
+ const recent=(typeof memory?.recent==="function"?memory.recent(6):[]).filter(x=>x.role==="bot").map(x=>normalize(x.text));
+ if(!recent.includes(normalize(value)))return value;
+ const alternatives=["Certo. Vamos continuar a partir disso.","Entendi. Pode continuar.","Estou acompanhando. Qual é o próximo passo?"];
+ const fresh=alternatives.filter(x=>!recent.includes(normalize(x)));
+ return(fresh[0]||value);
+}
