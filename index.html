@@ -30,7 +30,7 @@
         <div>
           <div class="eyebrow">COMPANHEIRO DE PROGRAMAÇÃO</div>
           <h1>Guinho-Bot</h1>
-          <div class="online"><span></span> PROGRAMADOR ONLINE + LOCAL</div>
+          <div class="online"><span></span> PROGRAMADOR WEBGPU LOCAL</div>
         </div>
       </div>
 
@@ -121,7 +121,10 @@
         </div>
         <div class="engine-status">
           <span class="pulse"></span>
-          <span id="status-text">LOCAL READY</span>
+          <span id="status-text">WEBGPU DISPONÍVEL</span>
+          <button type="button" class="icon-btn model-select-btn" id="select-model">Selecionar modelo</button>
+          <input id="model-file-input" type="file" accept=".gguf" hidden>
+          <small id="model-name">Nenhum modelo GGUF selecionado</small>
         </div>
       </div>
 
@@ -142,7 +145,7 @@
           <button type="submit" class="send-btn" aria-label="Enviar mensagem" title="Enviar mensagem">↑</button>
         </div>
       </form>
-      <div class="composer-hint">Enter envia • Shift + Enter quebra linha • IA online com fallback local</div>
+      <div class="composer-hint">Enter envia • Shift + Enter quebra linha • IA local com WebGPU</div>
     </section>
   </section>
 

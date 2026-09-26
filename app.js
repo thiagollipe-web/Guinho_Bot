@@ -19,8 +19,7 @@ import { normalizarArquivosImportados, validarDependencias, arquivosRelacionados
 import { criarTokenRuntime, montarDocumentoSandbox, validarEventoRuntime, interpretarEventoRuntime } from "./sandbox-runtime.js";
 import { MAX_RUNTIME_AUTOFIX, deveAutocorrigirRuntime, proximaTentativaRuntime, construirPedidoAutocorrecao } from "./runtime-autofix.js";
 import { criarSnapshot, registrarSnapshot, desfazerWorkspace, removerUltimoSnapshot, salvarHistoricoWorkspace, carregarHistoricoWorkspace, resumoHistoricoWorkspace } from "./workspace-history.js";
-import { AI_CHAT_URL, AI_CHAT_TIMEOUT_MS } from "./ai-config.js";
-import { pesquisarKaggle } from "./kaggle-client.js";
+import { gerarWebGPU, statusWebGPU } from "./webgpu-engine.js";
 
 const chat=document.querySelector("#chat");
 const form=document.querySelector("#composer");
@@ -84,7 +83,20 @@ const memoria=new MemoriaSessao();
 const gerador=new GeradorEstatistico();
 const contexto=new ContextoConversacional();
 let modoAtual="standard";
-let ultimaOrigemResposta="local";
+let ultimaOrigemResposta="webgpu";
+
+const webgpuStatusInicial=statusWebGPU();
+if(statusText){
+  statusText.textContent=webgpuStatusInicial.supported?"WEBGPU DISPONÍVEL":"WEBGPU INDISPONÍVEL";
+}
+window.addEventListener("guinho:webgpu-ready",event=>{
+  ultimaOrigemResposta="webgpu";
+  if(statusText)statusText.textContent="GEMMA • WEBGPU READY";
+});
+window.addEventListener("guinho:webgpu-progress",event=>{
+  const pct=Number(event.detail?.percent||0).toFixed(0);
+  if(statusText)statusText.textContent="CARREGANDO "+pct+"%";
+});
 
 function carregarAprendizadoEngenharia(){
   try{
@@ -670,71 +682,46 @@ function historicoParaIA(){
     .map(item=>({role:item.role,content:String(item.content||"").slice(0,12000)}));
 }
 
-async function consultarKaggleOnline(texto){
-  try{
-    const resultado=await pesquisarKaggle(texto);
-    if(!resultado)return null;
-    return {content:resultado.text,provider:"kaggle-mcp",model:resultado.tool||""};
-  }catch{
-    return null;
-  }
-}
-
-async function consultarIAOnline(texto){
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),AI_CHAT_TIMEOUT_MS);
-  try{
-    const mensagens=historicoParaIA();
-    if(!mensagens.length||mensagens.at(-1)?.content!==texto){
-      mensagens.push({role:"user",content:texto});
-    }
-    const response=await fetch(AI_CHAT_URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({messages:mensagens.slice(-12)}),
-      signal:controller.signal
-    });
-    const data=await response.json().catch(()=>null);
-    const content=typeof data?.content==="string"?data.content.trim():"";
-    if(!response.ok||data?.ok!==true||!content)return null;
-    return {content,provider:data.provider||"openai",model:data.model||""};
-  }catch{
-    return null;
-  }finally{
-    clearTimeout(timer);
-  }
-}
-
 async function consultarIAEngenharia(texto,runtime=null){
   if(!workspaceEngenharia||!Object.keys(workspaceEngenharia.files||{}).length)return null;
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),AI_CHAT_TIMEOUT_MS);
+
+  const arquivos=Object.entries(workspaceEngenharia.files)
+    .slice(0,12)
+    .map(([path,content])=>({path,content:String(content||"").slice(0,12000)}));
+
+  const pedido=[
+    "Você é o agente de engenharia do Guinho-Bot.",
+    "Gere uma correção aplicável ao projeto descrito abaixo.",
+    "Responda SOMENTE com JSON válido, sem Markdown.",
+    'Formato obrigatório: {"summary":"...","next_task":"...","files":[{"path":"arquivo.ext","content":"conteúdo completo do arquivo"}]}',
+    "Não inclua arquivos desnecessários. No máximo 8 arquivos.",
+    "Preserve o código existente quando não houver necessidade de alteração.",
+    "Não invente APIs ou resultados de execução.",
+    "Projeto:",
+    JSON.stringify({
+      name:workspaceEngenharia.nome||"Projeto Guinho",
+      language:workspaceEngenharia.linguagem||"JavaScript",
+      files:arquivos,
+      dependencies:validarDependencias(workspaceEngenharia.files),
+      runtime:runtime||workspaceEngenharia.runtime||null,
+      request:String(texto||"")
+    })
+  ].join("\n");
+
   try{
-    const mensagens=historicoParaIA();
-    if(!mensagens.length||mensagens.at(-1)?.content!==texto)mensagens.push({role:"user",content:texto});
-    const response=await fetch(AI_CHAT_URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        mode:"engineering",
-        messages:mensagens.slice(-12),
-        workspace:{
-          name:workspaceEngenharia.nome||"Projeto Guinho",
-          language:workspaceEngenharia.linguagem||"JavaScript",
-          files:workspaceEngenharia.files,
-          dependencies:validarDependencias(workspaceEngenharia.files),
-          runtime:runtime||workspaceEngenharia.runtime||null
-        }
-      }),
-      signal:controller.signal
+    const raw=await gerarWebGPU({
+      message:pedido,
+      history:historicoParaIA(),
+      mode:"detalhado"
     });
-    const data=await response.json().catch(()=>null);
-    if(!response.ok||data?.ok!==true||data?.mode!=="engineering"||!data.patch)return null;
-    return data.patch;
-  }catch{
+    const match=String(raw||"").match(/\{[\s\S]*\}/);
+    if(!match)return null;
+    const patch=JSON.parse(match[0]);
+    if(!patch||!Array.isArray(patch.files)||patch.files.length>8)return null;
+    return patch;
+  }catch(error){
+    console.error("[GUINHO] Engenharia WebGPU:",error);
     return null;
-  }finally{
-    clearTimeout(timer);
   }
 }
 
@@ -840,188 +827,43 @@ function aplicarPatchIAEngenharia(patch,pedido){
 }
 
 async function responder(texto){
-  const kaggle=await consultarKaggleOnline(texto);
-  if(kaggle?.content){
-    ultimaOrigemResposta="kaggle";
-    return kaggle.content;
-  }
-
-  ultimaOrigemResposta="local";
-  extrairMemoria(texto);
-  const limpo=texto.replace(/^\/(ajuda|moeda|noticias|tempo|pnl|diagnostico|analisar|corrigir|melhorar|validar)\b/i,"$1").trim();
-  if(/^validar\b|^valide\b|^validacao\b|^validação\b/i.test(limpo)){
-    const alvo=limpo.replace(/^(validar|valide|validacao|validação)\b/i,"").trim();
-    const r=respostaValidacao(alvo);
-    contexto.atualizar({texto:limpo,resposta:r,analise:pnl.detectar(limpo),estrategia:"validacao",assunto:memoria.estado.assuntoAtual});
-    return r;
-  }
-  if(/^melhorar\b|^melhore\b/i.test(limpo)){
-    const aplicar=/\b(aplicar|aplique|automatize|automaticamente)\b/i.test(limpo);
-    const alvo=limpo.replace(/^(melhorar|melhore)\b/i,"").replace(/\b(aplicar|aplique|automatize|automaticamente)\b/ig,"").trim();
-    const r=respostaMelhoria(alvo,aplicar);
-    contexto.atualizar({texto:limpo,resposta:r,analise:pnl.detectar(limpo),estrategia:"melhoria",assunto:memoria.estado.assuntoAtual});
-    return r;
-  }
-  if(/^corrigir\b|^corrija\b/i.test(limpo)){
-    const alvo=limpo.replace(/^(corrigir|corrija)\b/i,"").trim();
-    const r=respostaCorrecao(alvo);
-    contexto.atualizar({texto:limpo,resposta:r,analise:pnl.detectar(limpo),estrategia:"correcao",assunto:memoria.estado.assuntoAtual});
-    return r;
-  }
-    if(/^analisar\b/i.test(limpo)){
-    const alvo=limpo.replace(/^analisar\b/i,"").trim();
-    const r=respostaAnalise(alvo);
-    contexto.atualizar({texto:limpo,resposta:r,analise:pnl.detectar(limpo),estrategia:"diagnostico",assunto:memoria.estado.assuntoAtual});
-    return r;
-  }
-    if(/^pnl\b|^diagnostico\b/i.test(limpo)){
-    const alvo=limpo.replace(/^(pnl|diagnostico)\b/i,"").trim()||texto;
-    const rel=pnl.explicar(alvo);
-    const est=pnl.detectar(alvo);
-    const estrategia=gerador.estrategia(est);
-    const perfil=perfilPergunta(alvo);
-    return `Diagnóstico local:
-Intenção: ${rel.intencao}
-Confiança combinada: ${(rel.confianca*100).toFixed(1)}%
-Probabilidade bruta: ${(rel.probabilidadeBruta*100).toFixed(1)}%
-Margem: ${(rel.margem*100).toFixed(1)}%
-Entropia: ${rel.entropia.toFixed(2)}
-Ambiguidade: ${rel.ambigua?"sim":"não"}
-Tipo: ${rel.tipo}
-Objetivo: ${rel.objetivo}
-Estratégia: ${estrategia.estrategia}
-Domínios da biblioteca: ${Object.keys(perfil.dominios).slice(0,5).join(", ")||"nenhum"}
-Intenções reforçadas: ${Object.keys(perfil.intencoes).slice(0,5).join(", ")||"nenhuma"}
-Formatos detectados: ${Object.keys(perfil.formatos).join(", ")||"nenhum"}
-
-Probabilidades:
-${rel.probabilidades.slice(0,5).map(x=>`${x.intent}: ${(x.probability*100).toFixed(1)}%`).join("\n")}
-
-Objetivos:
-${rel.objetivos.slice(0,4).map(x=>`${x.objetivo}: ${(x.probability*100).toFixed(1)}%`).join("\n")}`;
-  }
-  const textoContextual=contexto.referencia(limpo,pnl);
-  const analise=pnl.detectar(textoContextual,contexto.resumo());
-  const perfilProgramador=construirPerfilProgramador(textoContextual,{
-    contexto:contexto.resumo(),
-    historico:memoria.historico()
-  });
-  if(!ehConversaProgramacao(limpo,perfilProgramador)){
-    const r="Eu sou o Guinho, seu companheiro de programação. Posso ajudar a criar, explicar, corrigir, analisar e melhorar código. Me conte o que você quer construir ou qual problema quer resolver.";
-    contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"escopo-programacao",assunto:memoria.estado.assuntoAtual});
-    return r;
-  }
-  if(ehPerguntaGeralParaIA(limpo,analise,perfilProgramador)){
-
-    const online=await consultarIAOnline(limpo);
-    if(online){
-      ultimaOrigemResposta="openai";
-      contexto.atualizar({texto:limpo,resposta:online.content,analise,estrategia:"ia-online",assunto:memoria.estado.assuntoAtual});
-      return online.content;
-    }
-    ultimaOrigemResposta="local-fallback";
-  }
-  if(analise.confident&&analise.intent==="moeda"){const r=await api.moeda();contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"conversa"});return r;}
-  if(analise.confident&&analise.intent==="noticias"){const r=await api.noticias();contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
-  if(analise.confident&&analise.intent==="tempo"){const r=await api.tempo(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
-  if(analise.confident&&analise.intent==="cep"){const r=await api.cep(limpo);contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"explicacao"});return r;}
-  const pedidoEngenharia = ["criar","corrigir","analisar","diagnosticar","melhorar","validar"].includes(analise.objetivo)
-    && ["jogos","programacao"].includes(analise.intent);
-  const criacaoConcreta = analise.objetivo==="criar"
-    && (pedidoDeCodigo(limpo) || perfilProgramador.linguagem || perfilProgramador.tecnologia || perfilProgramador.tipoProjeto);
-
-  if(workspaceEngenharia && pedidoEngenharia && ["criar","corrigir","melhorar","analisar","diagnosticar"].includes(analise.objetivo)){
-    const patch=await consultarIAEngenharia(limpo);
-    if(patch){
-      ultimaOrigemResposta="openai";
-      const r=aplicarPatchIAEngenharia(patch,limpo);
-      if(r){
-        contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"agente-ia-patch",assunto:memoria.estado.assuntoAtual});
-        return r;
+  // Motor exclusivo: toda resposta generativa passa pelo WebGPU do navegador.
+  // Não usamos Groq, OpenAI, Ollama ou servidor Node para gerar a resposta.
+  ultimaOrigemResposta="webgpu";
+  try{
+    const historico=memoria.historico().slice(-8);
+    const respostaWebGPU=await gerarWebGPU({
+      message:texto,
+      history:historico,
+      mode:modoAtual,
+      onProgress:info=>{
+        if(info?.status==="progress" && statusText){
+          const pct=Number(info.progress||0).toFixed(0);
+          statusText.textContent="CARREGANDO WEBGPU "+pct+"%";
+        }
       }
-    }
+    });
+    contexto.atualizar({
+      texto,
+      resposta:respostaWebGPU,
+      analise:pnl.detectar(texto),
+      estrategia:"webgpu",
+      assunto:memoria.estado.assuntoAtual
+    });
+    return respostaWebGPU;
+  }catch(error){
+    console.error("[GUINHO] WebGPU:",error);
     ultimaOrigemResposta="local-fallback";
+    const analise=pnl.detectar(texto);
+    const local=intencaoEspecial(analise,texto)
+      || gerarRespostaEstruturada(texto,analise)?.texto;
+    return local || "O modelo WebGPU está indisponível e a base local não encontrou uma resposta para esta pergunta.";
   }
-
-  if(criacaoConcreta && (!perfilProgramador.linguagem || perfilProgramador.linguagem==="JavaScript")){
-    const r=respostaEngenharia(limpo);
-    contexto.atualizar({
-      texto:limpo,
-      resposta:r,
-      analise:{...analise,entidades:{...(analise.entidades||{}),linguagem:perfilProgramador.linguagem,tecnologia:perfilProgramador.tecnologia,tipoProjeto:perfilProgramador.tipoProjeto}},
-      estrategia:"agente-criar-projeto",
-      assunto:memoria.estado.assuntoAtual
-    });
-    return r;
-  }
-
-  if(analise.confident&&analise.objetivo==="validar"&&["jogos","programacao"].includes(analise.intent)){
-    const r=respostaValidacao(limpo);
-    contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"validacao",assunto:memoria.estado.assuntoAtual});
-    return r;
-  }
-  if(analise.confident&&analise.objetivo==="melhorar"&&["jogos","programacao"].includes(analise.intent)){
-    const r=respostaMelhoria(limpo,false);
-    contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"melhoria",assunto:memoria.estado.assuntoAtual});
-    return r;
-  }
-  if(analise.confident&&(analise.objetivo==="analisar"||analise.objetivo==="diagnosticar")&&["jogos","programacao"].includes(analise.intent)){
-    const r=respostaAnalise(limpo);
-    contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"diagnostico",assunto:memoria.estado.assuntoAtual});
-    return r;
-  }
-  if(pedidoEngenharia && ["corrigir","analisar","diagnosticar","melhorar"].includes(analise.objetivo)){
-    const r=respostaEngenharia(limpo);
-    contexto.atualizar({
-      texto:limpo,
-      resposta:r,
-      analise,
-      estrategia:"agente-engenharia",
-      assunto:memoria.estado.assuntoAtual
-    });
-    return r;
-  }
-
-  const falaGuinho=respostaElizaProgramacao(limpo,perfilProgramador);
-  if(falaGuinho){
-    contexto.atualizar({
-      texto:limpo,
-      resposta:falaGuinho,
-      analise:{...analise,entidades:{...(analise.entidades||{}),linguagem:perfilProgramador.linguagem,tecnologia:perfilProgramador.tecnologia,tipoProjeto:perfilProgramador.tipoProjeto}},
-      estrategia:"conversa-programacao",
-      assunto:memoria.estado.assuntoAtual
-    });
-    return falaGuinho;
-  }
-  if((pedidoDeCodigo(limpo)||(analise.confident&&analise.objetivo==="criar"))&&["jogos","programacao"].includes(analise.intent)
-    &&(!perfilProgramador.linguagem||perfilProgramador.linguagem==="JavaScript")){
-
-    const r=respostaEngenharia(limpo);
-    contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:"engenharia",assunto:memoria.estado.assuntoAtual});
-    return r;
-  }
-  
-  function respostaNaturalFallback(texto,analise){
-  ultimaOrigemResposta=ultimaOrigemResposta==="local-fallback"?"local-fallback":"local";
-  const resultado=geradorResposta.gerar(texto,analise);
-  if(!resultado)return null;
-  contexto.atualizar({texto,resposta:resultado.texto,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:resultado.assunto});
-  return resultado.texto;
 }
 
-const especial=analise.confident?intencaoEspecial(analise,limpo):null;
-  if(especial){contexto.atualizar({texto:limpo,resposta:especial,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:memoria.estado.assuntoAtual});return especial;}
-  const natural=respostaNaturalFallback(textoContextual,analise);
-  if(natural)return natural;
-  const r=analise.confident
-    ? "Eu não encontrei evidência suficiente na base local para responder com segurança. Tente acrescentar o assunto, uma definição ou o contexto da pergunta."
-    : "Ainda estou dividido entre algumas interpretações. Se você acrescentar o objetivo ou a tecnologia envolvida, consigo direcionar melhor a resposta.";
-  contexto.atualizar({texto:limpo,resposta:r,analise,estrategia:gerador.estrategia(analise).estrategia,assunto:memoria.estado.assuntoAtual});
-  return r;
-}
 
 function adaptarModo(resposta){
-  if(ultimaOrigemResposta==="openai")return resposta;
+  if(ultimaOrigemResposta!=="webgpu")return resposta;
   if(modoAtual==="standard")return resposta;
   if(modoAtual==="resumido"){
     const partes=resposta.split(/\n\n+/).filter(Boolean);
@@ -1037,7 +879,7 @@ function adaptarModo(resposta){
     return "Vamos olhar para isso por outro ângulo.\n\n"+resposta;
   }
   if(modoAtual==="detalhado"){
-    return resposta+"\n\nModo detalhado: a resposta acima foi composta a partir das evidências locais recuperadas e da intenção identificada pelo motor probabilístico.";
+    return resposta+"\n\nModo detalhado: a resposta acima foi gerada pelo modelo local carregado via WebGPU.";
   }
   return resposta;
 }
@@ -1110,7 +952,7 @@ function renderTextoMensagem(box,text){
 function add(role,text){
   const el=document.createElement("div");el.className="line "+(role==="user"?"user":"bot");
   const meta=document.createElement("div");meta.className="meta";
-  meta.textContent=role==="user"?"VOCÊ >":ultimaOrigemResposta==="openai"?"GUINHO • IA ONLINE >":ultimaOrigemResposta==="kaggle"?"GUINHO • KAGGLE >":"GUINHO • MOTOR LOCAL >";
+  meta.textContent=role==="user"?"VOCÊ >":ultimaOrigemResposta==="local-fallback"?"GUINHO • BASE LOCAL >":"GUINHO • GEMMA WEBGPU >";
   const box=document.createElement("div");box.className="bubble";
   const fonteIndex=text.indexOf("\n\nBase local:");
   if(role==="bot"&&fonteIndex>=0){
@@ -1137,14 +979,13 @@ form.addEventListener("submit",async e=>{
     const resposta=adaptarModo(respostaBruta);
     add("bot",resposta);
     memoria.adicionar("assistant",resposta);
-    statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE":ultimaOrigemResposta==="kaggle"?"KAGGLE MCP":"MODO LOCAL";
-    if(ultimaOrigemResposta==="local-fallback")showToast("IA online indisponível — usando o motor local.");
+    statusText.textContent=ultimaOrigemResposta==="local-fallback"?"BASE LOCAL • FALLBACK":"GEMMA • WEBGPU READY";
   }catch(err){
-    ultimaOrigemResposta="local-fallback";
-    add("bot","O serviço online não respondeu. O motor local permanece disponível, mas ocorreu um erro ao gerar a resposta local: "+(err?.message||"erro desconhecido"));
+    ultimaOrigemResposta="webgpu";
+    add("bot","O motor WebGPU encontrou um erro inesperado: "+(err?.message||"erro desconhecido"));
   }finally{
     buttons.forEach(b=>b.disabled=false);
-    setTimeout(()=>{statusText.textContent=ultimaOrigemResposta==="openai"?"IA ONLINE":ultimaOrigemResposta==="kaggle"?"KAGGLE MCP":"LOCAL READY";},1800);
+    setTimeout(()=>{statusText.textContent=statusWebGPU().loaded?"GEMMA • WEBGPU READY":statusWebGPU().supported?"WEBGPU • SELECIONE O MODELO":"WEBGPU INDISPONÍVEL";},1800);
     input.focus();
   }
 });

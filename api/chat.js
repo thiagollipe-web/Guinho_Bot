@@ -93,6 +93,61 @@ export function validateWorkspacePatch(patch, workspace = {}) {
   };
 }
 
+
+async function groqChat({ apiKey, model, messages, maxTokens = 1200, timeoutMs = 25000, engineering = false, schema = null }) {
+  if (!apiKey) throw new Error("GROQ_API_KEY não configurada.");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const body = { model, messages, temperature: 0.2, max_completion_tokens: maxTokens, stream: false };
+    if (engineering && schema) {
+      body.response_format = { type: "json_schema", json_schema: { name: schema.name, strict: true, schema: schema.schema } };
+    }
+    const response = await fetch(String(process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1").replace(/\/$/, "") + "/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = new Error("Groq HTTP " + response.status + ": " + (data?.error?.message || "erro desconhecido"));
+      error.status = response.status;
+      throw error;
+    }
+    const text = data?.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error("Groq retornou conteúdo vazio.");
+    return text;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function ollamaChat({ baseUrl = "http://127.0.0.1:11434", model = "gemma3:270m", messages, maxTokens = 1200, timeoutMs = 25000 }) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const prompt = messages.map(message => `${message.role}: ${message.content}`).join("\n\n");
+    const response = await fetch(String(baseUrl).replace(/\/$/, "") + "/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model, prompt, stream: false, options: { num_predict: maxTokens } }),
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = new Error("Ollama HTTP " + response.status + ": " + (data?.error || "erro desconhecido"));
+      error.status = response.status;
+      throw error;
+    }
+    const text = data?.response?.trim();
+    if (!text) throw new Error("Ollama retornou conteúdo vazio.");
+    return text;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function projectPatchFormat() {
   return {
     type: "json_schema",
@@ -254,167 +309,130 @@ export function createTimeoutSignal(timeoutMs) {
 
 export async function chatHandler(request) {
   const headers = corsHeaders(request);
-  if (headers === null) {
-    return safeError("Origem não autorizada.", 403, false);
-  }
-
-  if (request.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        ...headers,
-        "Access-Control-Max-Age": "600"
-      }
-    });
-  }
-
-  if (request.method !== "POST") {
-    return safeError("Método não permitido. Use POST.", 405, false, {
-      Allow: "POST, OPTIONS",
-      ...headers
-    });
-  }
-
-  const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
-  if (!apiKey) {
-    return safeError("Serviço de IA não configurado.", 503, true, headers);
-  }
+  if (headers === null) return safeError("Origem não autorizada.", 403, false);
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: { ...headers, "Access-Control-Max-Age": "600" } });
+  if (request.method !== "POST") return safeError("Método não permitido. Use POST.", 405, false, { Allow: "POST, OPTIONS", ...headers });
 
   const contentType = String(request.headers.get("content-type") || "").toLowerCase();
-  if (!contentType.includes("application/json")) {
-    return safeError("Content-Type deve ser application/json.", 415, false, headers);
-  }
+  if (!contentType.includes("application/json")) return safeError("Content-Type deve ser application/json.", 415, false, headers);
 
   const declaredLength = Number.parseInt(request.headers.get("content-length") || "", 10);
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
-    return safeError("Payload excede o limite permitido.", 413, false, headers);
-  }
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) return safeError("Payload excede o limite permitido.", 413, false, headers);
 
   let raw;
-  try {
-    raw = await request.text();
-  } catch {
-    return safeError("Não foi possível ler a requisição.", 400, false, headers);
-  }
-
-  if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
-    return safeError("Payload excede o limite permitido.", 413, false, headers);
-  }
+  try { raw = await request.text(); } catch { return safeError("Não foi possível ler a requisição.", 400, false, headers); }
+  if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) return safeError("Payload excede o limite permitido.", 413, false, headers);
 
   let body;
-  try {
-    body = JSON.parse(raw);
-  } catch {
-    return safeError("JSON inválido.", 400, false, headers);
-  }
+  try { body = JSON.parse(raw); } catch { return safeError("JSON inválido.", 400, false, headers); }
 
   const validation = validateMessages(body?.messages);
-  if (!validation.ok) {
-    return safeError(validation.error, validation.status, validation.retryable, headers);
-  }
+  if (!validation.ok) return safeError(validation.error, validation.status, validation.retryable, headers);
 
-  const model = String(process.env.OPENAI_MODEL || DEFAULT_MODEL).trim();
+  const openaiKey = String(process.env.OPENAI_API_KEY || "").trim();
+  const groqKey = String(process.env.GROQ_API_KEY || "").trim();
+  const ollamaBaseUrl = String(process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").trim();
   const isEngineering = body?.mode === "engineering";
+  const ollamaModel = String(isEngineering ? (process.env.OLLAMA_MODEL_ENGINEERING || process.env.OLLAMA_MODEL || "gemma3:270m") : (process.env.OLLAMA_MODEL || "gemma3:270m")).trim();
+  const provider = String(process.env.AI_PROVIDER || "auto").trim().toLowerCase();
+
   let engineeringWorkspace = null;
   if (isEngineering) {
     const workspaceValidation = validateWorkspace(body?.workspace);
-    if (!workspaceValidation.ok) {
-      return safeError(workspaceValidation.error, workspaceValidation.status, workspaceValidation.retryable, headers);
-    }
+    if (!workspaceValidation.ok) return safeError(workspaceValidation.error, workspaceValidation.status, workspaceValidation.retryable, headers);
     engineeringWorkspace = workspaceValidation.workspace;
   }
 
+  const ollamaEnabled = provider === "ollama" || provider === "auto";
+  if (!openaiKey && !groqKey && !ollamaEnabled) return safeError("Nenhum provedor de IA está configurado.", 503, true, headers);
+
+  const groqModel = String(isEngineering ? (process.env.GROQ_MODEL_ENGINEERING || process.env.GROQ_MODEL || "openai/gpt-oss-20b") : (process.env.GROQ_MODEL || "openai/gpt-oss-20b")).trim();
+  const openaiModel = String(process.env.OPENAI_MODEL || DEFAULT_MODEL).trim();
   const timeoutMs = parseLimit(process.env.AI_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 1000, 30000);
   const maxTokens = parseLimit(process.env.AI_MAX_TOKENS, DEFAULT_MAX_TOKENS, 64, 4000);
-  const timeout = createTimeoutSignal(timeoutMs);
+  const messages = isEngineering
+    ? [{ role: "system", content: buildEngineeringInstructions() }, { role: "user", content: JSON.stringify({ request: validation.messages.at(-1)?.content || "", workspace: engineeringWorkspace }) }]
+    : validation.messages;
 
-  try {
-    const upstream = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        instructions: isEngineering ? buildEngineeringInstructions() : "Você é o Guinho, um companheiro de programação em português do Brasil, inspirado no estilo conversacional da ELIZA: converse naturalmente, faça perguntas quando faltarem informações, mantenha o contexto do projeto e ajude o usuário a transformar ideias em software. Seu foco é programação. Reconheça linguagens, frameworks e ferramentas. Pode criar, explicar, analisar, corrigir, refatorar, testar, otimizar e sugerir melhorias. Não imponha decisões: apresente opções e deixe a escolha ao usuário. Quando a tarefa estiver ambígua, pergunte primeiro. Ao gerar código, entregue código utilizável e explique somente o necessário. Preserve blocos de código em Markdown quando forem úteis. Não invente que executou código, acessou arquivos, consultou a internet ou serviços que não foram fornecidos. Se não puder verificar algo, diga isso claramente. Quando o pedido não for relacionado a programação ou desenvolvimento de software, redirecione brevemente a conversa para esse domínio em vez de responder ao assunto externo. Seja preciso, colaborativo e incremental.",
-        input: isEngineering
-          ? [{ role: "user", content: JSON.stringify({ request: validation.messages.at(-1)?.content || "", workspace: engineeringWorkspace }) }]
-          : validation.messages,
-        max_output_tokens: maxTokens,
-        ...(isEngineering ? { text: { format: projectPatchFormat() } } : {})
-      }),
-      signal: timeout.signal
-    });
+  let content = "";
+  let usedProvider = "";
 
-    const providerData = await upstream.json().catch(() => null);
-
-    if (!upstream.ok) {
-      if (upstream.status === 429) {
-        return safeError("O serviço de IA atingiu um limite temporário ou de uso.", 503, true, headers);
+  if (provider === "groq" || (provider === "auto" && groqKey) || (!openaiKey && groqKey)) {
+    try {
+      content = await groqChat({ apiKey: groqKey, model: groqModel, messages, maxTokens, timeoutMs, engineering: isEngineering, schema: isEngineering ? projectPatchFormat() : null });
+      usedProvider = "groq";
+    } catch (error) {
+      console.error("[GUINHO] Groq request failed:", {
+        name: error?.name || "Error",
+        message: error?.message || String(error),
+        status: Number.isFinite(error?.status) ? error.status : null
+      });
+      if (provider === "groq" || !openaiKey) {
+        if (error?.name === "AbortError") return safeError("A consulta ao Groq excedeu o tempo limite.", 504, true, headers);
+        return safeError("O provedor Groq está indisponível no momento.", 502, true, headers);
       }
-      if (upstream.status === 401 || upstream.status === 403) {
-        return safeError("O serviço de IA não está autorizado ou configurado.", 503, false, headers);
-      }
-      return safeError("O serviço de IA está indisponível no momento.", 502, true, headers);
+      console.warn("[GUINHO] Groq falhou; usando OpenAI como fallback:", error?.message || error);
     }
-
-    const content = extractResponseText(providerData);
-    if (!content) {
-      return safeError("O serviço de IA não retornou conteúdo.", 502, true, headers);
-    }
-
-    if (isEngineering) {
-      let patch;
-      try {
-        patch = JSON.parse(content);
-      } catch {
-        return safeError("A IA retornou um patch que não pôde ser interpretado.", 502, false, headers);
-      }
-      const patchValidation = validateWorkspacePatch(patch, engineeringWorkspace);
-      if (patchValidation.ok) {
-        const merged = { ...(engineeringWorkspace.files || {}) };
-        for (const item of patchValidation.patch.files) {
-          if (item.action === "delete") delete merged[item.path];
-          else merged[item.path] = item.content;
-        }
-        const deps = validarDependencias(merged);
-        if (!deps.ok) {
-          return safeError(
-            "O patch deixaria dependências locais quebradas: " + deps.problemas.slice(0, 5).map(x => x.arquivo + " → " + x.alvo).join("; "),
-            422,
-            false,
-            headers
-          );
-        }
-      }
-      if (!patchValidation.ok) {
-        return safeError(patchValidation.error, patchValidation.status, patchValidation.retryable, headers);
-      }
-      return json({
-        ok: true,
-        mode: "engineering",
-        patch: patchValidation.patch,
-        content: patchValidation.patch.summary || "Patch de engenharia gerado.",
-        provider: "openai",
-        model
-      }, 200, headers);
-    }
-
-    return json({
-      ok: true,
-      content,
-      provider: "openai",
-      model
-    }, 200, headers);
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      return safeError("A consulta à IA excedeu o tempo limite.", 504, true, headers);
-    }
-    return safeError("Não foi possível consultar o serviço de IA.", 502, true, headers);
-  } finally {
-    timeout.clear();
   }
-}
 
+  if (!content && openaiKey) {
+    const timeout = createTimeoutSignal(timeoutMs);
+    try {
+      const upstream = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${openaiKey}` },
+        body: JSON.stringify({
+          model: openaiModel,
+          instructions: isEngineering ? buildEngineeringInstructions() : "Você é o Guinho, um companheiro de programação em português do Brasil. Converse naturalmente, mantenha o contexto do projeto e ajude o usuário a transformar ideias em software. Seja preciso, colaborativo e incremental. Não invente execução, acesso a arquivos, internet ou serviços que não foram fornecidos.",
+          input: messages,
+          max_output_tokens: maxTokens,
+          ...(isEngineering ? { text: { format: projectPatchFormat() } } : {})
+        }),
+        signal: timeout.signal
+      });
+      const providerData = await upstream.json().catch(() => null);
+      if (!upstream.ok) {
+        if (upstream.status === 429) return safeError("O serviço de IA atingiu um limite temporário ou de uso.", 503, true, headers);
+        if (upstream.status === 401 || upstream.status === 403) return safeError("O serviço de IA não está autorizado ou configurado.", 503, false, headers);
+        return safeError("O serviço de IA está indisponível no momento.", 502, true, headers);
+      }
+      const openaiContent = extractResponseText(providerData);
+      content = openaiContent;
+      usedProvider = "openai";
+    } catch (error) {
+      if (error?.name === "AbortError") return safeError("A consulta à IA excedeu o tempo limite.", 504, true, headers);
+      return safeError("Não foi possível consultar os provedores de IA.", 502, true, headers);
+    } finally {
+      timeout.clear();
+    }
+  }
+
+  if (!content && ollamaEnabled) {
+    try {
+      content = await ollamaChat({ baseUrl: ollamaBaseUrl, model: ollamaModel, messages, maxTokens, timeoutMs });
+      usedProvider = "ollama";
+    } catch (error) {
+      console.error("[GUINHO] Ollama request failed:", { name: error?.name || "Error", message: error?.message || String(error), status: Number.isFinite(error?.status) ? error.status : null });
+    }
+  }
+
+  if (!content) return safeError("O serviço de IA não retornou conteúdo.", 502, true, headers);
+
+  if (isEngineering) {
+    let patch;
+    try { patch = JSON.parse(content); } catch { return safeError("A IA retornou um patch que não pôde ser interpretado.", 502, false, headers); }
+    const patchValidation = validateWorkspacePatch(patch, engineeringWorkspace);
+    if (!patchValidation.ok) return safeError(patchValidation.error, patchValidation.status, patchValidation.retryable, headers);
+    const merged = { ...(engineeringWorkspace.files || {}) };
+    for (const item of patchValidation.patch.files) {
+      if (item.action === "delete") delete merged[item.path];
+      else merged[item.path] = item.content;
+    }
+    const deps = validarDependencias(merged);
+    if (!deps.ok) return safeError("O patch deixaria dependências locais quebradas: " + deps.problemas.slice(0, 5).map(x => x.arquivo + " → " + x.alvo).join("; "), 422, false, headers);
+    return json({ ok: true, mode: "engineering", patch: patchValidation.patch, content: patchValidation.patch.summary || "Patch de engenharia gerado.", provider: usedProvider, model: usedProvider === "groq" ? groqModel : openaiModel }, 200, headers);
+  }
+
+  return json({ ok: true, content, provider: usedProvider, model: usedProvider === "groq" ? groqModel : openaiModel }, 200, headers);
+}
 export default chatHandler;

@@ -349,3 +349,8 @@ body{
 
 .eng-deps{padding:7px 10px;border-bottom:1px solid var(--line);background:#09111c;color:#8292a8;font:9px/1.4 "SFMono-Regular",Consolas,"Liberation Mono",monospace}.eng-deps[data-state="OK"]{color:#8fe0bb}.eng-deps[data-state="ERRO"]{color:#ff9d9d}.eng-deps[data-state="IDLE"]{color:#8292a8}
 #eng-import{white-space:nowrap}
+
+.model-select-btn{width:auto!important;height:31px;padding:0 10px;font-size:9px;letter-spacing:.04em;white-space:nowrap;cursor:pointer}
+.model-select-btn:disabled{opacity:.55;cursor:wait}
+#model-name{max-width:220px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:9px;letter-spacing:0;text-transform:none}
+@media(max-width:560px){#model-name{max-width:100%;white-space:normal}.engine-status{white-space:normal;flex-wrap:wrap}}

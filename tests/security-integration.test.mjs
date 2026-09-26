@@ -23,8 +23,8 @@ test("backend não executa código recebido dinamicamente", () => {
 
 test("frontend possui fallback explícito para o motor local", () => {
   const content = read("app.js");
-  assert.match(content, /const online=await consultarIAOnline\(limpo\)/);
+  assert.match(content, /await gerarWebGPU\(/);
   assert.match(content, /ultimaOrigemResposta="local-fallback"/);
-  assert.match(content, /if\(online\)/);
-  assert.match(content, /respostaNaturalFallback/);
+  assert.match(content, /intencaoEspecial\(analise,texto\)/);
+  assert.match(content, /gerarRespostaEstruturada\(texto,analise\)/);
 });
