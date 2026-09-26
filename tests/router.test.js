@@ -10,7 +10,9 @@ function makeMemory(){
     forget(v){const i=this.facts.indexOf(v);if(i<0)return false;this.facts.splice(i,1);return true;},
     learn(p,r){this.learned.push({pattern:p,responses:[r]});},
     findLearned(){return null;},
-    recall(){return [...this.facts];}
+    recall(){return [...this.facts];},
+    capture(v){const m=v.match(/^eu gosto de (.+)$/i);if(m)this.remember("gosto de "+m[1]);},
+    recent(){return[];}
   };
 }
 
@@ -103,4 +105,20 @@ test("router learns the user name from a natural declaration",()=>{
   const r=route("meu nome é Thiago",{...agent,memory});
   assert.equal(r.source,"memory");
   assert.equal(memory.facts.at(-1),"meu nome e thiago");
+});
+
+test("router captures a safe preference automatically",()=>{
+  const memory=makeMemory();
+  memory.facts=[];
+  const r=route("Eu gosto de xadrez",{...agent,memory});
+  assert.equal(r.source,"chatterbot");
+  assert.equal(memory.facts.at(-1),"gosto de xadrez");
+});
+
+test("router uses recent conversation context",()=>{
+  const memory=makeMemory();
+  memory.recent=()=>[{role:"user",text:"Estou criando um jogo"}];
+  const r=route("qual foi minha última mensagem?",{...agent,memory});
+  assert.equal(r.source,"memory");
+  assert.match(r.response,/Estou criando um jogo/);
 });
