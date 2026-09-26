@@ -55,9 +55,9 @@ export class Memory{
   }
   return null
  }
- recall(query=""){
+ recall(query="",threshold=THRESHOLD){
   if(!query)return[...this.data.facts];
-  const q=clean(query);return this.data.facts.filter(x=>similarity(q,x)>=THRESHOLD)
+  const q=clean(query);return this.data.facts.filter(x=>similarity(q,x)>=threshold)
  }
  learnedRules(){return this.data.learned.map(x=>({pattern:x.pattern,responses:[...x.responses]}))}
  addHistory(role,text){
