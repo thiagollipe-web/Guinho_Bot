@@ -170,6 +170,17 @@ client.on("disconnected", (reason) => {
   console.warn("WhatsApp desconectado:", reason);
 });
 
+const { createGuinho } = require("./src/guinho");
+const { engine: localEngine } = createGuinho();
+
+function localResponse(prompt) {
+  return localEngine.respond(prompt);
+}
+
+function shouldUseLocalResponse(result) {
+  return result?.source === "eliza" || result?.source === "memory";
+}
+
 // Recebe mensagens e filtra apenas o comando !code.
 client.on("message", async (message) => {
   // Evita responder a mensagens enviadas pelo próprio cliente.
@@ -198,13 +209,15 @@ client.on("message", async (message) => {
   const chatId = message.from;
 
   try {
-    // Informa que o modelo local está processando.
-    await message.reply("Consultando o CodeGemma local...");
+    const local = localResponse(prompt);
 
-    // Aguarda a resposta completa do Ollama.
+    if (shouldUseLocalResponse(local)) {
+      await message.reply(local.response);
+      return;
+    }
+
+    await message.reply("Consultando o modelo local...");
     const answer = await askCodeGemma(chatId, prompt);
-
-    // Envia a resposta completa ao usuário.
     await message.reply(answer);
   } catch (error) {
     // Mantém o erro detalhado no terminal para diagnóstico.
