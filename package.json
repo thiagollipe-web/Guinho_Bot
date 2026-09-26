@@ -1,8 +1,8 @@
 {
-  "name": "guinho-whatsapp-codegemma",
-  "version": "2.0.0",
+  "name": "guinho-bot",
+  "version": "2.1.0",
   "private": true,
-  "description": "Bot do WhatsApp com Ollama e motor conversacional local híbrido baseado em regras, memória e SLM.",
+  "description": "Guinho: agente conversacional local com NLP, regras ELIZA, memória e integração opcional com SLM.",
   "type": "module",
   "main": "index.js",
   "scripts": {
