@@ -1,4 +1,4 @@
-const CACHE="guinho-shell-v3";
+const CACHE="guinho-shell-v4";
 const ASSETS=[
   "./",
   "./index.html",
