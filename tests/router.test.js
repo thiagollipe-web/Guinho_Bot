@@ -56,3 +56,11 @@ test("router does not expose a source unless requested",()=>{
   assert.equal(r.response,"JavaScript é uma linguagem.");
   assert.equal(r.source,"knowledge");
 });
+
+
+test("router answers the stored name",()=>{
+  const memory=makeMemory();
+  const r=route("qual é meu nome?",{...agent,memory});
+  assert.equal(r.source,"memory");
+  assert.match(r.response,/Meu nome é thiago/i);
+});
