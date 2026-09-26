@@ -87,3 +87,12 @@ test("router removes an exact stored fact",()=>{
   assert.equal(r.source,"memory");
   assert.equal(memory.facts.includes("meu nome e thiago"),false);
 });
+
+test("router recalls facts by topic",()=>{
+  const memory=makeMemory();
+  memory.facts=["gosto de xadrez","estou criando um jogo","tenho uma filha"];
+  memory.recall=(query)=>query==="programacao"?["estou criando um jogo"]:["meu nome e thiago"];
+  const r=route("o que você lembra sobre programação?",{...agent,memory});
+  assert.equal(r.source,"memory");
+  assert.match(r.response,/estou criando um jogo/);
+});
