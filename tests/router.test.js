@@ -77,7 +77,7 @@ test("router keeps the assistant identity as Guinho",()=>{
   const memory=makeMemory();
   const r=route("quem é você?",{...agent,memory});
   assert.equal(r.source,"identity");
-  assert.match(r.response,/Guinho/);
+  assert.match(r.response,/Meu nome é Guinho/i);
   assert.doesNotMatch(r.response,/Thiago/);
 });
 
