@@ -58,7 +58,7 @@ O workflow `.github/workflows/pages.yml` publica automaticamente o conteúdo de 
 
 1. memória estruturada;
 2. entidades e intenção mais robustas;
-3. ferramentas locais;
+3. integração das ferramentas locais;
 4. busca em documentos;
 5. APIs públicas;
 6. somente depois, SLM opcional.
