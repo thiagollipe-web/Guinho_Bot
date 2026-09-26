@@ -2,8 +2,7 @@
 // Carrega um arquivo .gguf escolhido pelo usuário diretamente no navegador.
 // Não usa Groq, OpenAI, Ollama, Node ou servidor local para inferência.
 
-import { Wllama } from "https://cdn.jsdelivr.net/npm/@wllama/wllama@3.6.1/esm/index.min.js";
-import WasmFromCDN from "https://cdn.jsdelivr.net/npm/@wllama/wllama@3.6.1/esm/wasm-from-cdn.js";
+
 
 const MODEL_FORMAT = "GGUF";
 const MAX_MODEL_BYTES = 1_500_000_000;
@@ -115,6 +114,12 @@ export async function selecionarModeloArquivo(file) {
 
   loadPromise = (async () => {
     try {
+      // A biblioteca remota só é necessária ao selecionar um modelo GGUF.
+      // Sem conexão/CDN, o módulo principal continua carregando e a base local responde.
+      const [{ Wllama }, { default: WasmFromCDN }] = await Promise.all([
+        import("https://cdn.jsdelivr.net/npm/@wllama/wllama@3.6.1/esm/index.min.js"),
+        import("https://cdn.jsdelivr.net/npm/@wllama/wllama@3.6.1/esm/wasm-from-cdn.js")
+      ]);
       const config = { ...WasmFromCDN };
       const instance = new Wllama(config);
 
