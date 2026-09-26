@@ -3,7 +3,7 @@ import { respondWithRules } from "./eliza.js";
 import { extractCalculation, calculate } from "./calculator.js";
 
 function wantsSource(text) {
-  return /\b(fonte|fontes|link|links|referencia|referências)\b/i.test(text);
+  return /\b(?:me\s+(?:mande|envie|passe)|qual\s+e|onde\s+(?:achou|encontrou)|mostre)\b.*\b(?:fonte|fontes|link|links|referencia|referências)\b/i.test(text);
 }
 
 function wantsMemory(text) {
