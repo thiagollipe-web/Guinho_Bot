@@ -1,17 +1,20 @@
-const fs = require("fs");
-const path = require("path");
-const { createEngine } = require("./eliza/engine");
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createEngine } from "./eliza/engine.js";
 
-function loadScript(filePath) {
-  const absolute = path.resolve(filePath);
-  return JSON.parse(fs.readFileSync(absolute, "utf8"));
+const here = path.dirname(fileURLToPath(import.meta.url));
+
+function loadScript(filePath = path.join(here, "../scripts/guinho.json")) {
+  return JSON.parse(fs.readFileSync(path.resolve(filePath), "utf8"));
 }
 
 function createGuinho(options = {}) {
-  const scriptPath = options.scriptPath || path.join(__dirname, "../scripts/guinho.json");
-  const script = loadScript(scriptPath);
-  const engine = createEngine(script, options);
-  return { script, engine };
+  const script = options.script || loadScript(options.scriptPath);
+  return {
+    script,
+    engine: createEngine(script, options)
+  };
 }
 
-module.exports = { createGuinho, loadScript };
+export { createGuinho, loadScript };
