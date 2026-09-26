@@ -15,9 +15,11 @@ class Memory {
   }
 
   load() {
-    try {
-      const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-      if (value && Array.isArray(value.facts) && Array.isArray(value.history)) {
+    const keys = [STORAGE_KEY, "guinho-memory-v6", "guinho-memory-v5", "guinho-memory-v4", "guinho-memory-v3"];
+    for (const key of keys) {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) || "null");
+        if (value && Array.isArray(value.facts) && Array.isArray(value.history)) {
         return {
           facts: value.facts.map(normalizeFact).filter(Boolean).slice(-MAX_FACTS),
           history: value.history
