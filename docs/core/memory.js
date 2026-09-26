@@ -1,5 +1,5 @@
 import{similarity,normalize}from"./nlp.js";
-const KEY="guinho-memory-v1",MAX=200,THRESHOLD=.72;
+const KEY="guinho-memory-v1",MAX=200,HISTORY_MAX=50,THRESHOLD=.72;
 function clean(v){return normalize(String(v??""))}
 function validHistory(x){return x&&typeof x==="object"&&["user","bot"].includes(x.role)&&String(x.text??"").trim()}
 export class Memory{
@@ -10,26 +10,40 @@ export class Memory{
    if(d?.facts&&d?.history&&d?.learned){
     const facts=d.facts.map(clean).filter(Boolean).slice(-MAX);
     const meta=Array.isArray(d.factMeta)?d.factMeta.filter(x=>x&&facts.includes(clean(x.value))).slice(-MAX):[];
-    return{facts,history:Array.isArray(d.history)?d.history.filter(validHistory).slice(-MAX):[],learned:Array.isArray(d.learned)?d.learned.slice(-MAX):[],factMeta:meta}
+    return{facts,history:Array.isArray(d.history)?d.history.filter(validHistory).slice(-HISTORY_MAX):[],learned:Array.isArray(d.learned)?d.learned.slice(-MAX):[],factMeta:meta}
    }
   }catch{}
   return{facts:[],history:[],learned:[],factMeta:[]}
  }
  save(){try{localStorage.setItem(KEY,JSON.stringify(this.data))}catch{}}
  remember(v){
-  const value=clean(v);
-  if(!value)return false;
+  const value=clean(v);if(!value)return false;
   const now=Date.now(),index=this.data.facts.indexOf(value);
   if(index>=0){
    const meta=this.data.factMeta.find(x=>x.value===value);
    if(meta){meta.updatedAt=now;meta.hits=(meta.hits||0)+1}else this.data.factMeta.push({value,createdAt:now,updatedAt:now,hits:1});
   }else{
-   this.data.facts.push(value);
-   this.data.factMeta.push({value,createdAt:now,updatedAt:now,hits:1});
-   this.data.facts=this.data.facts.slice(-MAX);
-   this.data.factMeta=this.data.factMeta.filter(x=>this.data.facts.includes(x.value)).slice(-MAX);
+   this.data.facts.push(value);this.data.factMeta.push({value,createdAt:now,updatedAt:now,hits:1});
+   this.data.facts=this.data.facts.slice(-MAX);this.data.factMeta=this.data.factMeta.filter(x=>this.data.facts.includes(x.value)).slice(-MAX);
   }
   this.save();return true
+ }
+ capture(input){
+  const text=String(input??"").trim(),n=clean(text);
+  if(!n)return false;
+  const patterns=[
+   [/^meu nome (?:e|é) (.+)$/i,"meu nome e $1"],
+   [/^eu gosto de (.+)$/i,"gosto de $1"],
+   [/^eu prefiro (.+)$/i,"prefiro $1"],
+   [/^eu sou (.+)$/i,"sou $1"],
+   [/^trabalho como (.+)$/i,"trabalho como $1"],
+   [/^estou criando (.+)$/i,"estou criando $1"]
+  ];
+  for(const[p,template]of patterns){
+   const m=n.match(p);
+   if(m){this.remember(template.replace("$1",m[1].trim()));return true}
+  }
+  return false
  }
  forget(v){
   const value=clean(v);if(!value)return false;
@@ -57,22 +71,25 @@ export class Memory{
  }
  recall(query="",threshold=THRESHOLD){
   if(!query)return[...this.data.facts];
-  const q=clean(query);return this.data.facts.filter(x=>similarity(q,x)>=threshold)
+  const q=clean(query);
+  return this.data.facts.map(value=>({value,score:similarity(q,value)})).filter(x=>x.score>=threshold).sort((a,b)=>b.score-a.score).map(x=>x.value)
  }
+ recent(limit=8){return this.data.history.slice(-Math.max(1,Math.min(limit,HISTORY_MAX)))}
+ context(limit=8){return this.recent(limit).map(x=>({role:x.role,text:x.text}))}
  learnedRules(){return this.data.learned.map(x=>({pattern:x.pattern,responses:[...x.responses]}))}
  addHistory(role,text){
   const value=String(text??"").trim();if(!value)return;
-  this.data.history.push({role,text:value,at:Date.now()});this.data.history=this.data.history.slice(-MAX);this.save()
+  this.data.history.push({role,text:value,at:Date.now()});this.data.history=this.data.history.slice(-HISTORY_MAX);this.save()
  }
  clear(){this.data={facts:[],history:[],learned:[],factMeta:[]};this.save()}
- snapshot(){return{format:"guinho-memory",version:2,facts:[...this.data.facts],history:[...this.data.history],learned:this.learnedRules(),factMeta:[...this.data.factMeta]}}
+ snapshot(){return{format:"guinho-memory",version:3,facts:[...this.data.facts],history:[...this.data.history],learned:this.learnedRules(),factMeta:[...this.data.factMeta]}}
  importSnapshot(s){
   if(s?.format!=="guinho-memory")throw new Error("Memória inválida.");
   const facts=Array.isArray(s.facts)?s.facts.map(clean).filter(Boolean).slice(-MAX):[];
   const now=Date.now(),sourceMeta=Array.isArray(s.factMeta)?s.factMeta:[];
   this.data={
    facts,
-   history:Array.isArray(s.history)?s.history.filter(validHistory).slice(-MAX):[],
+   history:Array.isArray(s.history)?s.history.filter(validHistory).slice(-HISTORY_MAX):[],
    learned:Array.isArray(s.learned)?s.learned.slice(-MAX):[],
    factMeta:facts.map(value=>{const m=sourceMeta.find(x=>x&&clean(x.value)===value);return m?{value,createdAt:Number(m.createdAt)||now,updatedAt:Number(m.updatedAt)||now,hits:Number(m.hits)||0}:{value,createdAt:now,updatedAt:now,hits:0}})
   };
