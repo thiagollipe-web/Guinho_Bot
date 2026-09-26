@@ -5,16 +5,16 @@ on:
   pull_request:
 
 jobs:
-  syntax:
+  test:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Check package.json
-        run: node -e "const p=require('./package.json'); if(p.dependencies['ollama']!=='^0.6.3') process.exit(1); if(p.dependencies['whatsapp-web.js']!=='^1.34.7') process.exit(1)"
-      - name: Check index.js syntax
-        run: node --check index.js
+      - name: Check project syntax
+        run: npm run check
       - name: Install dependencies
         run: npm install
+      - name: Run tests
+        run: npm test
