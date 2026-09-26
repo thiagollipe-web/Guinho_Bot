@@ -1,4 +1,4 @@
-import { scoreText } from "./nlp.js";
+import { similarity } from "./nlp.js";
 
 function choose(items) {
   if (!Array.isArray(items) || !items.length) return "";
@@ -15,7 +15,7 @@ class KnowledgeStore {
     let best = null;
     for (const concept of this.base.concepts || []) {
       for (const term of [concept.title, ...(concept.aliases || []), ...(concept.keywords || [])]) {
-        const score = scoreText(query, term);
+        const score = similarity(query, term);
         if (!best || score > best.score) best = { concept, score };
       }
     }
@@ -26,7 +26,7 @@ class KnowledgeStore {
     let best = null;
     for (const intent of this.training.intents || []) {
       for (const example of intent.examples || []) {
-        const score = scoreText(query, example);
+        const score = similarity(query, example);
         if (!best || score > best.score) best = { intent, score };
       }
     }
