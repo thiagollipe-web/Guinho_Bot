@@ -852,9 +852,12 @@ async function responder(texto){
     });
     return respostaWebGPU;
   }catch(error){
-    ultimaOrigemResposta="webgpu";
     console.error("[GUINHO] WebGPU:",error);
-    return "O motor WebGPU não conseguiu gerar a resposta.\n\nMotivo: "+(error?.message||"erro desconhecido")+"\n\nVerifique se o navegador oferece WebGPU e tente recarregar a página.";
+    ultimaOrigemResposta="local-fallback";
+    const analise=pnl.detectar(texto);
+    const local=intencaoEspecial(analise,texto)
+      || gerarRespostaEstruturada(texto,analise)?.texto;
+    return local || "O modelo WebGPU está indisponível e a base local não encontrou uma resposta para esta pergunta.";
   }
 }
 
@@ -949,7 +952,7 @@ function renderTextoMensagem(box,text){
 function add(role,text){
   const el=document.createElement("div");el.className="line "+(role==="user"?"user":"bot");
   const meta=document.createElement("div");meta.className="meta";
-  meta.textContent=role==="user"?"VOCÊ >":"GUINHO • GEMMA WEBGPU >";
+  meta.textContent=role==="user"?"VOCÊ >":ultimaOrigemResposta==="local-fallback"?"GUINHO • BASE LOCAL >":"GUINHO • GEMMA WEBGPU >";
   const box=document.createElement("div");box.className="bubble";
   const fonteIndex=text.indexOf("\n\nBase local:");
   if(role==="bot"&&fonteIndex>=0){
@@ -976,7 +979,7 @@ form.addEventListener("submit",async e=>{
     const resposta=adaptarModo(respostaBruta);
     add("bot",resposta);
     memoria.adicionar("assistant",resposta);
-    statusText.textContent="GEMMA • WEBGPU READY";
+    statusText.textContent=ultimaOrigemResposta==="local-fallback"?"BASE LOCAL • FALLBACK":"GEMMA • WEBGPU READY";
   }catch(err){
     ultimaOrigemResposta="webgpu";
     add("bot","O motor WebGPU encontrou um erro inesperado: "+(err?.message||"erro desconhecido"));
