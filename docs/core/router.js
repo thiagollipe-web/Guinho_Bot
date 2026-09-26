@@ -108,8 +108,9 @@ function route(input, { knowledge, memory, rules, references = [] }) {
     };
   }
 
+  const defaults = Array.isArray(rules?.default) ? rules.default : [];
   return {
-    response: "Entendi. Me explique um pouco mais para eu acompanhar.",
+    response: defaults[Math.floor(Math.random() * defaults.length)] || "Entendi. Me explique um pouco mais para eu acompanhar.",
     source: "fallback"
   };
 }
