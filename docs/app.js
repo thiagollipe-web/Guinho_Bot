@@ -28,6 +28,7 @@ function addMessage(role, text, persist = true) {
 }
 
 function showStatus(text, online = true) {
+  if (!status) return;
   status.textContent = text;
   status.dataset.online = String(online);
 }
