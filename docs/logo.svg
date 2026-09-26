@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+<title>Guinho</title><desc>Logo retrô do Guinho com um rosto de robô em verde sobre fundo escuro</desc>
+<rect width="128" height="128" rx="28" fill="#070a08"/>
+<rect x="13" y="18" width="102" height="82" rx="22" fill="#0c120f" stroke="#39ff88" stroke-width="4"/>
+<rect x="28" y="38" width="72" height="42" rx="10" fill="#030504" stroke="#1fd66d" stroke-width="3"/>
+<rect x="40" y="50" width="12" height="12" rx="3" fill="#39ff88"/>
+<rect x="76" y="50" width="12" height="12" rx="3" fill="#39ff88"/>
+<path d="M45 70h38" stroke="#39ff88" stroke-width="4" stroke-linecap="round"/>
+<path d="M64 18V9" stroke="#39ff88" stroke-width="4" stroke-linecap="round"/>
+<circle cx="64" cy="7" r="4" fill="#39ff88"/>
+<path d="M22 33 14 27M106 33l8-6" stroke="#1fd66d" stroke-width="4" stroke-linecap="round"/>
+<path d="M31 100c8 11 18 17 33 17s25-6 33-17" fill="none" stroke="#1fd66d" stroke-width="4" stroke-linecap="round"/>
+</svg>
