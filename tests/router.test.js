@@ -7,6 +7,7 @@ function makeMemory(){
     facts:["meu nome e thiago"],
     learned:[{pattern:"teste",responses:["funcionando"]}],
     remember(v){this.facts.push(v);},
+    forget(v){const i=this.facts.indexOf(v);if(i<0)return false;this.facts.splice(i,1);return true;},
     learn(p,r){this.learned.push({pattern:p,responses:[r]});},
     findLearned(){return null;},
     recall(){return [...this.facts];}
