@@ -43,7 +43,7 @@ export function route(input,{knowledge,memory,rules,references=[]}){
  const learned=memory.findLearned(contextualText);if(learned)return{response:chooseResponse(learned.item.responses),source:"learned"};
  const calc=extractCalculation(text);if(calc){const n=calculate(calc);if(n!==null)return{response:String(n),source:"calculator"}}
  const eliza=runEliza(contextualText,rules);if(eliza)return eliza;
- const intent=detectIntent(contextualText,knowledge.training);if(intent?.score>=.55)return{response:chooseResponse(intent.intent.responses),source:"chatterbot",intent:intent.intent.name};
+ const intent=detectIntent(contextualText,knowledge.training),intentThreshold=contextualText!==text?.4:.55;if(intent?.score>=intentThreshold)return{response:chooseResponse(intent.intent.responses),source:"chatterbot",intent:intent.intent.name};
  const concept=knowledge.findConcept(text);if(concept)return{response:concept.concept.response,source:"knowledge"};
  const entities=extractEntities(contextualText);if(entities.length)return{response:"Entendi. Você mencionou "+entities.map(e=>e.value).join(", ")+". O que deseja fazer com isso?",source:"nlp"};
  return{response:chooseResponse(rules.default)||"Entendi. Me explique um pouco mais.",source:"fallback"}
