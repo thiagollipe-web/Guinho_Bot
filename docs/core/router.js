@@ -20,7 +20,7 @@ export function route(input,{knowledge,memory,rules,references=[]}){
  }
  const teach=text.match(/^(?:quando eu disser|quando eu falar)\s+["“]?(.+?)["”]?\s*,?\s*(?:responda|diga|responda com)\s+["“]?(.+?)["”]?$/i);
  if(teach){memory.learn(teach[1],teach[2]);return{response:"Aprendi essa regra.",source:"learning"}}
- const memoryQuestion=/^(?:qual e meu nome|como eu me chamo|o que voce sabe sobre mim|o que voce lembra de mim|voce lembra de mim|o que voce lembra)$/i.test(normalized)||(/\b(?:lembra|lembrar|recorda|recordar)\b/i.test(normalized)&&/\b(?:mim|sobre mim|memoria|eu)\b/i.test(normalized));
+ const memoryQuestion=/^(?:qual e meu nome|como eu me chamo|o que voce sabe sobre mim|o que voce lembra de mim|voce lembra de mim|o que voce lembra)$/i.test(normalized)||(/\b(?:lembra|lembrar|recorda|recordar)\b/i.test(normalized)&&/\b(?:mim|sobre|memoria|eu)\b/i.test(normalized));
  if(memoryQuestion){
   const targeted=/\b(?:o que voce lembra|o que voce sabe)\s+(?:sobre|de)\s+(.+)$/i.exec(normalized);
   const subject=targeted?.[1]&&targeted[1]!=="mim"?targeted[1].trim():"";
